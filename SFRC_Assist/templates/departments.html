@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Departments Management</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&display=swap" rel="stylesheet">
+
+    <style>
+        :root{
+            --bg:#f6f8fc;
+            --surface:#ffffff;
+            --surface-soft:#f1f5fb;
+            --text:#1f2937;
+            --muted:#6b7280;
+            --primary:#2563eb;
+            --primary-dark:#1d4ed8;
+            --danger:#dc2626;
+            --danger-dark:#b91c1c;
+            --success-bg:#eaf8ef;
+            --success-text:#166534;
+            --error-bg:#fdecec;
+            --error-text:#991b1b;
+            --border:#dbe3ee;
+            --shadow:0 12px 32px rgba(15, 23, 42, 0.08);
+            --radius-lg:20px;
+            --radius-md:14px;
+            --radius-sm:10px;
+        }
+
+        *{
+            box-sizing:border-box;
+            margin:0;
+            padding:0;
+        }
+
+        body{
+            font-family:'Satoshi', sans-serif;
+            background:linear-gradient(180deg, #eef4ff 0%, #f8fbff 100%);
+            color:var(--text);
+            min-height:100vh;
+        }
+
+        .container{
+            width:min(1180px, 92%);
+            margin:36px auto 50px;
+        }
+
+        .hero{
+            background:linear-gradient(135deg, #2563eb, #1e40af);
+            color:#fff;
+            border-radius:28px;
+            padding:28px;
+            box-shadow:0 20px 40px rgba(37, 99, 235, 0.22);
+            display:flex;
+            justify-content:space-between;
+            align-items:flex-start;
+            gap:20px;
+            flex-wrap:wrap;
+            margin-bottom:26px;
+        }
+
+        .hero-text h1{
+            font-size:clamp(1.8rem, 1.2rem + 2vw, 2.6rem);
+            margin-bottom:8px;
+            line-height:1.1;
+        }
+
+        .hero-text p{
+            color:rgba(255,255,255,0.88);
+            font-size:15px;
+        }
+
+        .admin-chip{
+            display:inline-flex;
+            align-items:center;
+            gap:8px;
+            margin-top:14px;
+            padding:10px 14px;
+            border-radius:999px;
+            background:rgba(255,255,255,0.14);
+            font-size:14px;
+            font-weight:600;
+            backdrop-filter:blur(6px);
+        }
+
+        .top-actions{
+            display:flex;
+            flex-wrap:wrap;
+            gap:10px;
+        }
+
+        .nav-btn{
+            text-decoration:none;
+            border:none;
+            padding:12px 18px;
+            border-radius:999px;
+            font-size:14px;
+            font-weight:700;
+            cursor:pointer;
+            transition:.2s ease;
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+            min-height:44px;
+        }
+
+        .nav-btn.light{
+            background:#fff;
+            color:var(--primary);
+        }
+
+        .nav-btn.light:hover{
+            background:#eaf1ff;
+        }
+
+        .nav-btn.ghost{
+            background:rgba(255,255,255,0.14);
+            color:#fff;
+            border:1px solid rgba(255,255,255,0.24);
+        }
+
+        .nav-btn.ghost:hover{
+            background:rgba(255,255,255,0.22);
+        }
+
+        .flash-wrap{
+            display:grid;
+            gap:12px;
+            margin-bottom:22px;
+        }
+
+        .flash{
+            padding:14px 16px;
+            border-radius:14px;
+            font-size:14px;
+            font-weight:600;
+            border:1px solid transparent;
+        }
+
+        .flash.success{
+            background:var(--success-bg);
+            color:var(--success-text);
+            border-color:#cdebd6;
+        }
+
+        .flash.error{
+            background:var(--error-bg);
+            color:var(--error-text);
+            border-color:#f5caca;
+        }
+
+        .grid{
+            display:grid;
+            grid-template-columns:360px 1fr;
+            gap:24px;
+            align-items:start;
+        }
+
+        .card{
+            background:var(--surface);
+            border:1px solid var(--border);
+            border-radius:var(--radius-lg);
+            box-shadow:var(--shadow);
+            overflow:hidden;
+        }
+
+        .card-head{
+            padding:22px 22px 10px;
+        }
+
+        .eyebrow{
+            display:inline-block;
+            font-size:12px;
+            font-weight:700;
+            letter-spacing:.08em;
+            text-transform:uppercase;
+            color:var(--primary);
+            background:#e8f0ff;
+            padding:7px 10px;
+            border-radius:999px;
+            margin-bottom:12px;
+        }
+
+        .card-head h2{
+            font-size:1.35rem;
+            margin-bottom:8px;
+        }
+
+        .card-head p{
+            color:var(--muted);
+            font-size:14px;
+            line-height:1.6;
+        }
+
+        .card-body{
+            padding:22px;
+            padding-top:14px;
+        }
+
+        .form-grid{
+            display:grid;
+            gap:16px;
+        }
+
+        .field{
+            display:grid;
+            gap:8px;
+        }
+
+        .field label{
+            font-size:14px;
+            font-weight:700;
+            color:var(--text);
+        }
+
+        .field input,
+        .field textarea{
+            width:100%;
+            border:1px solid var(--border);
+            background:#fff;
+            border-radius:12px;
+            padding:13px 14px;
+            font-size:15px;
+            color:var(--text);
+            outline:none;
+            transition:.2s ease;
+        }
+
+        .field textarea{
+            min-height:110px;
+            resize:vertical;
+        }
+
+        .field input:focus,
+        .field textarea:focus{
+            border-color:var(--primary);
+            box-shadow:0 0 0 4px rgba(37, 99, 235, 0.12);
+        }
+
+        .hint{
+            color:var(--muted);
+            font-size:13px;
+            line-height:1.5;
+        }
+
+        .btn{
+            border:none;
+            border-radius:12px;
+            padding:13px 18px;
+            min-height:46px;
+            font-size:14px;
+            font-weight:700;
+            cursor:pointer;
+            transition:.2s ease;
+        }
+
+        .btn-primary{
+            background:var(--primary);
+            color:#fff;
+        }
+
+        .btn-primary:hover{
+            background:var(--primary-dark);
+        }
+
+        .btn-danger{
+            background:var(--danger);
+            color:#fff;
+        }
+
+        .btn-danger:hover{
+            background:var(--danger-dark);
+        }
+
+        .table-card-header{
+            padding:22px;
+            padding-bottom:14px;
+            border-bottom:1px solid var(--border);
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            gap:12px;
+            flex-wrap:wrap;
+        }
+
+        .table-card-header h2{
+            font-size:1.35rem;
+        }
+
+        .table-card-header p{
+            color:var(--muted);
+            font-size:14px;
+        }
+
+        .table-wrap{
+            overflow-x:auto;
+            padding:0 22px 22px;
+        }
+
+        table{
+            width:100%;
+            border-collapse:separate;
+            border-spacing:0 14px;
+            min-width:860px;
+        }
+
+        th{
+            text-align:left;
+            font-size:13px;
+            color:var(--muted);
+            font-weight:700;
+            padding:0 12px 4px;
+        }
+
+        td{
+            background:#fff;
+            vertical-align:top;
+            padding:10px 12px;
+        }
+
+        tbody tr td:first-child{
+            border-top-left-radius:14px;
+            border-bottom-left-radius:14px;
+        }
+
+        tbody tr td:last-child{
+            border-top-right-radius:14px;
+            border-bottom-right-radius:14px;
+        }
+
+        tbody tr{
+            box-shadow:0 6px 18px rgba(15, 23, 42, 0.05);
+        }
+
+        .id-badge{
+            display:inline-flex;
+            min-width:38px;
+            height:38px;
+            align-items:center;
+            justify-content:center;
+            border-radius:12px;
+            background:#edf4ff;
+            color:var(--primary);
+            font-weight:700;
+        }
+
+        .row-form{
+            display:contents;
+        }
+
+        .row-input,
+        .row-textarea{
+            width:100%;
+            border:1px solid var(--border);
+            background:var(--surface-soft);
+            border-radius:12px;
+            padding:11px 12px;
+            font-size:14px;
+            outline:none;
+            transition:.2s ease;
+            font-family:inherit;
+        }
+
+        .row-textarea{
+            min-height:88px;
+            resize:vertical;
+        }
+
+        .row-input:focus,
+        .row-textarea:focus{
+            border-color:var(--primary);
+            background:#fff;
+            box-shadow:0 0 0 4px rgba(37, 99, 235, 0.10);
+        }
+
+        .actions{
+            display:flex;
+            flex-direction:column;
+            gap:10px;
+            min-width:130px;
+        }
+
+        .empty-state{
+            padding:28px 22px 30px;
+            color:var(--muted);
+            font-size:15px;
+        }
+
+        @media (max-width: 980px){
+            .grid{
+                grid-template-columns:1fr;
+            }
+        }
+
+        @media (max-width: 640px){
+            .container{
+                width:min(94%, 100%);
+                margin:20px auto 36px;
+            }
+
+            .hero{
+                padding:22px;
+                border-radius:22px;
+            }
+
+            .top-actions{
+                width:100%;
+            }
+
+            .top-actions .nav-btn{
+                flex:1;
+            }
+
+            .card-head,
+            .card-body,
+            .table-card-header,
+            .table-wrap{
+                padding-left:16px;
+                padding-right:16px;
+            }
+
+            .table-wrap{
+                padding-bottom:16px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <section class="hero">
+        <div class="hero-text">
+            <h1>Departments Management</h1>
+            <p>Manage academic departments, update HOD details, and keep department information current.</p>
+            <div class="admin-chip">Logged in as {{ admin_name }}</div>
+        </div>
+
+        <div class="top-actions">
+            <a class="nav-btn light" href="{{ url_for('dashboard') }}">← Dashboard</a>
+            <a class="nav-btn ghost" href="{{ url_for('logout') }}">Logout</a>
+        </div>
+    </section>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-wrap">
+                {% for category, message in messages %}
+                    <div class="flash {{ category }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <div class="grid">
+        <section class="card">
+            <div class="card-head">
+                <span class="eyebrow">New entry</span>
+                <h2>Add Department</h2>
+                <p>Fill in the core department details below. Keep titles short and descriptions easy to scan.</p>
+            </div>
+
+            <div class="card-body">
+                <form action="{{ url_for('add_department') }}" method="POST" class="form-grid">
+                    <div class="field">
+                        <label for="level">Level</label>
+                        <input id="level" type="text" name="level" placeholder="UG / PG / PhD" required>
+                    </div>
+
+                    <div class="field">
+                        <label for="category">Category</label>
+                        <input id="category" type="text" name="category" placeholder="Science, Arts, Commerce">
+                    </div>
+
+                    <div class="field">
+                        <label for="department_name">Department Name</label>
+                        <input id="department_name" type="text" name="department_name" placeholder="Department of Physics" required>
+                    </div>
+
+                    <div class="field">
+                        <label for="hod">HOD Name</label>
+                        <input id="hod" type="text" name="hod" placeholder="Dr. A. Kumar" required>
+                    </div>
+
+                    <div class="field">
+                        <label for="description">Description</label>
+                        <textarea id="description" name="description" placeholder="Short overview of the department, courses, or research focus"></textarea>
+                        <div class="hint">Optional, but useful for quick admin reference.</div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Add Department</button>
+                </form>
+            </div>
+        </section>
+
+        <section class="card">
+            <div class="table-card-header">
+                <div>
+                    <h2>Existing Departments</h2>
+                    <p>Edit details directly in the table and save each row individually.</p>
+                </div>
+            </div>
+
+            {% if data %}
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Level</th>
+                            <th>Category</th>
+                            <th>Department</th>
+                            <th>HOD</th>
+                            <th>Description</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for d in data %}
+                        <tr>
+                            <form action="{{ url_for('edit_department', id=d.id) }}" method="POST" class="row-form">
+                                <td>
+                                    <span class="id-badge">{{ d.id }}</span>
+                                </td>
+                                <td>
+                                    <input class="row-input" type="text" name="level" value="{{ d.level }}" required>
+                                </td>
+                                <td>
+                                    <input class="row-input" type="text" name="category" value="{{ d.category or '' }}">
+                                </td>
+                                <td>
+                                    <input class="row-input" type="text" name="department_name" value="{{ d.department_name }}" required>
+                                </td>
+                                <td>
+                                    <input class="row-input" type="text" name="hod" value="{{ d.hod }}" required>
+                                </td>
+                                <td>
+                                    <textarea class="row-textarea" name="description">{{ d.description or '' }}</textarea>
+                                </td>
+                                <td>
+                                    <div class="actions">
+                                        <button type="submit" class="btn btn-primary">Update</button>
+                                        <button
+                                            type="button"
+                                            class="btn btn-danger"
+                                            onclick="if(confirm('Delete this department?')) window.location.href='{{ url_for('delete_department', id=d.id) }}'">
+                                            Delete
+                                        </button>
+                                    </div>
+                                </td>
+                            </form>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                No departments have been added yet.
+            </div>
+            {% endif %}
+        </section>
+    </div>
+</div>
+
+</body>
+</html>

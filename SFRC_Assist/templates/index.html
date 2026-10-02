@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pragya - SFRC Digital Assistant</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+    <div class="chat-launcher-wrap" id="chatTriggerWrap">
+        <button class="chat-trigger" id="chatTrigger" onclick="openChat()" aria-label="Open Pragya chatbot">
+            <img src="{{ url_for('static', filename='images/Pragya-logo.png') }}" alt="Pragya logo" class="trigger-logo">
+        </button>
+
+        <button class="chat-label" onclick="openChat()" aria-label="Open Pragya chatbot">
+            Ask Pragya
+        </button>
+    </div>
+
+    <div class="chat-overlay" id="chatOverlay" onclick="closeChat()"></div>
+
+    <div class="chat-wrapper" id="chatWrapper" aria-hidden="true">
+        <div class="chat-container" id="chat-container" role="dialog" aria-modal="true" aria-labelledby="chat-title">
+
+            <div class="header">
+                <img src="{{ url_for('static', filename='images/SFR-logo.jpg') }}" class="logo" alt="SFRC logo">
+
+                <div>
+                    <h2 id="chat-title">SFRC Assist</h2>
+                </div>
+
+                <button class="close-btn" onclick="closeChat()" aria-label="Close chatbot">✕</button>
+            </div>
+
+            <div id="chat-box">
+                <div class="bot">
+                    Hello 👋 <b>Welcome to The Standard Fireworks Rajaratnam College for Women!</b>
+                    <br>
+                    I'm <b>Pragya</b>, your AI guide.
+                    <br>
+                    I can help you with:
+                    <br>🎓 <a href="#" onclick="sendSuggestion('admissions'); return false;">Admissions</a>
+                    <br>🏛 <a href="#" onclick="sendSuggestion('departments'); return false;">Departments</a>
+                    <br>💰 <a href="#" onclick="sendSuggestion('fees'); return false;">Fees</a>
+                    <br>👩🏻‍🏫 <a href="#" onclick="sendSuggestion('faculty'); return false;">Faculty</a>
+                    <br>👨🏻‍🎓 <a href="#" onclick="sendSuggestion('phd guides'); return false;">Ph.D Guides</a>
+                    <br>🚌 <a href="#" onclick="sendSuggestion('transport'); return false;">Transport</a>
+                    <br>📞 <a href="#" onclick="sendSuggestion('contact'); return false;">Contact</a>
+                </div>
+            </div>
+
+            <div class="input-area">
+                <input
+                    type="text"
+                    id="message"
+                    placeholder="Ask your queries..."
+                    onkeydown="enterSend(event)"
+                    aria-label="Type your message"
+                >
+                <button type="button" onclick="sendMessage()">Send</button>
+            </div>
+
+        </div>
+
+        <div class="pragya-blink">
+            <img src="{{ url_for('static', filename='images/Pragya.png') }}" class="pragya pragya-open" alt="Pragya mascot">
+            <img src="{{ url_for('static', filename='images/Pragya-closed.png') }}" class="pragya pragya-closed" alt="Pragya mascot">
+        </div>
+    </div>
+
+    <script>
+        const chatOverlay = document.getElementById("chatOverlay");
+        const chatWrapper = document.getElementById("chatWrapper");
+        const chatTriggerWrap = document.getElementById("chatTriggerWrap");
+        const messageInput = document.getElementById("message");
+
+        function openChat() {
+            chatOverlay.classList.add("active");
+            chatWrapper.classList.add("active");
+            chatTriggerWrap.classList.add("hidden");
+            chatWrapper.setAttribute("aria-hidden", "false");
+            document.body.classList.add("modal-open");
+            messageInput.focus();
+        }
+
+        function closeChat() {
+            chatOverlay.classList.remove("active");
+            chatWrapper.classList.remove("active");
+            chatTriggerWrap.classList.remove("hidden");
+            chatWrapper.setAttribute("aria-hidden", "true");
+            document.body.classList.remove("modal-open");
+            document.getElementById("chatTrigger").focus();
+        }
+
+        document.addEventListener("keydown", function(e) {
+            if (e.key === "Escape" && chatWrapper.classList.contains("active")) {
+                closeChat();
+            }
+        });
+    </script>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

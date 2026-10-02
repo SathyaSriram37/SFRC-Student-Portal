@@ -1,0 +1,514 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ── SFRC Brand Colors ─────────────────────────────────────────────────── */
+@theme inline {
+  /* Tailwind color tokens */
+  --color-sfrc-950:    #2A1506;
+  --color-sfrc-900:    #3D1E09;
+  --color-sfrc-800:    #5E3012;
+  --color-sfrc-700:    #7B4019;
+  --color-sfrc-600:    #9B5523;
+  --color-sfrc-accent: #B87830;
+  --color-sfrc-gold:   #D4A052;
+  --color-sfrc-200:    #E8C88A;
+  --color-sfrc-100:    #F5E6C8;
+  --color-sfrc-surface:#FBF5EB;
+  --color-sfrc-bg:     #FEFAF4;
+
+  /* Shadcn/UI token mapping */
+  --color-background:        var(--background);
+  --color-foreground:        var(--foreground);
+  --font-sans:               var(--font-inter);
+  --font-mono:               var(--font-geist-mono);
+  --font-heading:            var(--font-inter);
+  --color-sidebar-ring:      var(--sidebar-ring);
+  --color-sidebar-border:    var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent:    var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary:   var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar:           var(--sidebar);
+  --color-chart-5:           var(--chart-5);
+  --color-chart-4:           var(--chart-4);
+  --color-chart-3:           var(--chart-3);
+  --color-chart-2:           var(--chart-2);
+  --color-chart-1:           var(--chart-1);
+  --color-ring:              var(--ring);
+  --color-input:             var(--input);
+  --color-border:            var(--border);
+  --color-destructive:       var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent:            var(--accent);
+  --color-muted-foreground:  var(--muted-foreground);
+  --color-muted:             var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary:         var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary:           var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover:           var(--popover);
+  --color-card-foreground:   var(--card-foreground);
+  --color-card:              var(--card);
+  --radius-sm:  calc(var(--radius) * 0.6);
+  --radius-md:  calc(var(--radius) * 0.8);
+  --radius-lg:  var(--radius);
+  --radius-xl:  calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* ── Light Theme ───────────────────────────────────────────────────────── */
+:root {
+  --background:           oklch(0.995 0.004 85);   /* ~#FEFAF4 sfrc-bg */
+  --foreground:           oklch(0.18 0.06 35);       /* ~#2A1506 sfrc-950 */
+  --card:                 oklch(0.985 0.005 85);
+  --card-foreground:      oklch(0.18 0.06 35);
+  --popover:              oklch(0.985 0.005 85);
+  --popover-foreground:   oklch(0.18 0.06 35);
+  --primary:              oklch(0.38 0.09 45);       /* ~#7B4019 sfrc-700 */
+  --primary-foreground:   oklch(0.98 0.005 85);
+  --secondary:            oklch(0.93 0.03 75);       /* ~#F5E6C8 sfrc-100 */
+  --secondary-foreground: oklch(0.28 0.07 40);
+  --muted:                oklch(0.96 0.015 75);
+  --muted-foreground:     oklch(0.50 0.06 45);
+  --accent:               oklch(0.62 0.1 55);        /* ~#B87830 sfrc-accent */
+  --accent-foreground:    oklch(0.98 0.005 85);
+  --destructive:          oklch(0.577 0.245 27.325);
+  --border:               oklch(0.83 0.05 72);       /* ~#E8C88A sfrc-200 */
+  --input:                oklch(0.90 0.03 72);
+  --ring:                 oklch(0.62 0.1 55);
+  --chart-1:              oklch(0.38 0.09 45);
+  --chart-2:              oklch(0.62 0.1 55);
+  --chart-3:              oklch(0.72 0.08 65);
+  --chart-4:              oklch(0.83 0.05 72);
+  --chart-5:              oklch(0.93 0.03 75);
+  --radius:               0.625rem;
+  --sidebar:              oklch(0.985 0.006 83);
+  --sidebar-foreground:   oklch(0.18 0.06 35);
+  --sidebar-primary:      oklch(0.38 0.09 45);
+  --sidebar-primary-foreground: oklch(0.98 0.005 85);
+  --sidebar-accent:       oklch(0.93 0.03 75);
+  --sidebar-accent-foreground: oklch(0.28 0.07 40);
+  --sidebar-border:       oklch(0.83 0.05 72);
+  --sidebar-ring:         oklch(0.62 0.1 55);
+}
+
+/* ── Dark Theme ────────────────────────────────────────────────────────── */
+.dark {
+  --background:           oklch(0.12 0.04 35);
+  --foreground:           oklch(0.93 0.03 75);
+  --card:                 oklch(0.17 0.05 38);
+  --card-foreground:      oklch(0.93 0.03 75);
+  --popover:              oklch(0.17 0.05 38);
+  --popover-foreground:   oklch(0.93 0.03 75);
+  --primary:              oklch(0.72 0.08 65);
+  --primary-foreground:   oklch(0.18 0.06 35);
+  --secondary:            oklch(0.22 0.05 40);
+  --secondary-foreground: oklch(0.93 0.03 75);
+  --muted:                oklch(0.22 0.05 40);
+  --muted-foreground:     oklch(0.65 0.06 55);
+  --accent:               oklch(0.62 0.1 55);
+  --accent-foreground:    oklch(0.98 0.005 85);
+  --destructive:          oklch(0.704 0.191 22.216);
+  --border:               oklch(1 0 0 / 12%);
+  --input:                oklch(1 0 0 / 15%);
+  --ring:                 oklch(0.62 0.1 55);
+  --chart-1:              oklch(0.72 0.08 65);
+  --chart-2:              oklch(0.62 0.1 55);
+  --chart-3:              oklch(0.50 0.09 50);
+  --chart-4:              oklch(0.40 0.08 45);
+  --chart-5:              oklch(0.30 0.07 40);
+  --sidebar:              oklch(0.17 0.05 38);
+  --sidebar-foreground:   oklch(0.93 0.03 75);
+  --sidebar-primary:      oklch(0.72 0.08 65);
+  --sidebar-primary-foreground: oklch(0.18 0.06 35);
+  --sidebar-accent:       oklch(0.22 0.05 40);
+  --sidebar-accent-foreground: oklch(0.93 0.03 75);
+  --sidebar-border:       oklch(1 0 0 / 12%);
+  --sidebar-ring:         oklch(0.62 0.1 55);
+}
+
+/* ── Base Layer ────────────────────────────────────────────────────────── */
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+/* ── Utilities ─────────────────────────────────────────────────────────── */
+@layer utilities {
+  .sfrc-gradient {
+    background: linear-gradient(135deg, #7B4019 0%, #B87830 100%);
+  }
+  .sfrc-gradient-text {
+    background: linear-gradient(135deg, #7B4019 0%, #D4A052 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .sfrc-glass {
+    background: rgba(251, 245, 235, 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+}
+
+/* ── Pragya AI Chat UI — SFRC Brand Color System & Right-Aligned Mascot ── */
+
+/* Floating launcher wrap (Right-aligned) */
+.chat-launcher-wrap {
+  position: fixed;
+  right: 24px;
+  left: auto;
+  bottom: 88px;
+  display: flex;
+  align-items: center;
+  flex-direction: row-reverse;
+  gap: 12px;
+  z-index: 9999;
+}
+/* Pragya logo trigger button */
+.chat-trigger {
+  width: 120px;
+  height: 120px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.22s ease;
+}
+.chat-trigger:hover {
+  transform: scale(1.06);
+}
+.trigger-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  filter: drop-shadow(0 14px 26px rgba(123, 64, 25, 0.28));
+}
+/* "Ask Pragya" pill label - SFRC Maroon & Gold */
+.chat-label {
+  border: none;
+  background: linear-gradient(135deg, #7B4019 0%, #B87830 100%);
+  color: #ffffff;
+  padding: 12px 20px;
+  border-radius: 999px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 10px 30px rgba(123, 64, 25, 0.25);
+  white-space: nowrap;
+  transition: 0.22s ease;
+}
+.chat-label:hover {
+  background: linear-gradient(135deg, #643212 0%, #9B5523 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 14px 34px rgba(123, 64, 25, 0.35);
+}
+/* Backdrop overlay */
+.chat-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(42, 21, 6, 0.45);
+  backdrop-filter: blur(4px);
+  display: none;
+  z-index: 9997;
+}
+.chat-overlay.active {
+  display: block;
+}
+/* Chat wrapper: popup + mascot side-by-side (Right-aligned) */
+.chat-wrapper {
+  position: fixed;
+  right: 24px;
+  left: auto;
+  bottom: 20px;
+  display: none;
+  align-items: flex-end;
+  flex-direction: row-reverse;
+  gap: 12px;
+  z-index: 9998;
+}
+.chat-wrapper.active {
+  display: flex;
+}
+/* Chat popup container */
+.chat-container {
+  width: 390px;
+  height: 620px;
+  background: rgba(254, 250, 244, 0.98);
+  border: 1px solid #E8C88A;
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 20px 45px rgba(42, 21, 6, 0.22);
+  display: flex;
+  flex-direction: column;
+  backdrop-filter: blur(12px);
+  animation: chatPopup 0.25s ease;
+  position: relative;
+  z-index: 2;
+}
+@keyframes chatPopup {
+  from { opacity: 0; transform: translateY(16px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+/* Chat header - SFRC Maroon & Gold */
+.header {
+  background: linear-gradient(135deg, #7B4019 0%, #B87830 100%);
+  color: #ffffff;
+  padding: 18px 18px 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border-bottom: 1px solid rgba(212, 160, 82, 0.35);
+}
+.logo {
+  width: 54px;
+  height: 54px;
+  border-radius: 16px;
+  background: #ffffff;
+  object-fit: contain;
+  padding: 6px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
+}
+.header h2 {
+  font-size: 21px;
+  font-weight: 700;
+  margin-bottom: 2px;
+  line-height: 1.1;
+  margin-top: 0;
+  color: #ffffff;
+}
+.close-btn {
+  margin-left: auto;
+  background: rgba(255, 255, 255, 0.18);
+  border: none;
+  color: #ffffff;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  font-size: 20px;
+  cursor: pointer;
+  transition: 0.22s ease;
+}
+.close-btn:hover {
+  background: rgba(255, 255, 255, 0.32);
+}
+/* Chat messages area */
+#chat-box {
+  flex: 1;
+  padding: 18px;
+  overflow-y: auto;
+  background:
+    radial-gradient(circle at top right, rgba(184, 120, 48, 0.08), transparent 32%),
+    #FEFAF4;
+}
+#chat-box::-webkit-scrollbar { width: 7px; }
+#chat-box::-webkit-scrollbar-thumb { background: #E8C88A; border-radius: 999px; }
+/* Bot message bubble */
+.bot {
+  background: #FBF5EB;
+  color: #2A1506;
+  border: 1px solid #E8C88A;
+  border-radius: 18px 18px 18px 6px;
+  padding: 12px 15px;
+  margin-bottom: 15px;
+  width: fit-content;
+  max-width: 85%;
+  line-height: 1.6;
+  box-shadow: 0 2px 8px rgba(123, 64, 25, 0.06);
+  word-wrap: break-word;
+  font-size: 14.5px;
+}
+.bot a {
+  color: #7B4019;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: #D4A052;
+  transition: 0.2s ease;
+}
+.bot a:hover {
+  color: #B87830;
+  text-decoration-color: #7B4019;
+}
+/* User message bubble - SFRC Theme */
+.user {
+  margin-left: auto;
+  background: linear-gradient(135deg, #7B4019 0%, #9B5523 100%);
+  color: #ffffff;
+  border-radius: 18px 18px 6px 18px;
+  padding: 12px 15px;
+  margin-bottom: 15px;
+  width: fit-content;
+  max-width: 85%;
+  line-height: 1.6;
+  box-shadow: 0 4px 12px rgba(123, 64, 25, 0.22);
+  word-wrap: break-word;
+  font-size: 14.5px;
+}
+/* Quick suggestion buttons */
+.quick-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0;
+}
+.quick-buttons button {
+  background: #ffffff;
+  border: 1.5px solid #E8C88A;
+  color: #7B4019;
+  border-radius: 999px;
+  padding: 8px 15px;
+  cursor: pointer;
+  transition: 0.22s ease;
+  font-size: 13.5px;
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(123, 64, 25, 0.05);
+}
+.quick-buttons button:hover {
+  background: linear-gradient(135deg, #7B4019 0%, #B87830 100%);
+  border-color: #7B4019;
+  color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(123, 64, 25, 0.25);
+}
+/* Input area */
+.input-area {
+  display: flex;
+  gap: 10px;
+  padding: 15px;
+  background: #FEFAF4;
+  border-top: 1px solid #E8C88A;
+}
+.input-area input {
+  flex: 1;
+  padding: 12px 16px;
+  border: 1.5px solid #E8C88A;
+  border-radius: 999px;
+  outline: none;
+  font-size: 15px;
+  transition: 0.22s ease;
+  background: #ffffff;
+  color: #2A1506;
+}
+.input-area input:focus {
+  border-color: #7B4019;
+  box-shadow: 0 0 0 4px rgba(123, 64, 25, 0.14);
+}
+.input-area button {
+  background: linear-gradient(135deg, #7B4019 0%, #B87830 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 999px;
+  padding: 12px 22px;
+  cursor: pointer;
+  transition: 0.22s ease;
+  font-size: 15px;
+  font-weight: 700;
+  box-shadow: 0 4px 12px rgba(123, 64, 25, 0.22);
+}
+.input-area button:hover {
+  background: linear-gradient(135deg, #643212 0%, #9B5523 100%);
+  transform: translateY(-1px);
+}
+/* Pragya Mascot - Flipped to Face & Point RIGHT towards Chat Box */
+.pragya-blink {
+  position: relative;
+  height: 450px;
+  margin-right: 0;
+  margin-left: 0;
+  transform: scaleX(-1);
+  animation: pragyaFloatFlipped 3s ease-in-out infinite;
+  user-select: none;
+  z-index: 1;
+  flex-shrink: 0;
+}
+.pragya {
+  height: 450px;
+  display: block;
+  pointer-events: none;
+}
+.pragya-open {
+  position: relative;
+  z-index: 1;
+}
+.pragya-closed {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  opacity: 0;
+  animation: pragyaBlinkAnim 5s infinite;
+}
+@keyframes pragyaBlinkAnim {
+  0%, 44%, 48%, 100% { opacity: 0; }
+  45%, 47%            { opacity: 1; }
+}
+@keyframes pragyaFloatFlipped {
+  0%   { transform: scaleX(-1) translateY(0); }
+  50%  { transform: scaleX(-1) translateY(-8px); }
+  100% { transform: scaleX(-1) translateY(0); }
+}
+/* Mobile responsive */
+@media (max-width: 960px) {
+  .pragya-blink { display: none; }
+}
+@media (max-width: 800px) {
+  .chat-launcher-wrap { right: 12px; left: auto; bottom: 84px; gap: 6px; }
+  .chat-trigger { width: 88px; height: 88px; }
+  .chat-label { display: none; }
+  .chat-wrapper { right: 10px; left: auto; bottom: 10px; }
+  .chat-container {
+    width: min(calc(100vw - 20px), 420px);
+    height: min(92vh, 720px);
+  }
+}
+@media (max-width: 480px) {
+  .chat-wrapper { left: 0; right: 0; bottom: 0; align-items: stretch; }
+  .chat-container { width: 100vw; height: 100dvh; border-radius: 0; max-width: none; }
+  .input-area { padding: 12px; }
+  .input-area button { padding-inline: 16px; }
+}
+
+/* ── Backward-compatible pragya-* aliases ── */
+.pragya-launcher-wrap { position: fixed; right: 24px; left: auto; bottom: 24px; display: flex; align-items: center; flex-direction: row-reverse; gap: 12px; z-index: 9999; }
+.pragya-trigger-btn { width: 90px; height: 90px; padding: 0; border: none; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.pragya-trigger-logo { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 10px 20px rgba(123,64,25,0.25)); }
+.pragya-chat-label { border: none; background: linear-gradient(135deg,#7B4019,#B87830); color: #fff; padding: 10px 18px; border-radius: 999px; font-size: 14px; font-weight: 700; cursor: pointer; }
+.pragya-overlay { position: fixed; inset: 0; background: rgba(42,21,6,0.45); z-index: 9997; }
+.pragya-wrapper { position: fixed; right: 24px; left: auto; bottom: 20px; display: flex; align-items: flex-end; flex-direction: row-reverse; gap: 12px; z-index: 9998; }
+.pragya-container { width: 400px; height: 620px; background: rgba(254,250,244,0.98); border: 1px solid #E8C88A; border-radius: 24px; overflow: hidden; box-shadow: 0 20px 50px rgba(42,21,6,0.22); display: flex; flex-direction: column; }
+.pragya-header { background: linear-gradient(135deg,#7B4019,#B87830); color:#fff; padding: 16px 18px; display: flex; align-items: center; gap: 14px; }
+.pragya-logo-badge { width: 48px; height: 48px; border-radius: 14px; background:#fff; object-fit: contain; padding: 4px; }
+.pragya-chat-box { flex: 1; padding: 18px; overflow-y: auto; background: #FEFAF4; }
+.pragya-msg-bot { background: #FBF5EB; color: #2A1506; border: 1px solid #E8C88A; border-radius: 18px 18px 18px 6px; padding: 12px 16px; margin-bottom: 12px; max-width: 88%; font-size: 14px; line-height: 1.6; }
+.pragya-msg-user { margin-left: auto; background: linear-gradient(135deg,#7B4019,#9B5523); color: #fff; border-radius: 18px 18px 6px 18px; padding: 12px 16px; margin-bottom: 12px; max-width: 85%; font-size: 14px; line-height: 1.6; }
+.pragya-quick-btns { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+.pragya-quick-btn { background: #fff; border: 1px solid #E8C88A; color: #7B4019; border-radius: 999px; padding: 7px 14px; cursor: pointer; font-size: 13px; font-weight: 600; }
+.pragya-input-area { display: flex; gap: 10px; padding: 14px 16px; background: #FEFAF4; border-top: 1px solid #E8C88A; }
+.pragya-input-field { flex: 1; padding: 10px 16px; border: 1px solid #E8C88A; border-radius: 999px; outline: none; font-size: 14px; background: #fff; color: #2A1506; }
+.pragya-send-btn { background: linear-gradient(135deg,#7B4019,#B87830); color: #fff; border: none; border-radius: 999px; padding: 10px 20px; cursor: pointer; font-size: 14px; font-weight: 700; }
+.pragya-blink-wrap { position: relative; height: 420px; margin-right: 0; margin-left: 0; transform: scaleX(-1); animation: pragyaFloatFlipped 3s ease-in-out infinite; user-select: none; }
+.pragya-mascot-img { height: 420px; display: block; pointer-events: none; }
+.pragya-mascot-open { position: relative; z-index: 1; }
+.pragya-mascot-closed { position: absolute; top: 0; left: 0; z-index: 2; opacity: 0; animation: pragyaBlinkAnim 5s infinite; }
+@media (max-width: 768px) {
+  .pragya-blink-wrap { display: none; }
+}

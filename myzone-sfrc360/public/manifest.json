@@ -1,0 +1,35 @@
+{
+  "name": "MyZone SFRC 360",
+  "short_name": "MyZone",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FBF5EB",
+  "theme_color": "#7B4019",
+  "icons": [
+    {
+      "src": "/wel_img.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/wel_img.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "url": "/student/dashboard"
+    },
+    {
+      "name": "Campus Care",
+      "url": "/student/campus-care"
+    },
+    {
+      "name": "Pragya AI",
+      "url": "#pragya"
+    }
+  ]
+}

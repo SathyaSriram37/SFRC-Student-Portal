@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}College Admin Panel{% endblock %}</title>
+
+    <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg: #f7f6f2;
+            --surface: #ffffff;
+            --surface-soft: #f2efea;
+            --surface-muted: #e9e4dd;
+            --text: #28251d;
+            --text-muted: #6f6b65;
+            --border: #d8d2ca;
+            --primary: #01696f;
+            --primary-hover: #0c4e54;
+            --success-bg: #e5f3ea;
+            --success-text: #256245;
+            --error-bg: #f8e7ef;
+            --error-text: #8b245f;
+            --sidebar: #1d2a2f;
+            --sidebar-hover: #2a3a40;
+            --sidebar-active: #31464d;
+            --sidebar-text: #edf3f3;
+            --sidebar-muted: #aebcbc;
+            --radius-lg: 18px;
+            --radius-md: 12px;
+            --shadow: 0 10px 30px rgba(28, 28, 28, 0.08);
+            --transition: 0.2s ease;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Satoshi', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        a {
+            text-decoration: none;
+            color: inherit;
+        }
+
+        button,
+        input,
+        textarea,
+        select {
+            font: inherit;
+        }
+
+        .layout {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: 260px;
+            background: var(--sidebar);
+            color: var(--sidebar-text);
+            padding: 24px 18px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .sidebar-top h2 {
+            font-size: 24px;
+            margin-bottom: 6px;
+        }
+
+        .sidebar-top p {
+            color: var(--sidebar-muted);
+            font-size: 14px;
+            line-height: 1.5;
+            margin-bottom: 28px;
+        }
+
+        .nav-links {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .nav-links a {
+            padding: 12px 14px;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 500;
+            color: var(--sidebar-text);
+            transition: var(--transition);
+        }
+
+        .nav-links a:hover {
+            background: var(--sidebar-hover);
+        }
+
+        .nav-links a.active {
+            background: var(--sidebar-active);
+        }
+
+        .sidebar-footer {
+            border-top: 1px solid rgba(255,255,255,0.08);
+            padding-top: 18px;
+            margin-top: 20px;
+        }
+
+        .admin-meta {
+            margin-bottom: 14px;
+        }
+
+        .admin-meta span {
+            display: block;
+            font-size: 12px;
+            color: var(--sidebar-muted);
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        .admin-meta strong {
+            font-size: 15px;
+            font-weight: 700;
+        }
+
+        .logout-btn {
+            display: inline-flex;
+            width: 100%;
+            justify-content: center;
+            align-items: center;
+            padding: 11px 14px;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.08);
+            color: var(--sidebar-text);
+            font-weight: 600;
+            transition: var(--transition);
+        }
+
+        .logout-btn:hover {
+            background: rgba(255,255,255,0.14);
+        }
+
+        .main {
+            flex: 1;
+            padding: 28px;
+        }
+
+        .topbar {
+            background: rgba(255,255,255,0.75);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow);
+            padding: 22px 24px;
+            margin-bottom: 22px;
+        }
+
+        .topbar h1 {
+            font-size: 30px;
+            line-height: 1.1;
+            margin-bottom: 8px;
+        }
+
+        .topbar p {
+            color: var(--text-muted);
+            font-size: 15px;
+            line-height: 1.5;
+        }
+
+        .flash-messages {
+            display: grid;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .flash {
+            padding: 14px 16px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            border: 1px solid transparent;
+        }
+
+        .flash.success {
+            background: var(--success-bg);
+            color: var(--success-text);
+            border-color: #cde4d6;
+        }
+
+        .flash.error {
+            background: var(--error-bg);
+            color: var(--error-text);
+            border-color: #eccddd;
+        }
+
+        .content-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow);
+            padding: 24px;
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+            }
+
+            .main {
+                padding: 18px;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .sidebar {
+                padding: 18px 14px;
+            }
+
+            .main {
+                padding: 14px;
+            }
+
+            .topbar,
+            .content-card {
+                padding: 18px;
+            }
+
+            .topbar h1 {
+                font-size: 24px;
+            }
+        }
+    </style>
+
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <div class="layout">
+        <aside class="sidebar">
+            <div class="sidebar-top">
+                <h2>College CMS</h2>
+                <p>Manage departments, faculty, fees, guides, transport, contact, and security settings.</p>
+
+                <nav class="nav-links">
+                    <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}active{% endif %}">Dashboard</a>
+                    <a href="{{ url_for('departments') }}" class="{% if request.endpoint == 'departments' %}active{% endif %}">Departments</a>
+                    <a href="{{ url_for('faculty') }}" class="{% if request.endpoint == 'faculty' %}active{% endif %}">Faculty</a>
+                    <a href="{{ url_for('fees') }}" class="{% if request.endpoint == 'fees' %}active{% endif %}">Fees</a>
+                    <a href="{{ url_for('guides') }}" class="{% if request.endpoint == 'guides' %}active{% endif %}">PhD Guides</a>
+                    <a href="{{ url_for('transport') }}" class="{% if request.endpoint == 'transport' %}active{% endif %}">Transport</a>
+                    <a href="{{ url_for('contact') }}" class="{% if request.endpoint == 'contact' %}active{% endif %}">Contact</a>
+                    <a href="{{ url_for('change_password') }}" class="{% if request.endpoint == 'change_password' %}active{% endif %}">Change Password</a>
+                </nav>
+            </div>
+
+            <div class="sidebar-footer">
+                <div class="admin-meta">
+                    <span>Logged in as</span>
+                    <strong>{{ session.get('admin') }}</strong>
+                </div>
+                <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+            </div>
+        </aside>
+
+        <main class="main">
+            <div class="topbar">
+                <h1>{% block page_title %}Dashboard{% endblock %}</h1>
+                <p>{% block page_subtitle %}Welcome to the college administration panel.{% endblock %}</p>
+            </div>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flash-messages">
+                        {% for category, message in messages %}
+                            <div class="flash {{ category }}">{{ message }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            <div class="content-card">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

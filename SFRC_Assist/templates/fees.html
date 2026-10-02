@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fees Management</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&display=swap" rel="stylesheet">
+
+    <style>
+        :root{
+            --bg:#f6f8fc;
+            --surface:#ffffff;
+            --surface-soft:#f8fafc;
+            --text:#1f2937;
+            --muted:#6b7280;
+            --primary:#2563eb;
+            --primary-dark:#1d4ed8;
+            --warning:#f59e0b;
+            --warning-dark:#d97706;
+            --danger:#dc2626;
+            --danger-dark:#b91c1c;
+            --success-bg:#eaf8ef;
+            --success-text:#166534;
+            --error-bg:#fdecec;
+            --error-text:#991b1b;
+            --border:#dbe3ee;
+            --shadow:0 12px 32px rgba(15, 23, 42, 0.08);
+            --radius-lg:20px;
+            --radius-md:14px;
+            --radius-sm:10px;
+        }
+
+        *{
+            box-sizing:border-box;
+            margin:0;
+            padding:0;
+        }
+
+        body{
+            font-family:'Satoshi', sans-serif;
+            background:linear-gradient(180deg, #eef4ff 0%, #f8fbff 100%);
+            color:var(--text);
+            min-height:100vh;
+        }
+
+        .container{
+            width:min(1100px, 92%);
+            margin:36px auto 50px;
+        }
+
+        .hero{
+            background:linear-gradient(135deg, #2563eb, #1e40af);
+            color:#fff;
+            border-radius:28px;
+            padding:28px;
+            box-shadow:0 20px 40px rgba(37, 99, 235, 0.22);
+            display:flex;
+            justify-content:space-between;
+            align-items:flex-start;
+            gap:20px;
+            flex-wrap:wrap;
+            margin-bottom:26px;
+        }
+
+        .hero-text h1{
+            font-size:clamp(1.8rem, 1.2rem + 2vw, 2.6rem);
+            margin-bottom:8px;
+            line-height:1.1;
+        }
+
+        .hero-text p{
+            color:rgba(255,255,255,0.88);
+            font-size:15px;
+        }
+
+        .admin-chip{
+            display:inline-flex;
+            align-items:center;
+            gap:8px;
+            margin-top:14px;
+            padding:10px 14px;
+            border-radius:999px;
+            background:rgba(255,255,255,0.14);
+            font-size:14px;
+            font-weight:600;
+            backdrop-filter:blur(6px);
+        }
+
+        .top-actions{
+            display:flex;
+            flex-wrap:wrap;
+            gap:10px;
+        }
+
+        .nav-btn{
+            text-decoration:none;
+            border:none;
+            padding:12px 18px;
+            border-radius:999px;
+            font-size:14px;
+            font-weight:700;
+            cursor:pointer;
+            transition:.2s ease;
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+            min-height:44px;
+        }
+
+        .nav-btn.light{
+            background:#fff;
+            color:var(--primary);
+        }
+
+        .nav-btn.light:hover{
+            background:#eaf1ff;
+        }
+
+        .nav-btn.ghost{
+            background:rgba(255,255,255,0.14);
+            color:#fff;
+            border:1px solid rgba(255,255,255,0.24);
+        }
+
+        .nav-btn.ghost:hover{
+            background:rgba(255,255,255,0.22);
+        }
+
+        .flash-wrap{
+            display:grid;
+            gap:12px;
+            margin-bottom:22px;
+        }
+
+        .flash{
+            padding:14px 16px;
+            border-radius:14px;
+            font-size:14px;
+            font-weight:600;
+            border:1px solid transparent;
+        }
+
+        .flash.success{
+            background:var(--success-bg);
+            color:var(--success-text);
+            border-color:#cdebd6;
+        }
+
+        .flash.error{
+            background:var(--error-bg);
+            color:var(--error-text);
+            border-color:#f5caca;
+        }
+
+        .card{
+            background:var(--surface);
+            border:1px solid var(--border);
+            border-radius:var(--radius-lg);
+            box-shadow:var(--shadow);
+            overflow:hidden;
+            margin-bottom:24px;
+        }
+
+        .card-head{
+            padding:22px 22px 10px;
+        }
+
+        .eyebrow{
+            display:inline-block;
+            font-size:12px;
+            font-weight:700;
+            letter-spacing:.08em;
+            text-transform:uppercase;
+            color:var(--primary);
+            background:#e8f0ff;
+            padding:7px 10px;
+            border-radius:999px;
+            margin-bottom:12px;
+        }
+
+        .card-head h2{
+            font-size:1.35rem;
+            margin-bottom:8px;
+        }
+
+        .card-head p{
+            color:var(--muted);
+            font-size:14px;
+            line-height:1.6;
+        }
+
+        .card-body{
+            padding:22px;
+            padding-top:14px;
+        }
+
+        .form-grid{
+            display:grid;
+            grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));
+            gap:16px;
+        }
+
+        .field{
+            display:grid;
+            gap:8px;
+        }
+
+        .field.full{
+            grid-column:1 / -1;
+        }
+
+        .field label{
+            font-size:14px;
+            font-weight:700;
+            color:var(--text);
+        }
+
+        .field input{
+            width:100%;
+            border:1px solid var(--border);
+            background:#fff;
+            border-radius:12px;
+            padding:13px 14px;
+            font-size:15px;
+            color:var(--text);
+            outline:none;
+            transition:.2s ease;
+        }
+
+        .field input:focus{
+            border-color:var(--primary);
+            box-shadow:0 0 0 4px rgba(37, 99, 235, 0.12);
+        }
+
+        .btn{
+            border:none;
+            border-radius:12px;
+            padding:12px 16px;
+            min-height:44px;
+            font-size:14px;
+            font-weight:700;
+            cursor:pointer;
+            transition:.2s ease;
+            text-decoration:none;
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+        }
+
+        .btn-primary{
+            background:var(--primary);
+            color:#fff;
+        }
+
+        .btn-primary:hover{
+            background:var(--primary-dark);
+        }
+
+        .btn-warning{
+            background:var(--warning);
+            color:#fff;
+        }
+
+        .btn-warning:hover{
+            background:var(--warning-dark);
+        }
+
+        .btn-danger{
+            background:var(--danger);
+            color:#fff;
+        }
+
+        .btn-danger:hover{
+            background:var(--danger-dark);
+        }
+
+        .table-card-header{
+            padding:22px;
+            padding-bottom:14px;
+            border-bottom:1px solid var(--border);
+        }
+
+        .table-card-header h2{
+            font-size:1.35rem;
+            margin-bottom:6px;
+        }
+
+        .table-card-header p{
+            color:var(--muted);
+            font-size:14px;
+        }
+
+        .table-wrap{
+            overflow-x:auto;
+            padding:0 22px 22px;
+        }
+
+        table{
+            width:100%;
+            border-collapse:separate;
+            border-spacing:0 14px;
+            min-width:760px;
+        }
+
+        th{
+            text-align:left;
+            font-size:13px;
+            color:var(--muted);
+            font-weight:700;
+            padding:0 12px 4px;
+        }
+
+        td{
+            background:#fff;
+            vertical-align:top;
+            padding:12px;
+        }
+
+        tbody tr td:first-child{
+            border-top-left-radius:14px;
+            border-bottom-left-radius:14px;
+        }
+
+        tbody tr td:last-child{
+            border-top-right-radius:14px;
+            border-bottom-right-radius:14px;
+        }
+
+        tbody tr{
+            box-shadow:0 6px 18px rgba(15, 23, 42, 0.05);
+        }
+
+        .id-badge{
+            display:inline-flex;
+            min-width:38px;
+            height:38px;
+            align-items:center;
+            justify-content:center;
+            border-radius:12px;
+            background:#edf4ff;
+            color:var(--primary);
+            font-weight:700;
+        }
+
+        .record-value{
+            font-size:14px;
+            line-height:1.5;
+        }
+
+        .actions{
+            display:flex;
+            flex-direction:column;
+            gap:10px;
+            min-width:150px;
+        }
+
+        details{
+            width:100%;
+        }
+
+        summary{
+            cursor:pointer;
+            list-style:none;
+        }
+
+        summary::-webkit-details-marker{
+            display:none;
+        }
+
+        .edit-box{
+            margin-top:10px;
+            padding:14px;
+            border:1px solid var(--border);
+            border-radius:14px;
+            background:var(--surface-soft);
+        }
+
+        .edit-grid{
+            display:grid;
+            gap:12px;
+        }
+
+        .edit-grid label{
+            font-size:13px;
+            font-weight:700;
+            margin-bottom:6px;
+            display:block;
+        }
+
+        .edit-grid input{
+            width:100%;
+            border:1px solid var(--border);
+            background:#fff;
+            border-radius:10px;
+            padding:11px 12px;
+            font-size:14px;
+            outline:none;
+        }
+
+        .edit-grid input:focus{
+            border-color:var(--primary);
+            box-shadow:0 0 0 4px rgba(37, 99, 235, 0.10);
+        }
+
+        .empty-state{
+            padding:28px 22px 30px;
+            color:var(--muted);
+            font-size:15px;
+        }
+
+        @media (max-width: 640px){
+            .container{
+                width:min(94%, 100%);
+                margin:20px auto 36px;
+            }
+
+            .hero{
+                padding:22px;
+                border-radius:22px;
+            }
+
+            .top-actions{
+                width:100%;
+            }
+
+            .top-actions .nav-btn{
+                flex:1;
+            }
+
+            .card-head,
+            .card-body,
+            .table-card-header,
+            .table-wrap{
+                padding-left:16px;
+                padding-right:16px;
+            }
+
+            .table-wrap{
+                padding-bottom:16px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <section class="hero">
+        <div class="hero-text">
+            <h1>Fees Management</h1>
+            <p>Add, edit, and maintain tuition and other fee details for each department.</p>
+            <div class="admin-chip">Logged in as {{ admin_name }}</div>
+        </div>
+
+        <div class="top-actions">
+            <a class="nav-btn light" href="{{ url_for('dashboard') }}">← Dashboard</a>
+            <a class="nav-btn ghost" href="{{ url_for('logout') }}">Logout</a>
+        </div>
+    </section>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-wrap">
+                {% for category, message in messages %}
+                    <div class="flash {{ category }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <section class="card">
+        <div class="card-head">
+            <span class="eyebrow">New entry</span>
+            <h2>Add Fee Details</h2>
+            <p>Enter a department and its fee details below.</p>
+        </div>
+
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('add_fee') }}" class="form-grid">
+                <div class="field">
+                    <label for="department_name">Department Name</label>
+                    <input type="text" id="department_name" name="department_name" placeholder="Department of Physics" required>
+                </div>
+
+                <div class="field">
+                    <label for="tuition_fee">Tuition Fee</label>
+                    <input type="text" id="tuition_fee" name="tuition_fee" placeholder="25000" required>
+                </div>
+
+                <div class="field">
+                    <label for="other_fee">Other Fee</label>
+                    <input type="text" id="other_fee" name="other_fee" placeholder="5000">
+                </div>
+
+                <div class="field full">
+                    <button type="submit" class="btn btn-primary">Add Fee Record</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <section class="card">
+        <div class="table-card-header">
+            <h2>Fee Records</h2>
+            <p>Review existing fee records and update them individually.</p>
+        </div>
+
+        {% if data %}
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Department Name</th>
+                        <th>Tuition Fee</th>
+                        <th>Other Fee</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for f in data %}
+                    <tr>
+                        <td><span class="id-badge">{{ f["id"] }}</span></td>
+                        <td><div class="record-value">{{ f["department_name"] }}</div></td>
+                        <td><div class="record-value">{{ f["tuition_fee"] }}</div></td>
+                        <td><div class="record-value">{{ f["other_fee"] }}</div></td>
+                        <td>
+                            <div class="actions">
+                                <details>
+                                    <summary class="btn btn-warning">Edit</summary>
+                                    <div class="edit-box">
+                                        <form method="POST" action="{{ url_for('edit_fee', id=f['id']) }}" class="edit-grid">
+                                            <div>
+                                                <label for="department_name_{{ f['id'] }}">Department Name</label>
+                                                <input type="text" id="department_name_{{ f['id'] }}" name="department_name" value="{{ f['department_name'] }}" required>
+                                            </div>
+
+                                            <div>
+                                                <label for="tuition_fee_{{ f['id'] }}">Tuition Fee</label>
+                                                <input type="text" id="tuition_fee_{{ f['id'] }}" name="tuition_fee" value="{{ f['tuition_fee'] }}" required>
+                                            </div>
+
+                                            <div>
+                                                <label for="other_fee_{{ f['id'] }}">Other Fee</label>
+                                                <input type="text" id="other_fee_{{ f['id'] }}" name="other_fee" value="{{ f['other_fee'] }}">
+                                            </div>
+
+                                            <button type="submit" class="btn btn-warning">Update</button>
+                                        </form>
+                                    </div>
+                                </details>
+
+                                <a href="{{ url_for('delete_fee', id=f['id']) }}"
+                                   class="btn btn-danger"
+                                   onclick="return confirm('Are you sure you want to delete this fee record?')">
+                                   Delete
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            No fee records found.
+        </div>
+        {% endif %}
+    </section>
+
+</div>
+
+</body>
+</html>

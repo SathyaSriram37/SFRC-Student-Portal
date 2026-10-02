@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Faculty Management</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&display=swap" rel="stylesheet">
+
+    <style>
+        :root{
+            --bg:#f7f6f2;
+            --surface:#fbfaf7;
+            --surface-2:#ffffff;
+            --surface-soft:#f1eeea;
+            --text:#28251d;
+            --muted:#6f6b65;
+            --border:#d8d3cc;
+            --primary:#01696f;
+            --primary-hover:#0c4e54;
+            --primary-soft:#dce9e7;
+            --danger:#8a2d3c;
+            --danger-hover:#6d1f2c;
+            --success-bg:#e4f2ea;
+            --success-text:#24563d;
+            --error-bg:#f7e5ea;
+            --error-text:#8a2d52;
+            --shadow-sm:0 4px 12px rgba(24, 27, 32, 0.06);
+            --shadow-md:0 14px 34px rgba(24, 27, 32, 0.08);
+            --radius-xl:24px;
+            --radius-lg:18px;
+            --radius-md:14px;
+            --radius-sm:12px;
+        }
+
+        *{
+            box-sizing:border-box;
+            margin:0;
+            padding:0;
+        }
+
+        body{
+            font-family:'Satoshi', sans-serif;
+            min-height:100vh;
+            color:var(--text);
+            background:
+                radial-gradient(circle at top left, rgba(1,105,111,0.06), transparent 28%),
+                linear-gradient(180deg, #f8f6f2 0%, #f2efea 100%);
+            line-height:1.6;
+        }
+
+        a, button, input, textarea, select{
+            transition:all .2s ease;
+            font:inherit;
+        }
+
+        .page{
+            width:min(1200px, 92%);
+            margin:32px auto 56px;
+        }
+
+        .topbar{
+            background:rgba(251,250,247,0.88);
+            border:1px solid rgba(40,37,29,0.08);
+            box-shadow:var(--shadow-sm);
+            backdrop-filter:blur(10px);
+            border-radius:var(--radius-xl);
+            padding:22px 24px;
+            display:flex;
+            justify-content:space-between;
+            align-items:flex-start;
+            gap:18px;
+            flex-wrap:wrap;
+            margin-bottom:22px;
+        }
+
+        .topbar h1{
+            font-size:clamp(1.7rem, 1.2rem + 1.6vw, 2.4rem);
+            line-height:1.08;
+            letter-spacing:-0.03em;
+            margin-bottom:8px;
+        }
+
+        .topbar p{
+            color:var(--muted);
+            font-size:15px;
+            max-width:64ch;
+        }
+
+        .badge{
+            display:inline-flex;
+            align-items:center;
+            gap:8px;
+            padding:8px 12px;
+            border-radius:999px;
+            background:var(--primary-soft);
+            color:var(--primary);
+            font-size:12px;
+            font-weight:700;
+            letter-spacing:.08em;
+            text-transform:uppercase;
+            margin-bottom:12px;
+        }
+
+        .admin-badge{
+            display:inline-flex;
+            align-items:center;
+            min-height:40px;
+            margin-top:14px;
+            padding:8px 14px;
+            border-radius:999px;
+            background:var(--surface-soft);
+            border:1px solid var(--border);
+            font-size:14px;
+            font-weight:700;
+        }
+
+        .top-actions{
+            display:flex;
+            gap:10px;
+            flex-wrap:wrap;
+        }
+
+        .nav-btn{
+            text-decoration:none;
+            min-height:44px;
+            padding:12px 16px;
+            border-radius:999px;
+            font-size:14px;
+            font-weight:700;
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+            border:1px solid transparent;
+        }
+
+        .nav-btn.secondary{
+            background:var(--surface-2);
+            color:var(--text);
+            border-color:var(--border);
+        }
+
+        .nav-btn.secondary:hover{
+            background:#f1ede8;
+        }
+
+        .nav-btn.primary{
+            background:var(--primary);
+            color:#fff;
+        }
+
+        .nav-btn.primary:hover{
+            background:var(--primary-hover);
+        }
+
+        .flash-wrap{
+            display:grid;
+            gap:12px;
+            margin-bottom:22px;
+        }
+
+        .flash{
+            padding:14px 16px;
+            border-radius:14px;
+            font-size:14px;
+            font-weight:700;
+            border:1px solid transparent;
+        }
+
+        .flash.success{
+            background:var(--success-bg);
+            color:var(--success-text);
+            border-color:#c9e3d4;
+        }
+
+        .flash.error{
+            background:var(--error-bg);
+            color:var(--error-text);
+            border-color:#ebc8d5;
+        }
+
+        .layout{
+            display:grid;
+            grid-template-columns:360px 1fr;
+            gap:20px;
+            align-items:start;
+        }
+
+        .card{
+            background:rgba(255,255,255,0.82);
+            border:1px solid var(--border);
+            border-radius:var(--radius-xl);
+            box-shadow:var(--shadow-sm);
+            overflow:hidden;
+        }
+
+        .card-head{
+            padding:22px 22px 10px;
+        }
+
+        .card-head h2{
+            font-size:1.3rem;
+            line-height:1.15;
+            margin-bottom:8px;
+            letter-spacing:-0.02em;
+        }
+
+        .card-head p{
+            color:var(--muted);
+            font-size:14px;
+        }
+
+        .section-tag{
+            display:inline-flex;
+            align-items:center;
+            padding:7px 10px;
+            border-radius:999px;
+            background:var(--surface-soft);
+            color:var(--primary);
+            font-size:12px;
+            font-weight:700;
+            letter-spacing:.08em;
+            text-transform:uppercase;
+            margin-bottom:12px;
+        }
+
+        .card-body{
+            padding:22px;
+            padding-top:14px;
+        }
+
+        .form-grid{
+            display:grid;
+            gap:16px;
+        }
+
+        .field{
+            display:grid;
+            gap:8px;
+        }
+
+        .field label{
+            font-size:14px;
+            font-weight:700;
+        }
+
+        .field input,
+        .field textarea,
+        .field select{
+            width:100%;
+            border:1px solid var(--border);
+            background:#fff;
+            border-radius:12px;
+            padding:13px 14px;
+            font-size:15px;
+            color:var(--text);
+            outline:none;
+        }
+
+        .field textarea{
+            min-height:110px;
+            resize:vertical;
+        }
+
+        .field input:focus,
+        .field textarea:focus,
+        .field select:focus,
+        .row-input:focus,
+        .row-textarea:focus{
+            border-color:var(--primary);
+            box-shadow:0 0 0 4px rgba(1,105,111,0.12);
+        }
+
+        .hint{
+            color:var(--muted);
+            font-size:13px;
+            line-height:1.5;
+        }
+
+        .btn{
+            border:none;
+            border-radius:12px;
+            min-height:46px;
+            padding:12px 16px;
+            font-size:14px;
+            font-weight:700;
+            cursor:pointer;
+        }
+
+        .btn-primary{
+            background:var(--primary);
+            color:#fff;
+        }
+
+        .btn-primary:hover{
+            background:var(--primary-hover);
+        }
+
+        .btn-danger{
+            background:var(--danger);
+            color:#fff;
+        }
+
+        .btn-danger:hover{
+            background:var(--danger-hover);
+        }
+
+        .table-header{
+            padding:22px;
+            padding-bottom:14px;
+            border-bottom:1px solid var(--border);
+            display:flex;
+            justify-content:space-between;
+            align-items:flex-end;
+            gap:14px;
+            flex-wrap:wrap;
+        }
+
+        .table-header h2{
+            font-size:1.3rem;
+            line-height:1.15;
+            margin-bottom:6px;
+            letter-spacing:-0.02em;
+        }
+
+        .table-header p{
+            color:var(--muted);
+            font-size:14px;
+        }
+
+        .record-count{
+            display:inline-flex;
+            align-items:center;
+            padding:8px 12px;
+            border-radius:999px;
+            background:var(--surface-soft);
+            color:var(--text);
+            border:1px solid var(--border);
+            font-size:13px;
+            font-weight:700;
+        }
+
+        .table-wrap{
+            overflow-x:auto;
+            padding:0 22px 22px;
+        }
+
+        table{
+            width:100%;
+            min-width:1100px;
+            border-collapse:separate;
+            border-spacing:0 14px;
+        }
+
+        th{
+            text-align:left;
+            font-size:13px;
+            font-weight:700;
+            color:var(--muted);
+            padding:0 12px 4px;
+        }
+
+        td{
+            background:#fff;
+            vertical-align:top;
+            padding:10px 12px;
+        }
+
+        tbody tr{
+            box-shadow:0 6px 18px rgba(24, 27, 32, 0.05);
+        }
+
+        tbody tr td:first-child{
+            border-top-left-radius:14px;
+            border-bottom-left-radius:14px;
+        }
+
+        tbody tr td:last-child{
+            border-top-right-radius:14px;
+            border-bottom-right-radius:14px;
+        }
+
+        .id-badge{
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+            min-width:40px;
+            height:40px;
+            border-radius:12px;
+            background:var(--primary-soft);
+            color:var(--primary);
+            font-weight:700;
+        }
+
+        .row-form{
+            display:contents;
+        }
+
+        .row-input,
+        .row-textarea{
+            width:100%;
+            border:1px solid var(--border);
+            background:var(--surface-soft);
+            border-radius:12px;
+            padding:11px 12px;
+            font-size:14px;
+            color:var(--text);
+            outline:none;
+            font-family:inherit;
+        }
+
+        .row-textarea{
+            min-height:84px;
+            resize:vertical;
+        }
+
+        .actions{
+            display:flex;
+            flex-direction:column;
+            gap:10px;
+            min-width:132px;
+        }
+
+        .empty-state{
+            padding:30px 22px 32px;
+            color:var(--muted);
+        }
+
+        .empty-state h3{
+            font-size:1.1rem;
+            color:var(--text);
+            margin-bottom:6px;
+        }
+
+        .empty-state p{
+            font-size:14px;
+        }
+
+        @media (max-width: 980px){
+            .layout{
+                grid-template-columns:1fr;
+            }
+        }
+
+        @media (max-width: 640px){
+            .page{
+                width:min(94%, 100%);
+                margin:18px auto 34px;
+            }
+
+            .topbar{
+                padding:18px;
+                border-radius:20px;
+            }
+
+            .top-actions{
+                width:100%;
+            }
+
+            .top-actions .nav-btn{
+                flex:1;
+            }
+
+            .card-head,
+            .card-body,
+            .table-header,
+            .table-wrap{
+                padding-left:16px;
+                padding-right:16px;
+            }
+
+            .table-wrap{
+                padding-bottom:16px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="page">
+
+    <header class="topbar">
+        <div>
+            <span class="badge">Academic Management</span>
+            <h1>Faculty Management</h1>
+            <p>Add faculty records, update academic details, and remove outdated entries from one organized workspace.</p>
+            <div class="admin-badge">Signed in as {{ admin_name }}</div>
+        </div>
+
+        <div class="top-actions">
+            <a class="nav-btn secondary" href="{{ url_for('dashboard') }}">Back to Dashboard</a>
+            <a class="nav-btn primary" href="{{ url_for('logout') }}">Logout</a>
+        </div>
+    </header>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-wrap">
+                {% for category, message in messages %}
+                    <div class="flash {{ category }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <div class="layout">
+        <section class="card">
+            <div class="card-head">
+                <span class="section-tag">New entry</span>
+                <h2>Add Faculty</h2>
+                <p>Enter the faculty details below. Keep names, departments, and designations consistent for better admin records.</p>
+            </div>
+
+            <div class="card-body">
+                <form action="{{ url_for('add_faculty') }}" method="POST" class="form-grid">
+                    <div class="field">
+                        <label for="faculty_name">Faculty Name</label>
+                        <input id="faculty_name" type="text" name="faculty_name" placeholder="Dr. Priya Sharma" required>
+                    </div>
+
+                    <div class="field">
+                        <label for="designation">Designation</label>
+                        <input id="designation" type="text" name="designation" placeholder="Assistant Professor" required>
+                    </div>
+
+                    <div class="field">
+                        <label for="department">Department</label>
+                        <input id="department" type="text" name="department" placeholder="Computer Science" required>
+                    </div>
+
+                    <div class="field">
+                        <label for="qualification">Qualification</label>
+                        <input id="qualification" type="text" name="qualification" placeholder="M.Tech, Ph.D">
+                    </div>
+
+                    <div class="field">
+                        <label for="email">Email</label>
+                        <input id="email" type="email" name="email" placeholder="faculty@college.edu">
+                    </div>
+
+                    <div class="field">
+                        <label for="phone">Phone</label>
+                        <input id="phone" type="text" name="phone" placeholder="+91 9876543210">
+                    </div>
+
+                    <div class="field">
+                        <label for="description">Profile / Notes</label>
+                        <textarea id="description" name="description" placeholder="Short profile, specialization, or academic notes"></textarea>
+                        <div class="hint">Optional, but useful for specialization or internal academic notes.</div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Add Faculty</button>
+                </form>
+            </div>
+        </section>
+
+        <section class="card">
+            <div class="table-header">
+                <div>
+                    <h2>Existing Faculty</h2>
+                    <p>Edit each row directly and save changes for that faculty record.</p>
+                </div>
+                <div class="record-count">
+                    {% if data %}{{ data|length }} record{% if data|length != 1 %}s{% endif %}{% else %}0 records{% endif %}
+                </div>
+            </div>
+
+            {% if data %}
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Designation</th>
+                            <th>Department</th>
+                            <th>Qualification</th>
+                            <th>Email</th>
+                            <th>Phone</th>
+                            <th>Notes</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for f in data %}
+                        <tr>
+                            <form action="{{ url_for('edit_faculty', id=f.id) }}" method="POST" class="row-form">
+                                <td><span class="id-badge">{{ f.id }}</span></td>
+                                <td><input class="row-input" type="text" name="faculty_name" value="{{ f.faculty_name }}" required></td>
+                                <td><input class="row-input" type="text" name="designation" value="{{ f.designation }}" required></td>
+                                <td><input class="row-input" type="text" name="department" value="{{ f.department }}" required></td>
+                                <td><input class="row-input" type="text" name="qualification" value="{{ f.qualification or '' }}"></td>
+                                <td><input class="row-input" type="email" name="email" value="{{ f.email or '' }}"></td>
+                                <td><input class="row-input" type="text" name="phone" value="{{ f.phone or '' }}"></td>
+                                <td><textarea class="row-textarea" name="description">{{ f.description or '' }}</textarea></td>
+                                <td>
+                                    <div class="actions">
+                                        <button type="submit" class="btn btn-primary">Update</button>
+                                        <button
+                                            type="button"
+                                            class="btn btn-danger"
+                                            onclick="if(confirm('Delete this faculty record?')) window.location.href='{{ url_for('delete_faculty', id=f.id) }}'">
+                                            Delete
+                                        </button>
+                                    </div>
+                                </td>
+                            </form>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <h3>No faculty records yet</h3>
+                <p>Add the first faculty entry using the form on the left to start building the directory.</p>
+            </div>
+            {% endif %}
+        </section>
+    </div>
+</div>
+
+</body>
+</html>
