@@ -3,7 +3,6 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { Calendar, Clock, Mail, Phone, Building2, Send, Loader2, ArrowLeft, Target, UserCheck, X } from 'lucide-react';
-import AppShell from '@/components/layout/AppShell';
 import AskPragyaBanner from '@/components/shared/AskPragyaBanner';
 import { createClient } from '@/lib/supabase/client';
 import { apiGet, apiPost, apiPatch } from '@/lib/api-client';
@@ -117,8 +116,7 @@ export default function StudentMentoringPage() {
   };
 
   return (
-    <AppShell role="student" userName="Student">
-      <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -364,6 +362,5 @@ export default function StudentMentoringPage() {
 
         <AskPragyaBanner />
       </div>
-    </AppShell>
   );
 }

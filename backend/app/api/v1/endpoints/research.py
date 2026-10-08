@@ -1,18 +1,35 @@
-"""
-SFRC Research & Innovation Hub API
-Phase 12: Funded research projects, faculty publications, grants, and department analytics.
-"""
+"""SFRC Research & Innovation Hub API — Funded research projects, faculty publications, grants, and department analytics backed by PostgreSQL/Supabase database."""
+from __future__ import annotations
 
-from typing import List, Optional, Dict, Any
-from datetime import datetime, timezone
+import json
+import re
 import uuid
-
+from typing import Any, Dict, List, Optional
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.audit import log_audit_event
+
+DOI_REGEX = re.compile(
+    r"^(?:10\.\d{4,9}/[-._;()/:A-Za-z0-9]+|https?://(?:dx\.)?doi\.org/10\.\d{4,9}/[-._;()/:A-Za-z0-9]+|https?://[^\s]+)$",
+    re.IGNORECASE,
+)
+
+def validate_doi_or_url(val: Optional[str]) -> None:
+    if val and val.strip():
+        if not DOI_REGEX.match(val.strip()):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid DOI or URL format. Must follow '10.XXXX/...' format or be a valid HTTP(S) URL.",
+            )
 
 router = APIRouter()
+
 
 # ── Pydantic Schemas ──────────────────────────────────────────────────────────
 
@@ -30,11 +47,28 @@ class ResearchProjectCreate(BaseModel):
     description: Optional[str] = None
     grant_sanction_order: Optional[str] = None
 
+
+class ResearchProjectUpdate(BaseModel):
+    title: Optional[str] = None
+    principal_investigator: Optional[str] = None
+    co_investigator: Optional[str] = None
+    department_code: Optional[str] = None
+    funding_agency: Optional[str] = None
+    project_type: Optional[str] = None
+    sanctioned_amount: Optional[float] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    status: Optional[str] = None
+    description: Optional[str] = None
+    grant_sanction_order: Optional[str] = None
+
+
 class ResearchProject(ResearchProjectCreate):
     id: str
     faculty_id: str
     created_at: str
     updated_at: str
+
 
 class PublicationCreate(BaseModel):
     title: str = Field(..., min_length=3)
@@ -49,278 +83,457 @@ class PublicationCreate(BaseModel):
     doi_or_url: Optional[str] = None
     paper_type: str = "Journal"  # Journal, Conference, Book Chapter, Patent
 
+
+class PublicationUpdate(BaseModel):
+    title: Optional[str] = None
+    authors: Optional[List[str]] = None
+    department_code: Optional[str] = None
+    journal_name: Optional[str] = None
+    indexing: Optional[str] = None
+    impact_factor: Optional[float] = None
+    issn_isbn: Optional[str] = None
+    volume_issue_pages: Optional[str] = None
+    publication_year: Optional[int] = None
+    doi_or_url: Optional[str] = None
+    paper_type: Optional[str] = None
+
+
 class Publication(PublicationCreate):
     id: str
     faculty_id: str
     faculty_name: str
     created_at: str
+    updated_at: Optional[str] = None
 
-# ── Seed Research Data ─────────────────────────────────────────────────────────
 
-SEED_RESEARCH_PROJECTS: List[Dict[str, Any]] = [
-    {
-        "id": "proj-cs-01",
-        "faculty_id": "fac-cs-01",
-        "title": "AI-Driven Precision Agriculture & Pest Detection in Cotton Fields",
-        "principal_investigator": "Dr. R. Meenakshi",
-        "co_investigator": "Dr. S. Kavitha",
-        "department_code": "CS",
-        "funding_agency": "DST-SERB (Science & Engineering Research Board)",
-        "project_type": "Major",
-        "sanctioned_amount": 2850000.0,
-        "start_date": "2024-04-01",
-        "end_date": "2027-03-31",
-        "status": "Ongoing",
-        "description": "Developing deep learning edge inference architectures for real-time mobile disease diagnostics for regional farmers.",
-        "grant_sanction_order": "DST/SERB/CRG/2024/004921",
-        "created_at": "2024-04-10T10:00:00Z",
-        "updated_at": "2026-09-20T12:00:00Z",
-    },
-    {
-        "id": "proj-chem-02",
-        "faculty_id": "fac-chem-01",
-        "title": "Green Synthesis of Bio-Nanocomposites for Industrial Wastewater Remediation",
-        "principal_investigator": "Dr. K. Arulmozhi",
-        "co_investigator": None,
-        "department_code": "CHEM",
-        "funding_agency": "UGC (University Grants Commission)",
-        "project_type": "Major",
-        "sanctioned_amount": 1650000.0,
-        "start_date": "2023-08-01",
-        "end_date": "2026-07-31",
-        "status": "Ongoing",
-        "description": "Utilizing agricultural waste extracts for catalytic dye degradation and heavy metal removal from textile effluents.",
-        "grant_sanction_order": "UGC/MRP/CHEM/2023/1182",
-        "created_at": "2023-08-15T09:30:00Z",
-        "updated_at": "2026-09-15T11:00:00Z",
-    },
-    {
-        "id": "proj-phy-03",
-        "faculty_id": "fac-phy-01",
-        "title": "Fabrication of Perovskite Thin-Film Solar Cells for High Efficiency Photovoltaics",
-        "principal_investigator": "Dr. P. Suganya",
-        "co_investigator": "Dr. M. Deepa",
-        "department_code": "PHY",
-        "funding_agency": "TNSCST (Tamil Nadu State Council for Science and Technology)",
-        "project_type": "Minor",
-        "sanctioned_amount": 450000.0,
-        "start_date": "2025-01-10",
-        "end_date": "2026-12-31",
-        "status": "Ongoing",
-        "description": "Exploring novel doping techniques in organometallic halide crystals to enhance atmospheric thermal stability.",
-        "grant_sanction_order": "TNSCST/STP/2025/084",
-        "created_at": "2025-01-20T14:00:00Z",
-        "updated_at": "2026-09-10T16:00:00Z",
-    },
-    {
-        "id": "proj-math-04",
-        "faculty_id": "fac-math-01",
-        "title": "Stochastic Modeling & Stability Analysis in Biological Epidemic Networks",
-        "principal_investigator": "Dr. V. Gomathi",
-        "co_investigator": None,
-        "department_code": "MATH",
-        "funding_agency": "SFRC Institutional Seed Grant",
-        "project_type": "Seed Grant",
-        "sanctioned_amount": 150000.0,
-        "start_date": "2025-06-01",
-        "end_date": "2026-05-31",
-        "status": "Completed",
-        "description": "Formulating fractional differential dynamical models for multi-strain pathogen transmission vectors.",
-        "grant_sanction_order": "SFRC/ISG/2025/012",
-        "created_at": "2025-06-05T10:00:00Z",
-        "updated_at": "2026-06-01T15:00:00Z",
-    },
-]
+def row_to_project(r: dict[str, Any]) -> ResearchProject:
+    return ResearchProject(
+        id=str(r["id"]),
+        faculty_id=str(r.get("faculty_id") or "fac-cs-01"),
+        title=r["title"],
+        principal_investigator=r["principal_investigator"],
+        co_investigator=r.get("co_investigator"),
+        department_code=r["department_code"],
+        funding_agency=r["funding_agency"],
+        project_type=r.get("project_type") or "Major",
+        sanctioned_amount=float(r["sanctioned_amount"]),
+        start_date=str(r["start_date"]),
+        end_date=str(r["end_date"]),
+        status=r.get("status") or "Ongoing",
+        description=r.get("description"),
+        grant_sanction_order=r.get("grant_sanction_order"),
+        created_at=str(r.get("created_at") or datetime.now(timezone.utc).isoformat()),
+        updated_at=str(r.get("updated_at") or datetime.now(timezone.utc).isoformat()),
+    )
 
-SEED_PUBLICATIONS: List[Dict[str, Any]] = [
-    {
-        "id": "pub-001",
-        "faculty_id": "fac-cs-01",
-        "faculty_name": "Dr. R. Meenakshi",
-        "title": "Lightweight Transformer Network for Early Foliar Disease Classification in Edge Devices",
-        "authors": ["R. Meenakshi", "S. Kavitha", "K. Raman"],
-        "department_code": "CS",
-        "journal_name": "IEEE Transactions on Agri-Food Electronics & Computing",
-        "indexing": "Scopus",
-        "impact_factor": 4.8,
-        "issn_isbn": "2690-5421",
-        "volume_issue_pages": "Vol. 12, Issue 3, pp. 245-258",
-        "publication_year": 2026,
-        "doi_or_url": "https://doi.org/10.1109/TAFEC.2026.3190241",
-        "paper_type": "Journal",
-        "created_at": "2026-02-15T11:00:00Z",
-    },
-    {
-        "id": "pub-002",
-        "faculty_id": "fac-chem-01",
-        "faculty_name": "Dr. K. Arulmozhi",
-        "title": "Ecofriendly Biosynthesis of ZnO Nanoparticles from Moringa Oleifera: Photocatalytic and Antimicrobial Efficacy",
-        "authors": ["K. Arulmozhi", "T. Selvi"],
-        "department_code": "CHEM",
-        "journal_name": "Journal of Environmental Chemical Engineering",
-        "indexing": "Web of Science",
-        "impact_factor": 7.4,
-        "issn_isbn": "2213-3437",
-        "volume_issue_pages": "Vol. 14, pp. 109823",
-        "publication_year": 2025,
-        "doi_or_url": "https://doi.org/10.1016/j.jece.2025.109823",
-        "paper_type": "Journal",
-        "created_at": "2025-11-20T10:00:00Z",
-    },
-    {
-        "id": "pub-003",
-        "faculty_id": "fac-phy-01",
-        "faculty_name": "Dr. P. Suganya",
-        "title": "Influence of Halide Substitution on Bandgap Tuning in Lead-Free Double Perovskites",
-        "authors": ["P. Suganya", "M. Deepa"],
-        "department_code": "PHY",
-        "journal_name": "Applied Surface Science Advances",
-        "indexing": "Scopus",
-        "impact_factor": 5.1,
-        "issn_isbn": "2666-5239",
-        "volume_issue_pages": "Vol. 22, pp. 100589",
-        "publication_year": 2026,
-        "doi_or_url": "https://doi.org/10.1016/j.apsadv.2026.100589",
-        "paper_type": "Journal",
-        "created_at": "2026-03-01T15:00:00Z",
-    },
-]
 
-# ── Endpoints ─────────────────────────────────────────────────────────────────
+def row_to_pub(r: dict[str, Any]) -> Publication:
+    authors_raw = r.get("authors")
+    if isinstance(authors_raw, str):
+        try:
+            authors = json.loads(authors_raw)
+        except Exception:
+            authors = [a.strip() for a in authors_raw.split(",") if a.strip()]
+    elif isinstance(authors_raw, list):
+        authors = authors_raw
+    else:
+        authors = []
+
+    return Publication(
+        id=str(r["id"]),
+        faculty_id=str(r.get("faculty_id") or "fac-cs-01"),
+        faculty_name=r.get("faculty_name") or "Dr. SFRC Faculty",
+        title=r["title"],
+        authors=authors,
+        department_code=r["department_code"],
+        journal_name=r["journal_name"],
+        indexing=r.get("indexing") or "Scopus",
+        impact_factor=float(r["impact_factor"]) if r.get("impact_factor") is not None else None,
+        issn_isbn=r.get("issn_isbn"),
+        volume_issue_pages=r.get("volume_issue_pages"),
+        publication_year=int(r["publication_year"]),
+        doi_or_url=r.get("doi_or_url"),
+        paper_type=r.get("paper_type") or "Journal",
+        created_at=str(r.get("created_at") or datetime.now(timezone.utc).isoformat()),
+        updated_at=str(r.get("updated_at") or datetime.now(timezone.utc).isoformat()),
+    )
+
+
+# ── Projects Endpoints ────────────────────────────────────────────────────────
 
 @router.get("/projects", response_model=List[ResearchProject])
 async def list_research_projects(
     dept: Optional[str] = None,
     status_filter: Optional[str] = None,
     search: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
 ):
-    """
-    List all institutional research projects and funded grants.
-    """
-    results = SEED_RESEARCH_PROJECTS
-    if dept and dept != "all":
-        results = [p for p in results if p["department_code"] == dept]
-    if status_filter and status_filter != "all":
-        results = [p for p in results if p["status"].lower() == status_filter.lower()]
-    if search:
-        q = search.lower()
-        results = [
-            p for p in results
-            if q in p["title"].lower()
-            or q in p["principal_investigator"].lower()
-            or q in p["funding_agency"].lower()
-        ]
+    """List all institutional research projects and funded grants directly from database."""
+    conditions = []
+    params: dict[str, Any] = {}
 
-    return [ResearchProject(**p) for p in results]
+    if dept and dept.lower() != "all":
+        conditions.append("LOWER(department_code) = :dept")
+        params["dept"] = dept.lower()
+
+    if status_filter and status_filter.lower() != "all":
+        conditions.append("LOWER(status) = :status_filter")
+        params["status_filter"] = status_filter.lower()
+
+    if search:
+        conditions.append("(LOWER(title) LIKE :search OR LOWER(principal_investigator) LIKE :search OR LOWER(funding_agency) LIKE :search)")
+        params["search"] = f"%{search.lower()}%"
+
+    where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+    query_str = f"SELECT * FROM research_projects {where_clause} ORDER BY created_at DESC"
+    rows = (await db.execute(text(query_str), params)).mappings().all()
+
+    return [row_to_project(dict(r)) for r in rows]
+
 
 @router.post("/projects", response_model=ResearchProject, status_code=status.HTTP_201_CREATED)
 async def create_research_project(
     body: ResearchProjectCreate,
+    db: AsyncSession = Depends(get_db),
     current_user: Dict[str, Any] = Depends(get_current_user),
 ):
-    """
-    Submit a new funded research grant or institutional project.
-    """
+    """Submit a new funded research grant or institutional project with database persistence."""
     role = current_user.get("role", "student")
     if role not in ["faculty", "admin"]:
         raise HTTPException(status_code=403, detail="Only faculty and administrators can register research projects.")
 
+    user_id = str(current_user.get("sub") or current_user.get("id") or "fac-custom")
+    new_id = f"proj-{uuid.uuid4().hex[:8]}"
     now_str = datetime.now(timezone.utc).isoformat()
-    new_proj = {
-        "id": f"proj-{uuid.uuid4().hex[:8]}",
-        "faculty_id": current_user.get("sub") or current_user.get("id") or "fac-custom",
-        **body.model_dump(),
+
+    ins_q = text("""
+        INSERT INTO research_projects (
+            id, faculty_id, title, principal_investigator, co_investigator,
+            department_code, funding_agency, project_type, sanctioned_amount,
+            start_date, end_date, status, description, grant_sanction_order,
+            created_at, updated_at
+        ) VALUES (
+            :id, :faculty_id, :title, :principal_investigator, :co_investigator,
+            :department_code, :funding_agency, :project_type, :sanctioned_amount,
+            :start_date, :end_date, :status, :description, :grant_sanction_order,
+            :created_at, :updated_at
+        )
+    """)
+    await db.execute(ins_q, {
+        "id": new_id,
+        "faculty_id": user_id,
+        "title": body.title,
+        "principal_investigator": body.principal_investigator,
+        "co_investigator": body.co_investigator,
+        "department_code": body.department_code,
+        "funding_agency": body.funding_agency,
+        "project_type": body.project_type,
+        "sanctioned_amount": body.sanctioned_amount,
+        "start_date": body.start_date,
+        "end_date": body.end_date,
+        "status": body.status,
+        "description": body.description,
+        "grant_sanction_order": body.grant_sanction_order,
         "created_at": now_str,
         "updated_at": now_str,
-    }
+    })
 
-    SEED_RESEARCH_PROJECTS.insert(0, new_proj)
-    return ResearchProject(**new_proj)
+    await log_audit_event(
+        db=db,
+        user_id=user_id,
+        action="RESEARCH_PROJECT_CREATED",
+        resource_type="research_projects",
+        resource_id=new_id,
+        details={"title": body.title, "funding_agency": body.funding_agency, "amount": body.sanctioned_amount},
+    )
+
+    fetch_q = text("SELECT * FROM research_projects WHERE id = :id")
+    created = (await db.execute(fetch_q, {"id": new_id})).mappings().first()
+    return row_to_project(dict(created))
+
+
+@router.put("/projects/{id}", response_model=ResearchProject)
+async def update_research_project(
+    id: str,
+    body: ResearchProjectUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    """Edit research project details with ownership enforcement and database persistence."""
+    role = current_user.get("role", "student")
+    user_id = str(current_user.get("sub") or current_user.get("id") or "")
+
+    find_q = text("SELECT * FROM research_projects WHERE id = :id")
+    row = (await db.execute(find_q, {"id": id})).mappings().first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Research project not found")
+
+    if role != "admin" and str(row["faculty_id"]) != user_id:
+        raise HTTPException(status_code=403, detail="You do not have permission to update this research project.")
+
+    now_str = datetime.now(timezone.utc).isoformat()
+    fields = []
+    params: dict[str, Any] = {"id": id, "updated_at": now_str}
+
+    for k, v in body.model_dump(exclude_unset=True).items():
+        if v is not None:
+            fields.append(f"{k} = :{k}")
+            params[k] = v
+
+    if fields:
+        fields.append("updated_at = :updated_at")
+        update_sql = f"UPDATE research_projects SET {', '.join(fields)} WHERE id = :id"
+        await db.execute(text(update_sql), params)
+
+    updated = (await db.execute(find_q, {"id": id})).mappings().first()
+    return row_to_project(dict(updated))
+
+
+@router.delete("/projects/{id}")
+async def delete_research_project(
+    id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    """Delete research project record with ownership enforcement and database persistence."""
+    role = current_user.get("role", "student")
+    user_id = str(current_user.get("sub") or current_user.get("id") or "")
+
+    find_q = text("SELECT * FROM research_projects WHERE id = :id")
+    row = (await db.execute(find_q, {"id": id})).mappings().first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Research project not found")
+
+    if role != "admin" and str(row["faculty_id"]) != user_id:
+        raise HTTPException(status_code=403, detail="You do not have permission to delete this research project.")
+
+    await db.execute(text("DELETE FROM research_projects WHERE id = :id"), {"id": id})
+
+    await log_audit_event(
+        db=db,
+        user_id=user_id,
+        action="RESEARCH_PROJECT_DELETED",
+        resource_type="research_projects",
+        resource_id=id,
+        details={"title": row["title"]},
+    )
+
+    return {"status": "success", "message": "Research project deleted successfully."}
+
+
+# ── Publications Endpoints ────────────────────────────────────────────────────
 
 @router.get("/publications", response_model=List[Publication])
 async def list_publications(
     dept: Optional[str] = None,
     indexing: Optional[str] = None,
     year: Optional[int] = None,
+    db: AsyncSession = Depends(get_db),
 ):
-    """
-    List indexed faculty and scholar publications.
-    """
-    results = SEED_PUBLICATIONS
-    if dept and dept != "all":
-        results = [p for p in results if p["department_code"] == dept]
-    if indexing and indexing != "all":
-        results = [p for p in results if p["indexing"].lower() == indexing.lower()]
-    if year:
-        results = [p for p in results if p["publication_year"] == year]
+    """List indexed faculty and scholar publications directly from database."""
+    conditions = []
+    params: dict[str, Any] = {}
 
-    return [Publication(**p) for p in results]
+    if dept and dept.lower() != "all":
+        conditions.append("LOWER(department_code) = :dept")
+        params["dept"] = dept.lower()
+
+    if indexing and indexing.lower() != "all":
+        conditions.append("LOWER(indexing) = :indexing")
+        params["indexing"] = indexing.lower()
+
+    if year:
+        conditions.append("publication_year = :year")
+        params["year"] = year
+
+    where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+    query_str = f"SELECT * FROM faculty_publications {where_clause} ORDER BY publication_year DESC, created_at DESC"
+    rows = (await db.execute(text(query_str), params)).mappings().all()
+
+    return [row_to_pub(dict(r)) for r in rows]
+
 
 @router.post("/publications", response_model=Publication, status_code=status.HTTP_201_CREATED)
 async def create_publication(
     body: PublicationCreate,
+    db: AsyncSession = Depends(get_db),
     current_user: Dict[str, Any] = Depends(get_current_user),
 ):
-    """
-    Add a new research publication record.
-    """
+    """Add a new research publication record with database persistence."""
     role = current_user.get("role", "student")
     if role not in ["faculty", "admin"]:
         raise HTTPException(status_code=403, detail="Faculty privilege required to submit publications.")
 
-    now_str = datetime.now(timezone.utc).isoformat()
+    validate_doi_or_url(body.doi_or_url)
+
+    user_id = str(current_user.get("sub") or current_user.get("id") or "fac-custom")
     faculty_name = current_user.get("name") or current_user.get("user_metadata", {}).get("full_name") or "Dr. SFRC Faculty"
+    new_id = f"pub-{uuid.uuid4().hex[:8]}"
+    now_str = datetime.now(timezone.utc).isoformat()
+    authors_json = json.dumps(body.authors)
 
-    new_pub = {
-        "id": f"pub-{uuid.uuid4().hex[:8]}",
-        "faculty_id": current_user.get("sub") or current_user.get("id") or "fac-custom",
+    ins_q = text("""
+        INSERT INTO faculty_publications (
+            id, faculty_id, faculty_name, title, authors, department_code,
+            journal_name, indexing, impact_factor, issn_isbn, volume_issue_pages,
+            publication_year, doi_or_url, paper_type, created_at, updated_at
+        ) VALUES (
+            :id, :faculty_id, :faculty_name, :title, :authors, :department_code,
+            :journal_name, :indexing, :impact_factor, :issn_isbn, :volume_issue_pages,
+            :publication_year, :doi_or_url, :paper_type, :created_at, :updated_at
+        )
+    """)
+    await db.execute(ins_q, {
+        "id": new_id,
+        "faculty_id": user_id,
         "faculty_name": faculty_name,
-        **body.model_dump(),
+        "title": body.title,
+        "authors": authors_json,
+        "department_code": body.department_code,
+        "journal_name": body.journal_name,
+        "indexing": body.indexing,
+        "impact_factor": body.impact_factor,
+        "issn_isbn": body.issn_isbn,
+        "volume_issue_pages": body.volume_issue_pages,
+        "publication_year": body.publication_year,
+        "doi_or_url": body.doi_or_url,
+        "paper_type": body.paper_type,
         "created_at": now_str,
-    }
+        "updated_at": now_str,
+    })
 
-    SEED_PUBLICATIONS.insert(0, new_pub)
-    return Publication(**new_pub)
+    await log_audit_event(
+        db=db,
+        user_id=user_id,
+        action="PUBLICATION_CREATED",
+        resource_type="faculty_publications",
+        resource_id=new_id,
+        details={"title": body.title, "journal": body.journal_name, "indexing": body.indexing},
+    )
+
+    fetch_q = text("SELECT * FROM faculty_publications WHERE id = :id")
+    created = (await db.execute(fetch_q, {"id": new_id})).mappings().first()
+    return row_to_pub(dict(created))
+
+
+@router.put("/publications/{id}", response_model=Publication)
+async def update_publication(
+    id: str,
+    body: PublicationUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    """Edit research publication details with ownership enforcement and database persistence."""
+    role = current_user.get("role", "student")
+    user_id = str(current_user.get("sub") or current_user.get("id") or "")
+
+    if body.doi_or_url is not None:
+        validate_doi_or_url(body.doi_or_url)
+
+    find_q = text("SELECT * FROM faculty_publications WHERE id = :id")
+    row = (await db.execute(find_q, {"id": id})).mappings().first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Publication record not found")
+
+    if role != "admin" and str(row["faculty_id"]) != user_id:
+        raise HTTPException(status_code=403, detail="You do not have permission to update this publication.")
+
+    now_str = datetime.now(timezone.utc).isoformat()
+    fields = []
+    params: dict[str, Any] = {"id": id, "updated_at": now_str}
+
+    for k, v in body.model_dump(exclude_unset=True).items():
+        if v is not None:
+            if k == "authors":
+                fields.append("authors = :authors")
+                params["authors"] = json.dumps(v)
+            else:
+                fields.append(f"{k} = :{k}")
+                params[k] = v
+
+    if fields:
+        fields.append("updated_at = :updated_at")
+        update_sql = f"UPDATE faculty_publications SET {', '.join(fields)} WHERE id = :id"
+        await db.execute(text(update_sql), params)
+
+    updated = (await db.execute(find_q, {"id": id})).mappings().first()
+    return row_to_pub(dict(updated))
+
+
+@router.delete("/publications/{id}")
+async def delete_publication(
+    id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    """Delete publication record with ownership enforcement and database persistence."""
+    role = current_user.get("role", "student")
+    user_id = str(current_user.get("sub") or current_user.get("id") or "")
+
+    find_q = text("SELECT * FROM faculty_publications WHERE id = :id")
+    row = (await db.execute(find_q, {"id": id})).mappings().first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Publication record not found")
+
+    if role != "admin" and str(row["faculty_id"]) != user_id:
+        raise HTTPException(status_code=403, detail="You do not have permission to delete this publication.")
+
+    await db.execute(text("DELETE FROM faculty_publications WHERE id = :id"), {"id": id})
+
+    await log_audit_event(
+        db=db,
+        user_id=user_id,
+        action="PUBLICATION_DELETED",
+        resource_type="faculty_publications",
+        resource_id=id,
+        details={"title": row["title"]},
+    )
+
+    return {"status": "success", "message": "Publication record deleted successfully."}
+
+
+# ── Summary & Analytics ───────────────────────────────────────────────────────
 
 @router.get("/summary", response_model=Dict[str, Any])
-async def get_research_summary():
-    """
-    Department-wise research summary, total grants, and publication leaderboard.
-    """
-    total_grant_inr = sum(p["sanctioned_amount"] for p in SEED_RESEARCH_PROJECTS)
-    ongoing_count = sum(1 for p in SEED_RESEARCH_PROJECTS if p["status"] == "Ongoing")
-    completed_count = sum(1 for p in SEED_RESEARCH_PROJECTS if p["status"] == "Completed")
+async def get_research_summary(
+    db: AsyncSession = Depends(get_db),
+):
+    """Department-wise research summary, total grants, and publication leaderboard directly from database."""
+    proj_rows = (await db.execute(text("SELECT * FROM research_projects"))).mappings().all()
+    pub_rows = (await db.execute(text("SELECT * FROM faculty_publications"))).mappings().all()
 
-    # Department breakdown
+    total_grant_inr = sum(float(p["sanctioned_amount"] or 0.0) for p in proj_rows)
+    ongoing_count = sum(1 for p in proj_rows if (p.get("status") or "").lower() == "ongoing")
+    completed_count = sum(1 for p in proj_rows if (p.get("status") or "").lower() == "completed")
+
     dept_map: Dict[str, Dict[str, Any]] = {}
-    for p in SEED_RESEARCH_PROJECTS:
+    for p in proj_rows:
         d = p["department_code"]
         if d not in dept_map:
             dept_map[d] = {"department": d, "projects": 0, "grant_amount": 0.0, "publications": 0}
         dept_map[d]["projects"] += 1
-        dept_map[d]["grant_amount"] += p["sanctioned_amount"]
+        dept_map[d]["grant_amount"] += float(p["sanctioned_amount"] or 0.0)
 
-    for pub in SEED_PUBLICATIONS:
+    for pub in pub_rows:
         d = pub["department_code"]
         if d in dept_map:
             dept_map[d]["publications"] += 1
         else:
             dept_map[d] = {"department": d, "projects": 0, "grant_amount": 0.0, "publications": 1}
 
-    # Leaderboard by faculty
     leaderboard_map: Dict[str, Dict[str, Any]] = {}
-    for pub in SEED_PUBLICATIONS:
+    for pub in pub_rows:
         name = pub["faculty_name"]
         if name not in leaderboard_map:
             leaderboard_map[name] = {"faculty_name": name, "department": pub["department_code"], "papers": 0, "top_indexing": pub["indexing"]}
         leaderboard_map[name]["papers"] += 1
 
     return {
-        "total_projects": len(SEED_RESEARCH_PROJECTS),
+        "total_projects": len(proj_rows),
         "ongoing_projects": ongoing_count,
         "completed_projects": completed_count,
         "total_grants_sanctioned_inr": total_grant_inr,
-        "total_publications": len(SEED_PUBLICATIONS),
+        "total_publications": len(pub_rows),
         "department_summary": list(dept_map.values()),
         "faculty_leaderboard": list(leaderboard_map.values()),
     }

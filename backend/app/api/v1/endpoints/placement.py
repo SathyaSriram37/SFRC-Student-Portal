@@ -10,7 +10,12 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.audit import log_audit_event
 
 router = APIRouter()
 
@@ -171,28 +176,6 @@ SEED_DRIVES: List[Dict[str, Any]] = [
     },
 ]
 
-# Applications Storage
-PLACEMENT_APPLICATIONS: List[Dict[str, Any]] = [
-    {
-        "id": "app-001",
-        "drive_id": "drive-tcs-001",
-        "student_id": "std-2023-001",
-        "student_name": "Kavitha Raman",
-        "register_number": "21UCS042",
-        "department": "CS",
-        "company_name": "Tata Consultancy Services (TCS)",
-        "role_title": "Ninja / Digital Software Engineer",
-        "ctc_range": "3.6 - 7.0 LPA",
-        "cgpa_at_application": 8.6,
-        "attendance_at_application": 87.5,
-        "status": "shortlisted",
-        "applied_at": "2026-09-23T10:00:00Z",
-        "updated_at": "2026-09-25T14:30:00Z",
-        "interview_date": (datetime.now(timezone.utc) + timedelta(days=12)).strftime("%Y-%m-%d"),
-        "notes": "Cleared NQT Round with 92nd percentile score.",
-    }
-]
-
 # ── Helper Functions ──────────────────────────────────────────────────────────
 
 def compute_student_metrics(user: Dict[str, Any]) -> Dict[str, Any]:
@@ -209,10 +192,13 @@ def compute_student_metrics(user: Dict[str, Any]) -> Dict[str, Any]:
     if user.get("department_code") is not None:
         dept = user["department_code"]
 
+    user_meta = user.get("user_metadata") or {}
+    name = user.get("name") or user_meta.get("full_name") or user.get("full_name") or "Kavitha Raman"
+
     return {
-        "student_id": user.get("sub") or user.get("id") or "std-2023-001",
-        "student_name": user.get("name") or user.get("user_metadata", {}).get("full_name") or "Kavitha Raman",
-        "register_number": user.get("register_number") or "21UCS042",
+        "student_id": str(user.get("sub") or user.get("id") or "std-2023-001"),
+        "student_name": name,
+        "register_number": user.get("register_number") or user_meta.get("register_number") or "21UCS042",
         "department": dept,
         "cgpa": cgpa,
         "attendance": att_pct,
@@ -261,6 +247,26 @@ def check_eligibility(drive: Dict[str, Any], student_info: Dict[str, Any]) -> El
 
     return EligibilityCheck(eligible=is_eligible, reasons=reasons)
 
+def row_to_application(r: Dict[str, Any]) -> PlacementApplication:
+    return PlacementApplication(
+        id=str(r["id"]),
+        drive_id=str(r["drive_id"]),
+        student_id=str(r["student_id"]),
+        student_name=r.get("student_name") or "Student",
+        register_number=r.get("register_number") or "",
+        department=r.get("department") or "CS",
+        company_name=r.get("company_name") or "",
+        role_title=r.get("role_title") or "",
+        ctc_range=r.get("ctc_range") or "",
+        cgpa_at_application=float(r.get("cgpa_at_application") or r.get("cgpa") or 0.0),
+        attendance_at_application=float(r.get("attendance_at_application") or 85.0),
+        status=r.get("status") or "applied",
+        applied_at=str(r.get("created_at") or ""),
+        updated_at=str(r.get("updated_at") or r.get("created_at") or ""),
+        interview_date=r.get("interview_date"),
+        notes=r.get("notes"),
+    )
+
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @router.get("/drives", response_model=Dict[str, Any])
@@ -268,19 +274,22 @@ async def list_placement_drives(
     dept: Optional[str] = None,
     search: Optional[str] = None,
     current_user: Dict[str, Any] = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
-    List all active placement drives with precomputed student eligibility.
+    List all active placement drives with precomputed student eligibility and database persisted applications.
     """
     student_info = compute_student_metrics(current_user)
     student_id = student_info["student_id"]
+    user_id = str(current_user.get("id") or current_user.get("sub") or "")
 
-    # Student's current application map: drive_id -> status
-    my_app_map = {
-        app["drive_id"]: app["status"]
-        for app in PLACEMENT_APPLICATIONS
-        if app["student_id"] == student_id
-    }
+    # Query student's applications from DB
+    q = text("""
+        SELECT drive_id, status FROM placement_applications
+        WHERE student_id = :student_id OR user_id = :user_id
+    """)
+    rows = (await db.execute(q, {"student_id": student_id, "user_id": user_id})).mappings().all()
+    my_app_map = {str(r["drive_id"]): r["status"] for r in rows}
 
     results: List[PlacementDriveWithEligibility] = []
     for d in SEED_DRIVES:
@@ -289,11 +298,11 @@ async def list_placement_drives(
         if dept and dept != "all" and dept not in d["eligible_departments"]:
             continue
         if search:
-            q = search.lower()
+            q_str = search.lower()
             if (
-                q not in d["company_name"].lower()
-                and q not in d["role_title"].lower()
-                and q not in d["job_description"].lower()
+                q_str not in d["company_name"].lower()
+                and q_str not in d["role_title"].lower()
+                and q_str not in d["job_description"].lower()
             ):
                 continue
 
@@ -324,9 +333,10 @@ async def list_placement_drives(
 async def get_placement_drive_detail(
     id: str,
     current_user: Dict[str, Any] = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
-    Get detailed placement drive info with eligibility breakdown.
+    Get detailed placement drive info with eligibility breakdown and database persisted status.
     """
     drive = next((d for d in SEED_DRIVES if d["id"] == id), None)
     if not drive:
@@ -334,18 +344,21 @@ async def get_placement_drive_detail(
 
     student_info = compute_student_metrics(current_user)
     student_id = student_info["student_id"]
+    user_id = str(current_user.get("id") or current_user.get("sub") or "")
     eligibility = check_eligibility(drive, student_info)
 
-    my_app = next(
-        (a for a in PLACEMENT_APPLICATIONS if a["drive_id"] == id and a["student_id"] == student_id),
-        None,
-    )
+    q = text("""
+        SELECT status FROM placement_applications
+        WHERE drive_id = :drive_id AND (student_id = :student_id OR user_id = :user_id)
+        LIMIT 1
+    """)
+    row = (await db.execute(q, {"drive_id": id, "student_id": student_id, "user_id": user_id})).mappings().first()
 
     return PlacementDriveWithEligibility(
         **drive,
         eligibility=eligibility,
-        has_applied=my_app is not None,
-        application_status=my_app["status"] if my_app else None,
+        has_applied=row is not None,
+        application_status=row["status"] if row else None,
     )
 
 @router.post("/drives/{id}/apply", response_model=PlacementApplication)
@@ -353,9 +366,10 @@ async def apply_for_placement_drive(
     id: str,
     body: Optional[ApplicationSubmitRequest] = None,
     current_user: Dict[str, Any] = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
-    Submit application for a drive with strict server-side eligibility enforcement.
+    Submit application for a drive with strict server-side eligibility enforcement and database persistence.
     """
     drive = next((d for d in SEED_DRIVES if d["id"] == id), None)
     if not drive:
@@ -363,12 +377,14 @@ async def apply_for_placement_drive(
 
     student_info = compute_student_metrics(current_user)
     student_id = student_info["student_id"]
+    user_id = str(current_user.get("id") or current_user.get("sub") or "")
 
-    # 1. Check if already applied
-    existing = next(
-        (a for a in PLACEMENT_APPLICATIONS if a["drive_id"] == id and a["student_id"] == student_id),
-        None,
-    )
+    # 1. Check if already applied in database
+    existing_q = text("""
+        SELECT id FROM placement_applications
+        WHERE drive_id = :drive_id AND (student_id = :student_id OR user_id = :user_id)
+    """)
+    existing = (await db.execute(existing_q, {"drive_id": id, "student_id": student_id, "user_id": user_id})).first()
     if existing:
         raise HTTPException(status_code=400, detail="You have already applied for this placement drive.")
 
@@ -380,13 +396,27 @@ async def apply_for_placement_drive(
             detail=f"Ineligible to apply: {'; '.join(eligibility.reasons)}",
         )
 
+    app_id = str(uuid.uuid4())
     now_str = datetime.now(timezone.utc).isoformat()
-    new_app = {
-        "id": f"app-{uuid.uuid4().hex[:8]}",
+
+    insert_q = text("""
+        INSERT INTO placement_applications (
+            id, drive_id, student_id, user_id, register_number, student_name,
+            department, company_name, role_title, ctc_range, cgpa_at_application,
+            attendance_at_application, status, interview_date, notes, created_at, updated_at
+        ) VALUES (
+            :id, :drive_id, :student_id, :user_id, :register_number, :student_name,
+            :department, :company_name, :role_title, :ctc_range, :cgpa_at_application,
+            :attendance_at_application, :status, :interview_date, :notes, :created_at, :updated_at
+        )
+    """)
+    await db.execute(insert_q, {
+        "id": app_id,
         "drive_id": drive["id"],
         "student_id": student_id,
-        "student_name": student_info["student_name"],
+        "user_id": user_id,
         "register_number": student_info["register_number"],
+        "student_name": student_info["student_name"],
         "department": student_info["department"],
         "company_name": drive["company_name"],
         "role_title": drive["role_title"],
@@ -394,33 +424,66 @@ async def apply_for_placement_drive(
         "cgpa_at_application": student_info["cgpa"],
         "attendance_at_application": student_info["attendance"],
         "status": "applied",
-        "applied_at": now_str,
-        "updated_at": now_str,
         "interview_date": None,
-        "notes": "Application submitted by student.",
-    }
+        "notes": body.statement if body and body.statement else "Application submitted by student.",
+        "created_at": now_str,
+        "updated_at": now_str,
+    })
 
-    PLACEMENT_APPLICATIONS.append(new_app)
-    return PlacementApplication(**new_app)
+    await log_audit_event(
+        user_id=user_id,
+        action="apply_placement_drive",
+        resource_type="placement_applications",
+        resource_id=app_id,
+        details={"drive_id": drive["id"], "company_name": drive["company_name"]},
+        db=db,
+    )
+
+    return PlacementApplication(
+        id=app_id,
+        drive_id=drive["id"],
+        student_id=student_id,
+        student_name=student_info["student_name"],
+        register_number=student_info["register_number"],
+        department=student_info["department"],
+        company_name=drive["company_name"],
+        role_title=drive["role_title"],
+        ctc_range=drive["ctc_range"],
+        cgpa_at_application=student_info["cgpa"],
+        attendance_at_application=student_info["attendance"],
+        status="applied",
+        applied_at=now_str,
+        updated_at=now_str,
+        interview_date=None,
+        notes=body.statement if body and body.statement else "Application submitted by student.",
+    )
 
 @router.get("/me/applications", response_model=List[PlacementApplication])
 async def get_my_placement_applications(
     current_user: Dict[str, Any] = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
-    Get all placement applications submitted by current student.
+    Get all placement applications submitted by current student directly from the database.
     """
     student_info = compute_student_metrics(current_user)
     student_id = student_info["student_id"]
+    user_id = str(current_user.get("id") or current_user.get("sub") or "")
 
-    apps = [a for a in PLACEMENT_APPLICATIONS if a["student_id"] == student_id]
-    return [PlacementApplication(**a) for a in apps]
+    q = text("""
+        SELECT * FROM placement_applications
+        WHERE student_id = :student_id OR user_id = :user_id
+        ORDER BY created_at DESC
+    """)
+    rows = (await db.execute(q, {"student_id": student_id, "user_id": user_id})).mappings().all()
+    return [row_to_application(dict(r)) for r in rows]
 
 @router.put("/admin/applications/{id}/status", response_model=PlacementApplication)
 async def update_application_status(
     id: str,
     body: ApplicationStatusUpdate,
     current_user: Dict[str, Any] = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Update application status (applied -> shortlisted -> interview -> selected/rejected).
@@ -430,36 +493,57 @@ async def update_application_status(
     if role not in ["admin", "faculty"]:
         raise HTTPException(status_code=403, detail="Only placement coordinators or admins can update application statuses.")
 
-    app_obj = next((a for a in PLACEMENT_APPLICATIONS if a["id"] == id), None)
-    if not app_obj:
+    find_q = text("SELECT * FROM placement_applications WHERE id = :id")
+    row = (await db.execute(find_q, {"id": id})).mappings().first()
+    if not row:
         raise HTTPException(status_code=404, detail="Application record not found")
 
-    app_obj["status"] = body.status
-    app_obj["updated_at"] = datetime.now(timezone.utc).isoformat()
-    if body.interview_date:
-        app_obj["interview_date"] = body.interview_date
-    if body.notes:
-        app_obj["notes"] = body.notes
+    now_str = datetime.now(timezone.utc).isoformat()
+    update_q = text("""
+        UPDATE placement_applications
+        SET status = :status,
+            interview_date = COALESCE(:interview_date, interview_date),
+            notes = COALESCE(:notes, notes),
+            updated_at = :updated_at
+        WHERE id = :id
+    """)
+    await db.execute(update_q, {
+        "id": id,
+        "status": body.status,
+        "interview_date": body.interview_date,
+        "notes": body.notes,
+        "updated_at": now_str,
+    })
 
-    return PlacementApplication(**app_obj)
+    updated_row = (await db.execute(find_q, {"id": id})).mappings().first()
+    return row_to_application(dict(updated_row))
 
 @router.get("/admin/applications", response_model=List[PlacementApplication])
 async def list_all_placement_applications(
     drive_id: Optional[str] = None,
     status_filter: Optional[str] = None,
     current_user: Dict[str, Any] = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
-    Admin listing of all student placement applications across drives.
+    Admin listing of all student placement applications across drives directly from the database.
     """
     role = current_user.get("role", "student")
     if role not in ["admin", "faculty"]:
         raise HTTPException(status_code=403, detail="Admin privilege required")
 
-    results = PLACEMENT_APPLICATIONS
+    conditions = []
+    params: Dict[str, Any] = {}
     if drive_id:
-        results = [r for r in results if r["drive_id"] == drive_id]
+        conditions.append("drive_id = :drive_id")
+        params["drive_id"] = drive_id
     if status_filter:
-        results = [r for r in results if r["status"] == status_filter]
+        conditions.append("status = :status_filter")
+        params["status_filter"] = status_filter
 
-    return [PlacementApplication(**r) for r in results]
+    where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+    q = text(f"SELECT * FROM placement_applications {where_clause} ORDER BY created_at DESC")
+    rows = (await db.execute(q, params)).mappings().all()
+
+    return [row_to_application(dict(r)) for r in rows]
+

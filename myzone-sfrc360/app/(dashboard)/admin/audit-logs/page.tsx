@@ -3,7 +3,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { Shield, Activity, Search, ArrowLeft, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
-import AppShell from '@/components/layout/AppShell';
 import AskPragyaBanner from '@/components/shared/AskPragyaBanner';
 import { createClient } from '@/lib/supabase/client';
 import { apiGet } from '@/lib/api-client';
@@ -169,8 +168,7 @@ export default function AdminAuditLogsPage() {
   };
 
   return (
-    <AppShell role="admin" userName="Administrator">
-      <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex items-center gap-3">
           <Link
@@ -366,6 +364,5 @@ export default function AdminAuditLogsPage() {
 
         <AskPragyaBanner />
       </div>
-    </AppShell>
   );
 }

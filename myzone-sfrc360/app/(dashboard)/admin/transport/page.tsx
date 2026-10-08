@@ -8,7 +8,6 @@ import {
   AlertCircle,
   Eye,
 } from 'lucide-react';
-import AppShell from '@/components/layout/AppShell';
 import { Card, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -131,8 +130,7 @@ export default function AdminTransportPage() {
   };
 
   return (
-    <AppShell role="admin" userName="System Administrator">
-      <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
         {/* Header Profile Greeting */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card p-6 rounded-3xl border border-border shadow-xs">
           <div>
@@ -420,6 +418,5 @@ export default function AdminTransportPage() {
           </DialogContent>
         </Dialog>
       </div>
-    </AppShell>
   );
 }

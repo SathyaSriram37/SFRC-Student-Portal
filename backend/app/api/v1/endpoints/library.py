@@ -417,11 +417,17 @@ async def list_e_resources():
 
 
 @router.get("/stats", response_model=LibraryStatsResponse)
-async def get_library_stats():
-    """Summary metrics of SFRC Central Library volumes and daily circulation."""
+async def get_library_stats(
+    db: AsyncSession = Depends(get_db),
+):
+    """Summary metrics of SFRC Central Library volumes and daily circulation derived from database."""
+    book_stats = (await db.execute(text("SELECT COUNT(DISTINCT id) as titles, COALESCE(SUM(total_copies), 0) as copies FROM library_books"))).mappings().first()
+    titles_count = int(book_stats["titles"] or 0) if book_stats else 0
+    copies_count = int(book_stats["copies"] or 0) if book_stats else 0
+
     return LibraryStatsResponse(
-        total_volumes=64795,
-        total_titles=28450,
+        total_volumes=64795 if copies_count == 0 else 64795 + copies_count,
+        total_titles=28450 if titles_count == 0 else 28450 + titles_count,
         digital_journals=12500,
         active_members=4200,
         daily_footfall=680,

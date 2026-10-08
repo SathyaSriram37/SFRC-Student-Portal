@@ -235,7 +235,8 @@ export default function StudentHostelPage() {
       </div>
 
       {/* ── TAB 1: MY ROOM ALLOCATION ────────────────────────────────────────── */}
-      {activeTab === 'allocation' && allocation && (
+      {activeTab === 'allocation' && (
+        allocation && allocation.is_hosteller ? (
         <div className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Room Allocation Main Card (2 Cols) */}
@@ -356,6 +357,47 @@ export default function StudentHostelPage() {
             </Card>
           </div>
         </div>
+        ) : (
+          <Card className="border border-border bg-card">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <Badge variant="outline" className="bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-300 text-xs">
+                  Day-Scholar Student
+                </Badge>
+              </div>
+              <CardTitle className="text-xl font-bold pt-1">Day Scholar Student Profile</CardTitle>
+              <CardDescription className="text-xs">
+                You are currently registered as a Day Scholar commuting to college daily.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6 text-xs text-muted-foreground">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-4 rounded-xl bg-muted/40 border border-border space-y-1">
+                  <div className="font-semibold text-foreground text-sm">Hostel Admission</div>
+                  <div>Applications for Block A & B hostel rooms are open for the current academic year.</div>
+                </div>
+                <div className="p-4 rounded-xl bg-muted/40 border border-border space-y-1">
+                  <div className="font-semibold text-foreground text-sm">College Bus Services</div>
+                  <div>18 dedicated bus routes covering Sivakasi, Virudhunagar, Sattur & Srivilliputtur.</div>
+                </div>
+                <div className="p-4 rounded-xl bg-muted/40 border border-border space-y-1">
+                  <div className="font-semibold text-foreground text-sm">Day-Care & Dining</div>
+                  <div>Subsidized campus cafeteria and day-scholar lunch spaces available in Main Block.</div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 pt-2">
+                <Button
+                  onClick={() => setActiveTab('apply-leave')}
+                  variant="outline"
+                  className="text-xs"
+                >
+                  Apply for Special Hosteller Pass / Outpass
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )
       )}
 
       {/* ── TAB 2: APPLY LEAVE / OUTPASS ─────────────────────────────────────── */}

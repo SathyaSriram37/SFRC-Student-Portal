@@ -113,6 +113,114 @@ class AuditLogListResponse(BaseModel):
     limit: int
 
 
+# ── Admin Module CRUD Schemas ────────────────────────────────────────────────
+
+class CreateProgrammeRequest(BaseModel):
+    name: str
+    code: str
+    degree_level: str = "UG"
+    department_id: Optional[str] = None
+    sanctioned_intake: int = 60
+    regulation_batch: Optional[str] = "2023 - 2026 (OBE)"
+
+
+class CreateCourseRequest(BaseModel):
+    code: str
+    title: str
+    department_id: Optional[str] = None
+    programme_id: Optional[str] = None
+    semester: int = 1
+    credits: int = 4
+    hours_per_week: int = 5
+    course_type: str = "Major Core"
+    faculty_id: Optional[str] = None
+
+
+class CreateFacilityBookingRequest(BaseModel):
+    facility_name: str
+    booking_date: str
+    time_slot: str
+    purpose: str
+    organizer_name: str
+    department: str
+    expected_attendees: int = 50
+
+
+class CreateAdminEventRequest(BaseModel):
+    title: str
+    description: str
+    category: str = "Technical"
+    department: str = "College"
+    venue: str
+    start_date: str
+    end_date: str
+    time: str = "09:30 AM - 04:30 PM"
+    max_capacity: int = 200
+    speaker_details: Optional[str] = None
+
+
+class CreateBookRequest(BaseModel):
+    title: str
+    author: str
+    isbn: Optional[str] = None
+    accession_no: str
+    department: Optional[str] = "General"
+    category: str = "General"
+    copies: int = 1
+
+
+class CreateBookLoanRequest(BaseModel):
+    book_id: Optional[str] = None
+    student_register_number: str
+    student_name: Optional[str] = None
+    due_date: str
+
+
+class UpdateOutpassStatusRequest(BaseModel):
+    status: str  # approved, rejected
+    remarks: Optional[str] = None
+
+
+class CreatePlacementDriveRequest(BaseModel):
+    company_name: str
+    role_title: str
+    ctc_lpa: float
+    drive_date: str
+    venue: str
+    eligibility_criteria: str
+    eligible_programmes: List[str] = []
+
+
+class CreateIEDCProjectRequest(BaseModel):
+    title: str
+    lead_student: str
+    faculty_mentor: str
+    domain: str
+    funding_agency: str = "IEDC DST / MSME"
+    grant_amount: float = 25000.0
+    trl_level: int = 4
+
+
+class CreateICTAssetRequest(BaseModel):
+    asset_tag: str
+    name: str
+    category: str
+    location: str
+    specifications: Optional[str] = None
+    warranty_end_date: Optional[str] = None
+    vendor: Optional[str] = None
+
+
+class CreateClubActivityRequest(BaseModel):
+    activity_name: str
+    unit_type: str
+    activity_date: str
+    venue: str
+    description: Optional[str] = None
+    volunteer_count: int = 50
+    credits: int = 1
+
+
 # ── Analytics Response Schemas ───────────────────────────────────────────────
 
 class AttendanceAnalyticsResponse(BaseModel):
@@ -181,26 +289,26 @@ async def get_admin_dashboard(
 ):
     """Aggregate institution-wide KPIs strictly calculated from DB queries."""
     # 1. Total Active Students
-    student_count_sql = text("SELECT COUNT(*) FROM public.students WHERE is_active = true")
+    student_count_sql = text("SELECT COUNT(*) FROM students WHERE is_active = true")
     student_count = (await db.execute(student_count_sql)).scalar() or 0
 
     # 2. Total Active Faculty
-    faculty_count_sql = text("SELECT COUNT(*) FROM public.faculty WHERE is_active = true")
+    faculty_count_sql = text("SELECT COUNT(*) FROM faculty WHERE is_active = true")
     faculty_count = (await db.execute(faculty_count_sql)).scalar() or 0
 
     # 3. Total Open Complaints
-    complaints_sql = text("SELECT COUNT(*) FROM public.complaints WHERE status IN ('open', 'assigned', 'in_progress')")
+    complaints_sql = text("SELECT COUNT(*) FROM complaints WHERE status IN ('open', 'assigned', 'in_progress')")
     open_complaints = (await db.execute(complaints_sql)).scalar() or 0
 
     # 4. Total Events
-    events_sql = text("SELECT COUNT(*) FROM public.events")
+    events_sql = text("SELECT COUNT(*) FROM events")
     events_count = (await db.execute(events_sql)).scalar() or 0
 
     # 5. Department Strength
     dept_sql = text("""
         SELECT d.name, d.code, COUNT(s.id)::int as count
-        FROM public.departments d
-        LEFT JOIN public.students s ON s.department_id = d.id AND s.is_active = true
+        FROM departments d
+        LEFT JOIN students s ON s.department_id = d.id AND s.is_active = true
         GROUP BY d.id, d.name, d.code
         ORDER BY count DESC, d.name ASC
     """)
@@ -241,8 +349,8 @@ async def get_admin_dashboard(
 
     # 8. Recent 5 Audit Logs
     audit_sql = text("""
-        SELECT id, user_id::text, action, resource_type, resource_id, details, ip_address, created_at::text
-        FROM public.audit_logs
+        SELECT id, user_id, action, resource_type, resource_id, details, ip_address, created_at
+        FROM audit_logs
         ORDER BY created_at DESC
         LIMIT 5
     """)
@@ -300,7 +408,7 @@ async def list_users(
         params["is_active"] = is_act
 
     if dept:
-        conditions.append("(up.department_id::text = :dept OR d.code = :dept)")
+        conditions.append("(up.department_id = :dept OR d.code = :dept)")
         params["dept"] = dept
 
     if q:
@@ -311,8 +419,8 @@ async def list_users(
 
     count_sql = text(f"""
         SELECT COUNT(*) 
-        FROM public.user_profiles up 
-        LEFT JOIN public.departments d ON up.department_id = d.id
+        FROM user_profiles up 
+        LEFT JOIN departments d ON up.department_id = d.id
         WHERE {where_clause}
     """)
     total = (await db.execute(count_sql, params)).scalar() or 0
@@ -320,12 +428,12 @@ async def list_users(
     query_sql = text(f"""
         SELECT 
             up.id, up.email, up.role, up.full_name, up.phone, up.avatar_url, 
-            up.department_id, d.name as department_name, up.is_active, up.created_at::text,
+            up.department_id, d.name as department_name, up.is_active, up.created_at,
             s.register_number, f.employee_id
-        FROM public.user_profiles up
-        LEFT JOIN public.departments d ON up.department_id = d.id
-        LEFT JOIN public.students s ON s.user_id = up.id
-        LEFT JOIN public.faculty f ON f.user_id = up.id
+        FROM user_profiles up
+        LEFT JOIN departments d ON up.department_id = d.id
+        LEFT JOIN students s ON s.user_id = up.id
+        LEFT JOIN faculty f ON f.user_id = up.id
         WHERE {where_clause}
         ORDER BY up.created_at DESC
         LIMIT :limit OFFSET :offset
@@ -373,7 +481,7 @@ async def create_user(
         raise HTTPException(status_code=400, detail=f"Invalid role. Must be one of {allowed_roles}")
 
     # Check if email exists
-    exist_sql = text("SELECT id FROM public.user_profiles WHERE email = :email")
+    exist_sql = text("SELECT id FROM user_profiles WHERE email = :email")
     existing = (await db.execute(exist_sql, {"email": body.email})).scalar()
     if existing:
         raise HTTPException(status_code=400, detail="A user with this email already exists.")
@@ -383,10 +491,10 @@ async def create_user(
 
     # 1. Insert Profile
     insert_profile_sql = text("""
-        INSERT INTO public.user_profiles (
+        INSERT INTO user_profiles (
             id, email, role, full_name, phone, department_id, is_active, created_at, updated_at
         ) VALUES (
-            :id::uuid, :email, :role, :full_name, :phone, :department_id::uuid, true, NOW(), NOW()
+            :id, :email, :role, :full_name, :phone, :department_id, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
         )
     """)
     await db.execute(insert_profile_sql, {
@@ -403,10 +511,10 @@ async def create_user(
         student_id = str(uuid.uuid4())
         reg_no = body.register_number or f"26UCA{new_user_id[:4].upper()}"
         student_sql = text("""
-            INSERT INTO public.students (
+            INSERT INTO students (
                 id, user_id, register_number, current_semester, department_id, programme_id, is_active, created_at
             ) VALUES (
-                :id::uuid, :user_id::uuid, :reg_no, 1, :dept_id::uuid, :prog_id::uuid, true, NOW()
+                :id, :user_id, :reg_no, 1, :dept_id, :prog_id, true, CURRENT_TIMESTAMP
             )
         """)
         await db.execute(student_sql, {
@@ -420,10 +528,10 @@ async def create_user(
         faculty_id = str(uuid.uuid4())
         emp_id = body.employee_id or f"FAC{new_user_id[:4].upper()}"
         fac_sql = text("""
-            INSERT INTO public.faculty (
+            INSERT INTO faculty (
                 id, user_id, employee_id, designation, department_id, is_active, created_at
             ) VALUES (
-                :id::uuid, :user_id::uuid, :emp_id, :designation, :dept_id::uuid, true, NOW()
+                :id, :user_id, :emp_id, :designation, :dept_id, true, CURRENT_TIMESTAMP
             )
         """)
         await db.execute(fac_sql, {
@@ -436,8 +544,8 @@ async def create_user(
     elif body.role == "parent":
         parent_id = str(uuid.uuid4())
         parent_sql = text("""
-            INSERT INTO public.parents (id, user_id, relation, is_active, created_at)
-            VALUES (:id::uuid, :user_id::uuid, 'Parent', true, NOW())
+            INSERT INTO parents (id, user_id, relation, is_active, created_at)
+            VALUES (:id, :user_id, 'Parent', true, CURRENT_TIMESTAMP)
         """)
         await db.execute(parent_sql, {"id": parent_id, "user_id": new_user_id})
 
@@ -467,12 +575,12 @@ async def update_user(
     admin_user: dict = Depends(require_capability("analytics")),
 ):
     """Update user profile and log audit changes."""
-    check_sql = text("SELECT id, email, role, full_name FROM public.user_profiles WHERE id = :user_id::uuid")
+    check_sql = text("SELECT id, email, role, full_name FROM user_profiles WHERE id = :user_id")
     existing = (await db.execute(check_sql, {"user_id": user_id})).mappings().first()
     if not existing:
         raise HTTPException(status_code=404, detail="User not found")
 
-    updates = ["updated_at = NOW()"]
+    updates = ["updated_at = CURRENT_TIMESTAMP"]
     params: dict[str, Any] = {"user_id": user_id}
 
     if body.full_name is not None:
@@ -485,13 +593,13 @@ async def update_user(
         updates.append("role = :role")
         params["role"] = body.role
     if body.department_id is not None:
-        updates.append("department_id = :department_id::uuid")
+        updates.append("department_id = :department_id")
         params["department_id"] = body.department_id if body.department_id else None
     if body.is_active is not None:
         updates.append("is_active = :is_active")
         params["is_active"] = body.is_active
 
-    update_sql = text(f"UPDATE public.user_profiles SET {', '.join(updates)} WHERE id = :user_id::uuid")
+    update_sql = text(f"UPDATE user_profiles SET {', '.join(updates)} WHERE id = :user_id")
     await db.execute(update_sql, params)
 
     # Log Audit
@@ -515,12 +623,12 @@ async def deactivate_user(
     admin_user: dict = Depends(require_capability("analytics")),
 ):
     """Soft deactivate a user account."""
-    check_sql = text("SELECT id, email, is_active FROM public.user_profiles WHERE id = :user_id::uuid")
+    check_sql = text("SELECT id, email, is_active FROM user_profiles WHERE id = :user_id")
     existing = (await db.execute(check_sql, {"user_id": user_id})).mappings().first()
     if not existing:
         raise HTTPException(status_code=404, detail="User not found")
 
-    deact_sql = text("UPDATE public.user_profiles SET is_active = false, updated_at = NOW() WHERE id = :user_id::uuid")
+    deact_sql = text("UPDATE user_profiles SET is_active = false, updated_at = CURRENT_TIMESTAMP WHERE id = :user_id")
     await db.execute(deact_sql, {"user_id": user_id})
 
     # Log Audit
@@ -605,10 +713,10 @@ async def get_complaint_analytics(
 ):
     """Campus Care ticket volume, resolution times, and SLA compliance."""
     # Count from DB
-    total_sql = text("SELECT COUNT(*) FROM public.complaints")
+    total_sql = text("SELECT COUNT(*) FROM complaints")
     total_count = (await db.execute(total_sql)).scalar() or 24
 
-    open_sql = text("SELECT COUNT(*) FROM public.complaints WHERE status IN ('open', 'assigned', 'in_progress')")
+    open_sql = text("SELECT COUNT(*) FROM complaints WHERE status IN ('open', 'assigned', 'in_progress')")
     open_count = (await db.execute(open_sql)).scalar() or 6
 
     resolved_count = max(0, total_count - open_count)
@@ -644,7 +752,7 @@ async def get_event_analytics(
     user: dict = Depends(require_capability("analytics")),
 ):
     """Event registrations and department engagement statistics."""
-    events_count_sql = text("SELECT COUNT(*) FROM public.events")
+    events_count_sql = text("SELECT COUNT(*) FROM events")
     total_events = (await db.execute(events_count_sql)).scalar() or 18
 
     category_distribution = [
@@ -765,25 +873,25 @@ async def list_audit_logs(
         params["action"] = f"%{action}%"
 
     if from_date:
-        conditions.append("created_at >= :from_date::timestamptz")
+        conditions.append("created_at >= :from_date")
         params["from_date"] = from_date
 
     if to_date:
-        conditions.append("created_at <= :to_date::timestamptz")
+        conditions.append("created_at <= :to_date")
         params["to_date"] = to_date
 
     if q:
-        conditions.append("(action ILIKE :q OR resource_type ILIKE :q OR user_id::text ILIKE :q)")
+        conditions.append("(action ILIKE :q OR resource_type ILIKE :q OR user_id ILIKE :q)")
         params["q"] = f"%{q}%"
 
     where_clause = " AND ".join(conditions)
 
-    count_sql = text(f"SELECT COUNT(*) FROM public.audit_logs WHERE {where_clause}")
+    count_sql = text(f"SELECT COUNT(*) FROM audit_logs WHERE {where_clause}")
     total = (await db.execute(count_sql, params)).scalar() or 0
 
     query_sql = text(f"""
-        SELECT id, user_id::text, action, resource_type, resource_id, details, ip_address, created_at::text
-        FROM public.audit_logs
+        SELECT id, user_id, action, resource_type, resource_id, details, ip_address, created_at
+        FROM audit_logs
         WHERE {where_clause}
         ORDER BY created_at DESC
         LIMIT :limit OFFSET :offset
@@ -825,4 +933,361 @@ async def admin_update_placement_application_status(
         notes=body.get("notes"),
     )
     return await update_application_status(id=id, body=status_update, current_user=current_user)
+
+
+# ── Academics CRUD Endpoints ────────────────────────────────────────────────
+
+@router.get("/academics/programmes")
+async def list_admin_programmes(
+    db: AsyncSession = Depends(get_db),
+    admin_user: dict = Depends(require_capability("analytics")),
+):
+    """Retrieve all degree programmes from database."""
+    q = text("""
+        SELECT p.id, p.name, p.code, p.degree_level, p.department_id,
+               d.name as department, p.sanctioned_intake, p.regulation_batch,
+               COUNT(s.id) as enrolled_count
+        FROM programmes p
+        LEFT JOIN departments d ON p.department_id = d.id
+        LEFT JOIN students s ON s.programme_id = p.id AND s.is_active = true
+        GROUP BY p.id, p.name, p.code, p.degree_level, p.department_id, d.name, p.sanctioned_intake, p.regulation_batch
+        ORDER BY p.name ASC
+    """)
+    rows = (await db.execute(q)).mappings().all()
+    return [
+        {
+            "id": str(r["id"]),
+            "name": r["name"],
+            "code": r["code"],
+            "degree_level": r["degree_level"],
+            "department": r["department"] or "General",
+            "sanctioned_intake": r["sanctioned_intake"] or 60,
+            "enrolled_count": int(r["enrolled_count"] or 0),
+            "regulation_batch": r["regulation_batch"] or "2023 - 2026 (OBE)",
+        }
+        for r in rows
+    ]
+
+
+@router.post("/academics/programmes", status_code=status.HTTP_201_CREATED)
+async def create_admin_programme(
+    body: CreateProgrammeRequest,
+    db: AsyncSession = Depends(get_db),
+    admin_user: dict = Depends(require_capability("analytics")),
+):
+    """Create new degree programme in database with audit logging."""
+    prog_id = str(uuid.uuid4())
+    insert_sql = text("""
+        INSERT INTO programmes (id, name, code, degree_level, department_id, sanctioned_intake, regulation_batch, is_active, created_at, updated_at)
+        VALUES (:id, :name, :code, :degree_level, :department_id, :sanctioned_intake, :regulation_batch, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    """)
+    await db.execute(insert_sql, {
+        "id": prog_id,
+        "name": body.name,
+        "code": body.code,
+        "degree_level": body.degree_level,
+        "department_id": body.department_id if body.department_id else None,
+        "sanctioned_intake": body.sanctioned_intake,
+        "regulation_batch": body.regulation_batch or "2023 - 2026 (OBE)",
+    })
+    admin_id = admin_user.get("id") or admin_user.get("sub")
+    await log_audit_event(user_id=admin_id, action="ADMIN_CREATE_PROGRAMME", resource_type="programmes", resource_id=prog_id, details=body.model_dump(), session=db)
+    return {"status": "success", "message": f"Programme {body.name} created successfully.", "id": prog_id}
+
+
+@router.get("/academics/courses")
+async def list_admin_courses(
+    db: AsyncSession = Depends(get_db),
+    admin_user: dict = Depends(require_capability("analytics")),
+):
+    """Retrieve all curriculum courses from database."""
+    q = text("""
+        SELECT c.id, c.code, c.title, c.semester, c.credits, c.hours_per_week,
+               c.course_type, c.syllabus_status, d.name as department, up.full_name as faculty_name
+        FROM courses c
+        LEFT JOIN departments d ON c.department_id = d.id
+        LEFT JOIN faculty f ON c.faculty_id = f.id
+        LEFT JOIN user_profiles up ON f.user_id = up.id
+        ORDER BY c.code ASC
+    """)
+    rows = (await db.execute(q)).mappings().all()
+    return [
+        {
+            "id": str(r["id"]),
+            "code": r["code"],
+            "title": r["title"],
+            "department": r["department"] or "General",
+            "semester": r["semester"] or 1,
+            "credits": r["credits"] or 4,
+            "hours_per_week": r["hours_per_week"] or 5,
+            "course_type": r["course_type"] or "Major Core",
+            "faculty_name": r["faculty_name"] or "Allocated Faculty",
+            "syllabus_status": r["syllabus_status"] or "Approved",
+        }
+        for r in rows
+    ]
+
+
+@router.post("/academics/courses", status_code=status.HTTP_201_CREATED)
+async def create_admin_course(
+    body: CreateCourseRequest,
+    db: AsyncSession = Depends(get_db),
+    admin_user: dict = Depends(require_capability("analytics")),
+):
+    """Add curriculum course to database with audit log."""
+    course_id = str(uuid.uuid4())
+    insert_sql = text("""
+        INSERT INTO courses (id, code, title, department_id, programme_id, semester, credits, hours_per_week, course_type, syllabus_status, faculty_id, is_active, created_at, updated_at)
+        VALUES (:id, :code, :title, :department_id, :programme_id, :semester, :credits, :hours_per_week, :course_type, 'Approved', :faculty_id, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    """)
+    await db.execute(insert_sql, {
+        "id": course_id,
+        "code": body.code,
+        "title": body.title,
+        "department_id": body.department_id if body.department_id else None,
+        "programme_id": body.programme_id if body.programme_id else None,
+        "semester": body.semester,
+        "credits": body.credits,
+        "hours_per_week": body.hours_per_week,
+        "course_type": body.course_type,
+        "faculty_id": body.faculty_id if body.faculty_id else None,
+    })
+    admin_id = admin_user.get("id") or admin_user.get("sub")
+    await log_audit_event(user_id=admin_id, action="ADMIN_CREATE_COURSE", resource_type="courses", resource_id=course_id, details=body.model_dump(), session=db)
+    return {"status": "success", "message": f"Course {body.title} created successfully.", "id": course_id}
+
+
+# ── Facilities & Venues CRUD ────────────────────────────────────────────────
+
+@router.get("/facilities/bookings")
+async def list_admin_facility_bookings(
+    db: AsyncSession = Depends(get_db),
+    admin_user: dict = Depends(require_capability("analytics")),
+):
+    """Retrieve venue reservations from database."""
+    q = text("SELECT * FROM facility_bookings ORDER BY booking_date DESC")
+    rows = (await db.execute(q)).mappings().all()
+    return [dict(r) for r in rows]
+
+
+@router.post("/facilities/bookings", status_code=status.HTTP_201_CREATED)
+async def create_admin_facility_booking(
+    body: CreateFacilityBookingRequest,
+    db: AsyncSession = Depends(get_db),
+    admin_user: dict = Depends(require_capability("analytics")),
+):
+    """Reserve venue with direct database persistence."""
+    booking_id = str(uuid.uuid4())
+    sql = text("""
+        INSERT INTO facility_bookings (id, facility_name, booking_date, time_slot, purpose, organizer_name, department, expected_attendees, status, created_at, updated_at)
+        VALUES (:id, :facility_name, :booking_date, :time_slot, :purpose, :organizer_name, :department, :expected_attendees, 'approved', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    """)
+    await db.execute(sql, {
+        "id": booking_id,
+        "facility_name": body.facility_name,
+        "booking_date": body.booking_date,
+        "time_slot": body.time_slot,
+        "purpose": body.purpose,
+        "organizer_name": body.organizer_name,
+        "department": body.department,
+        "expected_attendees": body.expected_attendees,
+    })
+    admin_id = admin_user.get("id") or admin_user.get("sub")
+    await log_audit_event(user_id=admin_id, action="ADMIN_BOOK_VENUE", resource_type="facility_bookings", resource_id=booking_id, details=body.model_dump(), session=db)
+    return {"status": "success", "message": f"Venue {body.facility_name} reserved successfully.", "id": booking_id}
+
+
+# ── Events CRUD ─────────────────────────────────────────────────────────────
+
+@router.post("/events", status_code=status.HTTP_201_CREATED)
+async def create_admin_event(
+    body: CreateAdminEventRequest,
+    db: AsyncSession = Depends(get_db),
+    admin_user: dict = Depends(require_capability("analytics")),
+):
+    """Create campus conference or event with database persistence."""
+    event_id = str(uuid.uuid4())
+    sql = text("""
+        INSERT INTO events (id, title, description, category, department, venue, start_date, end_date, time, max_capacity, registered_count, is_registration_open, speaker_details, status, created_at, updated_at)
+        VALUES (:id, :title, :description, :category, :department, :venue, :start_date, :end_date, :time, :max_capacity, 0, true, :speaker_details, 'upcoming', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    """)
+    await db.execute(sql, {
+        "id": event_id,
+        "title": body.title,
+        "description": body.description,
+        "category": body.category,
+        "department": body.department,
+        "venue": body.venue,
+        "start_date": body.start_date,
+        "end_date": body.end_date,
+        "time": body.time,
+        "max_capacity": body.max_capacity,
+        "speaker_details": body.speaker_details,
+    })
+    admin_id = admin_user.get("id") or admin_user.get("sub")
+    await log_audit_event(user_id=admin_id, action="ADMIN_CREATE_EVENT", resource_type="events", resource_id=event_id, details=body.model_dump(), session=db)
+    return {"status": "success", "message": f"Event {body.title} created successfully.", "id": event_id}
+
+
+# ── Library OPAC & Circulation CRUD ─────────────────────────────────────────
+
+@router.post("/library/books", status_code=status.HTTP_201_CREATED)
+async def create_admin_book(
+    body: CreateBookRequest,
+    db: AsyncSession = Depends(get_db),
+    admin_user: dict = Depends(require_capability("analytics")),
+):
+    """Add book accession record into central OPAC repository."""
+    book_id = str(uuid.uuid4())
+    sql = text("""
+        INSERT INTO library_books (id, title, author, isbn, accession_no, department, category, total_copies, available_copies, created_at, updated_at)
+        VALUES (:id, :title, :author, :isbn, :accession_no, :department, :category, :copies, :copies, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    """)
+    await db.execute(sql, {
+        "id": book_id,
+        "title": body.title,
+        "author": body.author,
+        "isbn": body.isbn,
+        "accession_no": body.accession_no,
+        "department": body.department or "General",
+        "category": body.category or "General",
+        "copies": body.copies,
+    })
+    admin_id = admin_user.get("id") or admin_user.get("sub")
+    await log_audit_event(user_id=admin_id, action="ADMIN_ADD_BOOK", resource_type="library_books", resource_id=book_id, details=body.model_dump(), session=db)
+    return {"status": "success", "message": f"Book '{body.title}' accessioned successfully.", "id": book_id}
+
+
+# ── Hostel & Outpass CRUD ───────────────────────────────────────────────────
+
+@router.put("/hostel/outpasses/{id}/status")
+async def update_admin_outpass_status(
+    id: str,
+    body: UpdateOutpassStatusRequest,
+    db: AsyncSession = Depends(get_db),
+    admin_user: dict = Depends(require_capability("analytics")),
+):
+    """Warden digital approval/rejection for student outpass."""
+    sql = text("UPDATE outpasses SET warden_approval_status = :status WHERE id = :id")
+    await db.execute(sql, {"id": id, "status": body.status})
+    admin_id = admin_user.get("id") or admin_user.get("sub")
+    await log_audit_event(user_id=admin_id, action="ADMIN_UPDATE_OUTPASS", resource_type="outpasses", resource_id=id, details={"status": body.status}, session=db)
+    return {"status": "success", "message": f"Outpass marked as {body.status}.", "id": id}
+
+
+# ── Placements & Corporate Drives CRUD ──────────────────────────────────────
+
+@router.post("/placements/drives", status_code=status.HTTP_201_CREATED)
+async def create_admin_placement_drive(
+    body: CreatePlacementDriveRequest,
+    db: AsyncSession = Depends(get_db),
+    admin_user: dict = Depends(require_capability("analytics")),
+):
+    """Post recruitment campus drive into database."""
+    drive_id = str(uuid.uuid4())
+    import json
+    sql = text("""
+        INSERT INTO placement_drives (id, company_name, role_title, ctc_lpa, drive_date, venue, eligibility_criteria, eligible_programmes, status, registered_count, selected_count, created_at)
+        VALUES (:id, :company_name, :role_title, :ctc_lpa, :drive_date, :venue, :eligibility_criteria, :eligible_programmes, 'upcoming', 0, 0, CURRENT_TIMESTAMP)
+    """)
+    await db.execute(sql, {
+        "id": drive_id,
+        "company_name": body.company_name,
+        "role_title": body.role_title,
+        "ctc_lpa": body.ctc_lpa,
+        "drive_date": body.drive_date,
+        "venue": body.venue,
+        "eligibility_criteria": body.eligibility_criteria,
+        "eligible_programmes": json.dumps(body.eligible_programmes),
+    })
+    admin_id = admin_user.get("id") or admin_user.get("sub")
+    await log_audit_event(user_id=admin_id, action="ADMIN_CREATE_PLACEMENT_DRIVE", resource_type="placement_drives", resource_id=drive_id, details=body.model_dump(), session=db)
+    return {"status": "success", "message": f"Drive for {body.company_name} scheduled.", "id": drive_id}
+
+
+# ── IEDC & Incubation CRUD ──────────────────────────────────────────────────
+
+@router.post("/iedc/projects", status_code=status.HTTP_201_CREATED)
+async def create_admin_iedc_project(
+    body: CreateIEDCProjectRequest,
+    db: AsyncSession = Depends(get_db),
+    admin_user: dict = Depends(require_capability("analytics")),
+):
+    """Register student innovation and startup project in incubation cell."""
+    proj_id = str(uuid.uuid4())
+    sql = text("""
+        INSERT INTO iedc_projects (id, title, lead_student, faculty_mentor, domain, funding_agency, grant_amount, trl_level, status, created_at)
+        VALUES (:id, :title, :lead_student, :faculty_mentor, :domain, :funding_agency, :grant_amount, :trl_level, 'Incubating', CURRENT_TIMESTAMP)
+    """)
+    await db.execute(sql, {
+        "id": proj_id,
+        "title": body.title,
+        "lead_student": body.lead_student,
+        "faculty_mentor": body.faculty_mentor,
+        "domain": body.domain,
+        "funding_agency": body.funding_agency,
+        "grant_amount": body.grant_amount,
+        "trl_level": body.trl_level,
+    })
+    admin_id = admin_user.get("id") or admin_user.get("sub")
+    await log_audit_event(user_id=admin_id, action="ADMIN_CREATE_IEDC_PROJECT", resource_type="iedc_projects", resource_id=proj_id, details=body.model_dump(), session=db)
+    return {"status": "success", "message": f"Startup project '{body.title}' incubated.", "id": proj_id}
+
+
+# ── ICT Infrastructure CRUD ─────────────────────────────────────────────────
+
+@router.post("/infrastructure/assets", status_code=status.HTTP_201_CREATED)
+async def create_admin_ict_asset(
+    body: CreateICTAssetRequest,
+    db: AsyncSession = Depends(get_db),
+    admin_user: dict = Depends(require_capability("analytics")),
+):
+    """Log physical computing or networking hardware asset."""
+    asset_id = str(uuid.uuid4())
+    sql = text("""
+        INSERT INTO ict_assets (id, asset_tag, name, category, location, specifications, warranty_end_date, vendor, health_status, created_at)
+        VALUES (:id, :asset_tag, :name, :category, :location, :specifications, :warranty_end_date, :vendor, 'Operational', CURRENT_TIMESTAMP)
+    """)
+    await db.execute(sql, {
+        "id": asset_id,
+        "asset_tag": body.asset_tag,
+        "name": body.name,
+        "category": body.category,
+        "location": body.location,
+        "specifications": body.specifications,
+        "warranty_end_date": body.warranty_end_date if body.warranty_end_date else None,
+        "vendor": body.vendor,
+    })
+    admin_id = admin_user.get("id") or admin_user.get("sub")
+    await log_audit_event(user_id=admin_id, action="ADMIN_CREATE_ICT_ASSET", resource_type="ict_assets", resource_id=asset_id, details=body.model_dump(), session=db)
+    return {"status": "success", "message": f"Asset {body.name} recorded in inventory.", "id": asset_id}
+
+
+# ── Student Life & Clubs CRUD ───────────────────────────────────────────────
+
+@router.post("/life/activities", status_code=status.HTTP_201_CREATED)
+async def create_admin_club_activity(
+    body: CreateClubActivityRequest,
+    db: AsyncSession = Depends(get_db),
+    admin_user: dict = Depends(require_capability("analytics")),
+):
+    """Log NSS, NCC, and fine arts club extension activity."""
+    act_id = str(uuid.uuid4())
+    sql = text("""
+        INSERT INTO student_clubs (id, activity_name, unit_type, activity_date, venue, description, volunteer_count, credits, status, created_at)
+        VALUES (:id, :activity_name, :unit_type, :activity_date, :venue, :description, :volunteer_count, :credits, 'completed', CURRENT_TIMESTAMP)
+    """)
+    await db.execute(sql, {
+        "id": act_id,
+        "activity_name": body.activity_name,
+        "unit_type": body.unit_type,
+        "activity_date": body.activity_date,
+        "venue": body.venue,
+        "description": body.description,
+        "volunteer_count": body.volunteer_count,
+        "credits": body.credits,
+    })
+    admin_id = admin_user.get("id") or admin_user.get("sub")
+    await log_audit_event(user_id=admin_id, action="ADMIN_CREATE_CLUB_ACTIVITY", resource_type="student_clubs", resource_id=act_id, details=body.model_dump(), session=db)
+    return {"status": "success", "message": f"Activity '{body.activity_name}' recorded.", "id": act_id}
 

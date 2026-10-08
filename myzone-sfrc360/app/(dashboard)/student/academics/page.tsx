@@ -12,7 +12,6 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import AppShell from '@/components/layout/AppShell';
 import AskPragyaBanner from '@/components/shared/AskPragyaBanner';
 import { createClient } from '@/lib/supabase/client';
 import { apiGet } from '@/lib/api-client';
@@ -233,8 +232,7 @@ export default function StudentAcademicsPage() {
   const periods = [1, 2, 3, 4, 5, 6, 7, 8];
 
   return (
-    <AppShell role="student" userName="Student">
-      <div className="p-4 sm:p-6 lg:p-8 space-y-8 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 lg:p-8 space-y-8 max-w-7xl mx-auto">
         {/* Page Header */}
         <div className="bg-white p-6 rounded-3xl border border-sfrc-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
@@ -758,6 +756,5 @@ export default function StudentAcademicsPage() {
         {/* Bottom Section: Ask Pragya Banner */}
         <AskPragyaBanner />
       </div>
-    </AppShell>
   );
 }

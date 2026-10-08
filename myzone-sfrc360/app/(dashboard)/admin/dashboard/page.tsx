@@ -4,7 +4,6 @@ import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { Users, GraduationCap, Wrench, Shield, Calendar, ArrowRight, Activity, Loader2, UserPlus, BellPlus, Sliders, TrendingUp } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import AppShell from '@/components/layout/AppShell';
 import AskPragyaBanner from '@/components/shared/AskPragyaBanner';
 import { createClient } from '@/lib/supabase/client';
 import { apiGet } from '@/lib/api-client';
@@ -123,14 +122,12 @@ export default function AdminDashboardPage() {
 
   if (isLoading && !data) {
     return (
-      <AppShell role="admin" userName="Administrator">
-        <div className="min-h-[60vh] flex flex-col items-center justify-center gap-3">
-          <Loader2 className="w-8 h-8 animate-spin text-sfrc-700" />
-          <p className="text-xs font-semibold text-sfrc-600">
-            Querying institution KPIs from SFRC Database…
-          </p>
-        </div>
-      </AppShell>
+      <div className="min-h-[60vh] flex flex-col items-center justify-center gap-3">
+        <Loader2 className="w-8 h-8 animate-spin text-sfrc-700" />
+        <p className="text-xs font-semibold text-sfrc-600">
+          Querying institution KPIs from SFRC Database…
+        </p>
+      </div>
     );
   }
 
@@ -140,8 +137,7 @@ export default function AdminDashboardPage() {
   })) || [];
 
   return (
-    <AppShell role="admin" userName="Administrator">
-      <div className="p-4 sm:p-6 lg:p-8 space-y-8 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 lg:p-8 space-y-8 max-w-7xl mx-auto">
         {/* Header Profile & Quick Actions */}
         <div className="bg-white p-6 rounded-3xl border border-sfrc-200 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
@@ -462,6 +458,5 @@ export default function AdminDashboardPage() {
 
         <AskPragyaBanner />
       </div>
-    </AppShell>
   );
 }

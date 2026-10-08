@@ -16,7 +16,6 @@ import {
   ChevronUp,
   AlertTriangle,
 } from 'lucide-react';
-import AppShell from '@/components/layout/AppShell';
 import { createClient } from '@/lib/supabase/client';
 import { apiGet, apiPost } from '@/lib/api-client';
 
@@ -151,8 +150,7 @@ export default function AdminIntegrationsPage() {
   const totalPages = Math.ceil(syncLogsTotal / 15);
 
   return (
-    <AppShell role="admin" userName="System Administrator">
-      <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <div className="p-6 max-w-6xl mx-auto space-y-6">
 
         {/* ── Header ──────────────────────────────────────────────────────────── */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 via-violet-950 to-indigo-950 p-6 rounded-2xl text-white shadow-xl border border-violet-800/30">
@@ -442,6 +440,5 @@ export default function AdminIntegrationsPage() {
           )}
         </div>
       </div>
-    </AppShell>
   );
 }

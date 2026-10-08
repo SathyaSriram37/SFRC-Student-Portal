@@ -23,11 +23,25 @@ test-results/
 playwright-report/
 blob-report/
 
-# Environment Variables
+# Environment Variables & Secrets
+.env
+.env.*
+!.env.example
+!.env*.example
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+backend/.env
+myzone-sfrc360/.env
+myzone-sfrc360/.env.local
+
+# Databases & Local data
+*.db
+*.sqlite
+*.sqlite3
+college.db
+backend/college.db
 
 # Temporary / Scratch files
 *.log
@@ -39,6 +53,8 @@ eslint_result.json
 lh-report.json
 lh-login-report.json
 out.txt
+backend/scratch_*.py
+scratch/
 
 # OS Files
 .DS_Store

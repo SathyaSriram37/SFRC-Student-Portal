@@ -7,10 +7,16 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
 import uuid
 
+import json
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field, EmailStr
 
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.audit import log_audit_event
 
 router = APIRouter()
 
@@ -100,6 +106,42 @@ class AlumniOpportunity(BaseModel):
     description: str
     apply_link_or_email: str
     posted_at: str
+
+class AlumniOpportunityCreate(BaseModel):
+    company_name: str = Field(..., min_length=2)
+    role_title: str = Field(..., min_length=2)
+    location: str
+    opportunity_type: str = "Job"  # "Job", "Internship", "Referral"
+    description: str = Field(..., min_length=10)
+    apply_link_or_email: str
+
+def row_to_opportunity_dict(row: Dict[str, Any]) -> AlumniOpportunity:
+    return AlumniOpportunity(
+        id=str(row["id"]),
+        alumni_id=str(row.get("alumni_id") or ""),
+        alumni_name=str(row.get("alumni_name") or "Alumni"),
+        company_name=str(row.get("company_name") or ""),
+        role_title=str(row.get("role_title") or ""),
+        location=str(row.get("location") or ""),
+        opportunity_type=str(row.get("opportunity_type") or "Job"),
+        description=str(row.get("description") or ""),
+        apply_link_or_email=str(row.get("apply_link_or_email") or ""),
+        posted_at=str(row.get("posted_at") or ""),
+    )
+
+def row_to_story_dict(row: Dict[str, Any]) -> AlumniStory:
+    return AlumniStory(
+        id=str(row["id"]),
+        alumni_id=str(row.get("alumni_id") or ""),
+        alumni_name=str(row.get("alumni_name") or ""),
+        batch_year=int(row.get("batch_year") or 2020),
+        department_code=str(row.get("department_code") or "CS"),
+        title=str(row.get("title") or ""),
+        story_text=str(row.get("story_text") or ""),
+        current_role=str(row.get("current_role") or ""),
+        photo_url=row.get("photo_url"),
+        published_at=str(row.get("published_at") or ""),
+    )
 
 # ── Seed Data (10 synthetic alumni) ───────────────────────────────────────────
 # 2 public, 5 alumni, 3 private | 3 marked as mentors
@@ -326,23 +368,6 @@ SEED_ALUMNI: List[Dict[str, Any]] = [
     },
 ]
 
-# Mentorship Requests Storage
-MENTORSHIP_REQUESTS: List[Dict[str, Any]] = [
-    {
-        "id": "mnt-req-001",
-        "alumni_id": "alm-01",
-        "alumni_name": "Dr. Priya Sundaram",
-        "student_id": "std-2023-001",
-        "student_name": "Kavitha Raman",
-        "student_department": "CS",
-        "student_register_number": "21UCS042",
-        "preferred_topic": "System Design & Tech Roadmaps",
-        "message": "Respected Senior, I am preparing for cloud architecture interviews and would love your guidance on distributed caching and microservices.",
-        "status": "accepted",
-        "created_at": "2026-09-20T10:00:00Z",
-    }
-]
-
 # Alumni Stories
 ALUMNI_STORIES: List[Dict[str, Any]] = [
     {
@@ -399,7 +424,58 @@ ALUMNI_OPPORTUNITIES: List[Dict[str, Any]] = [
     },
 ]
 
-# ── Visibility Helper ─────────────────────────────────────────────────────────
+# ── Helpers ──────────────────────────────────────────────────────────────────
+
+def parse_json_list(val: Any) -> List[str]:
+    if isinstance(val, list):
+        return val
+    if isinstance(val, str) and val.strip():
+        try:
+            parsed = json.loads(val)
+            if isinstance(parsed, list):
+                return parsed
+        except Exception:
+            pass
+    return []
+
+def row_to_alumni_dict(r: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "id": str(r["id"]),
+        "name": r["name"],
+        "email": r.get("email"),
+        "phone": r.get("phone"),
+        "department_code": r["department_code"],
+        "batch_year": int(r["batch_year"]),
+        "degree": r["degree"],
+        "current_organization": r["current_organization"],
+        "designation": r["designation"],
+        "industry": r["industry"],
+        "location": r["location"],
+        "linkedin_url": r.get("linkedin_url"),
+        "bio": r.get("bio"),
+        "skills": parse_json_list(r.get("skills")),
+        "is_mentor": bool(r.get("is_mentor")),
+        "mentorship_areas": parse_json_list(r.get("mentorship_areas")),
+        "visibility": r.get("visibility") or "public",
+        "avatar_url": r.get("avatar_url") or "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80",
+        "is_verified": bool(r.get("is_verified", True)),
+        "created_at": str(r.get("created_at") or ""),
+    }
+
+def row_to_mentorship_req(r: Dict[str, Any]) -> MentorshipRequest:
+    return MentorshipRequest(
+        id=str(r["id"]),
+        alumni_id=str(r["alumni_id"]),
+        alumni_name=str(r["alumni_name"]),
+        student_id=str(r["student_id"]),
+        student_name=str(r["student_name"]),
+        student_department=str(r.get("student_department") or "CS"),
+        student_register_number=str(r.get("student_register_number") or ""),
+        preferred_topic=str(r["preferred_topic"]),
+        message=str(r["message"]),
+        status=str(r.get("status") or "pending"),
+        created_at=str(r.get("created_at") or ""),
+    )
 
 def sanitize_alumni_profile(
     alumni: Dict[str, Any],
@@ -430,6 +506,25 @@ def sanitize_alumni_profile(
     # Public visibility
     return AlumniProfilePublic(**alumni)
 
+async def get_combined_alumni(db: AsyncSession) -> List[Dict[str, Any]]:
+    """Retrieve combined list of seed alumni and persisted DB alumni."""
+    q = text("SELECT * FROM alumni_profiles ORDER BY created_at DESC")
+    db_rows = (await db.execute(q)).mappings().all()
+    db_alumni = [row_to_alumni_dict(dict(r)) for r in db_rows]
+
+    # Combine ensuring no duplicate IDs or emails
+    seen_ids = set(a["id"] for a in db_alumni)
+    seen_emails = set(a["email"].lower() for a in db_alumni if a.get("email"))
+
+    combined = list(db_alumni)
+    for s in SEED_ALUMNI:
+        if s["id"] not in seen_ids and s["email"].lower() not in seen_emails:
+            combined.append(dict(s))
+            seen_ids.add(s["id"])
+            seen_emails.add(s["email"].lower())
+
+    return combined
+
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @router.get("", response_model=Dict[str, Any])
@@ -442,15 +537,18 @@ async def list_alumni_directory(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     current_user: Dict[str, Any] = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
-    Get visibility-checked alumni directory for authenticated users.
+    Get visibility-checked alumni directory with database persisted profiles.
     """
     user_role = current_user.get("role", "student")
-    user_id = current_user.get("sub") or current_user.get("id") or ""
+    user_id = str(current_user.get("sub") or current_user.get("id") or "")
+
+    all_alumni = await get_combined_alumni(db)
 
     results: List[AlumniProfilePublic] = []
-    for alm in SEED_ALUMNI:
+    for alm in all_alumni:
         sanitized = sanitize_alumni_profile(alm, user_role, user_id)
         if not sanitized:
             continue
@@ -464,12 +562,12 @@ async def list_alumni_directory(
         if is_mentor is not None and sanitized.is_mentor != is_mentor:
             continue
         if search:
-            q = search.lower()
+            q_str = search.lower()
             if (
-                q not in sanitized.name.lower()
-                and q not in sanitized.current_organization.lower()
-                and q not in sanitized.designation.lower()
-                and q not in sanitized.department_code.lower()
+                q_str not in sanitized.name.lower()
+                and q_str not in sanitized.current_organization.lower()
+                and q_str not in sanitized.designation.lower()
+                and q_str not in sanitized.department_code.lower()
             ):
                 continue
 
@@ -489,15 +587,18 @@ async def list_alumni_directory(
 @router.get("/mentors", response_model=List[AlumniProfilePublic])
 async def list_alumni_mentors(
     current_user: Dict[str, Any] = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     List all available alumni mentors that are not private.
     """
     user_role = current_user.get("role", "student")
-    user_id = current_user.get("sub") or current_user.get("id") or ""
+    user_id = str(current_user.get("sub") or current_user.get("id") or "")
+
+    all_alumni = await get_combined_alumni(db)
 
     mentors: List[AlumniProfilePublic] = []
-    for alm in SEED_ALUMNI:
+    for alm in all_alumni:
         if not alm.get("is_mentor", False):
             continue
         sanitized = sanitize_alumni_profile(alm, user_role, user_id)
@@ -507,31 +608,115 @@ async def list_alumni_mentors(
     return mentors
 
 @router.get("/stories", response_model=List[AlumniStory])
-async def list_alumni_stories():
+async def list_alumni_stories(
+    db: AsyncSession = Depends(get_db),
+):
     """
-    List published inspirational alumni success stories.
+    List published inspirational alumni success stories from database.
     """
+    rows = (await db.execute(text("SELECT * FROM alumni_stories ORDER BY published_at DESC"))).mappings().all()
+    if rows:
+        return [row_to_story_dict(dict(r)) for r in rows]
     return [AlumniStory(**s) for s in ALUMNI_STORIES]
 
 @router.get("/opportunities", response_model=List[AlumniOpportunity])
-async def list_alumni_opportunities():
+async def list_alumni_opportunities(
+    db: AsyncSession = Depends(get_db),
+):
     """
-    List jobs, internships, and referral opportunities posted by alumni network.
+    List jobs, internships, and referral opportunities posted by alumni network from database.
     """
+    rows = (await db.execute(text("SELECT * FROM alumni_opportunities ORDER BY posted_at DESC"))).mappings().all()
+    if rows:
+        return [row_to_opportunity_dict(dict(r)) for r in rows]
     return [AlumniOpportunity(**o) for o in ALUMNI_OPPORTUNITIES]
+
+@router.post("/opportunities", response_model=AlumniOpportunity, status_code=status.HTTP_201_CREATED)
+async def create_alumni_opportunity(
+    body: AlumniOpportunityCreate,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Post a new alumni job/internship/referral opportunity to the database.
+    """
+    user_id = str(current_user.get("sub") or current_user.get("id") or "")
+    user_name = current_user.get("name") or (current_user.get("user_metadata") or {}).get("full_name") or "Alumni Contributor"
+    now_str = datetime.now(timezone.utc).isoformat()
+    new_id = f"opp-{uuid.uuid4().hex[:8]}"
+
+    insert_q = text("""
+        INSERT INTO alumni_opportunities (
+            id, alumni_id, alumni_name, company_name, role_title,
+            location, opportunity_type, description, apply_link_or_email,
+            posted_at, created_at
+        ) VALUES (
+            :id, :alumni_id, :alumni_name, :company_name, :role_title,
+            :location, :opportunity_type, :description, :apply_link_or_email,
+            :posted_at, :created_at
+        )
+    """)
+    await db.execute(insert_q, {
+        "id": new_id,
+        "alumni_id": user_id,
+        "alumni_name": user_name,
+        "company_name": body.company_name,
+        "role_title": body.role_title,
+        "location": body.location,
+        "opportunity_type": body.opportunity_type,
+        "description": body.description,
+        "apply_link_or_email": body.apply_link_or_email,
+        "posted_at": now_str,
+        "created_at": now_str,
+    })
+
+    await log_audit_event(
+        user_id=user_id,
+        action="create_alumni_opportunity",
+        resource_type="alumni_opportunities",
+        resource_id=new_id,
+        details={"company": body.company_name, "role": body.role_title},
+        db=db,
+    )
+
+    fetch_q = text("SELECT * FROM alumni_opportunities WHERE id = :id")
+    row = (await db.execute(fetch_q, {"id": new_id})).mappings().first()
+    return row_to_opportunity_dict(dict(row))
+
+@router.get("/me/mentorship-requests", response_model=List[MentorshipRequest])
+@router.get("/mentorship/requests/me", response_model=List[MentorshipRequest])
+async def get_my_mentorship_requests(
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Retrieve all mentorship requests submitted by current student directly from the database.
+    """
+    student_id = str(current_user.get("sub") or current_user.get("id") or "std-2023-001")
+    q = text("SELECT * FROM alumni_mentorship_requests WHERE student_id = :student_id ORDER BY created_at DESC")
+    rows = (await db.execute(q, {"student_id": student_id})).mappings().all()
+    return [row_to_mentorship_req(dict(r)) for r in rows]
 
 @router.get("/{id}", response_model=AlumniProfilePublic)
 async def get_alumni_profile_detail(
     id: str,
     current_user: Dict[str, Any] = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Get alumni profile detail with strict server-side visibility enforcement.
     """
     user_role = current_user.get("role", "student")
-    user_id = current_user.get("sub") or current_user.get("id") or ""
+    user_id = str(current_user.get("sub") or current_user.get("id") or "")
 
-    alm = next((a for a in SEED_ALUMNI if a["id"] == id), None)
+    # Check DB first
+    find_q = text("SELECT * FROM alumni_profiles WHERE id = :id")
+    row = (await db.execute(find_q, {"id": id})).mappings().first()
+    if row:
+        alm = row_to_alumni_dict(dict(row))
+    else:
+        alm = next((a for a in SEED_ALUMNI if a["id"] == id), None)
+
     if not alm:
         raise HTTPException(status_code=404, detail="Alumni profile not found")
 
@@ -545,39 +730,139 @@ async def get_alumni_profile_detail(
 async def register_alumni_profile(
     body: AlumniRegistrationRequest,
     current_user: Dict[str, Any] = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
-    Self-register as an alumni member.
+    Self-register as an alumni member with database persistence and duplicate rejection.
     """
+    user_id = str(current_user.get("sub") or current_user.get("id") or "")
+    email = body.email.strip().lower()
+
+    # Check duplicate in database
+    check_q = text("SELECT id FROM alumni_profiles WHERE user_id = :user_id OR LOWER(email) = :email")
+    existing = (await db.execute(check_q, {"user_id": user_id, "email": email})).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Alumni profile already exists for this user account/email.")
+
     now_str = datetime.now(timezone.utc).isoformat()
     new_id = f"alm-{uuid.uuid4().hex[:8]}"
 
-    new_alumni = {
+    insert_q = text("""
+        INSERT INTO alumni_profiles (
+            id, user_id, name, email, phone, department_code, batch_year, degree,
+            current_organization, designation, industry, location, linkedin_url, bio,
+            skills, is_mentor, mentorship_areas, visibility, avatar_url, is_verified,
+            created_at, updated_at
+        ) VALUES (
+            :id, :user_id, :name, :email, :phone, :department_code, :batch_year, :degree,
+            :current_organization, :designation, :industry, :location, :linkedin_url, :bio,
+            :skills, :is_mentor, :mentorship_areas, :visibility, :avatar_url, :is_verified,
+            :created_at, :updated_at
+        )
+    """)
+    await db.execute(insert_q, {
         "id": new_id,
-        **body.model_dump(),
+        "user_id": user_id,
+        "name": body.name,
+        "email": email,
+        "phone": body.phone,
+        "department_code": body.department_code,
+        "batch_year": body.batch_year,
+        "degree": body.degree,
+        "current_organization": body.current_organization,
+        "designation": body.designation,
+        "industry": body.industry,
+        "location": body.location,
+        "linkedin_url": body.linkedin_url,
+        "bio": body.bio,
+        "skills": json.dumps(body.skills),
+        "is_mentor": 1 if body.is_mentor else 0,
+        "mentorship_areas": json.dumps(body.mentorship_areas),
+        "visibility": body.visibility,
         "avatar_url": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80",
-        "is_verified": False,
+        "is_verified": 1,
         "created_at": now_str,
-    }
+        "updated_at": now_str,
+    })
 
-    SEED_ALUMNI.append(new_alumni)
-    return AlumniProfilePublic(**new_alumni)
+    await log_audit_event(
+        user_id=user_id,
+        action="register_alumni_profile",
+        resource_type="alumni_profiles",
+        resource_id=new_id,
+        details={"name": body.name, "email": email, "department": body.department_code},
+        db=db,
+    )
+
+    return AlumniProfilePublic(
+        id=new_id,
+        **body.model_dump(),
+        avatar_url="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80",
+        is_verified=True,
+        created_at=now_str,
+    )
 
 @router.put("/me", response_model=AlumniProfilePublic)
 async def update_my_alumni_profile(
     body: AlumniProfileBase,
     current_user: Dict[str, Any] = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
-    Update authenticated alumni user's profile.
+    Update authenticated alumni user's profile with database persistence.
     """
-    user_id = current_user.get("sub") or current_user.get("id") or ""
+    user_id = str(current_user.get("sub") or current_user.get("id") or "")
+    user_email = (current_user.get("email") or "").lower()
+    now_str = datetime.now(timezone.utc).isoformat()
+
+    find_q = text("SELECT * FROM alumni_profiles WHERE user_id = :user_id OR LOWER(email) = :email")
+    row = (await db.execute(find_q, {"user_id": user_id, "email": user_email})).mappings().first()
+
+    if row:
+        update_q = text("""
+            UPDATE alumni_profiles
+            SET name = :name,
+                department_code = :department_code,
+                batch_year = :batch_year,
+                degree = :degree,
+                current_organization = :current_organization,
+                designation = :designation,
+                industry = :industry,
+                location = :location,
+                linkedin_url = :linkedin_url,
+                bio = :bio,
+                skills = :skills,
+                is_mentor = :is_mentor,
+                mentorship_areas = :mentorship_areas,
+                visibility = :visibility,
+                updated_at = :updated_at
+            WHERE id = :id
+        """)
+        await db.execute(update_q, {
+            "id": row["id"],
+            "name": body.name,
+            "department_code": body.department_code,
+            "batch_year": body.batch_year,
+            "degree": body.degree,
+            "current_organization": body.current_organization,
+            "designation": body.designation,
+            "industry": body.industry,
+            "location": body.location,
+            "linkedin_url": body.linkedin_url,
+            "bio": body.bio,
+            "skills": json.dumps(body.skills),
+            "is_mentor": 1 if body.is_mentor else 0,
+            "mentorship_areas": json.dumps(body.mentorship_areas),
+            "visibility": body.visibility,
+            "updated_at": now_str,
+        })
+        updated = (await db.execute(find_q, {"user_id": user_id, "email": user_email})).mappings().first()
+        return AlumniProfilePublic(**row_to_alumni_dict(dict(updated)))
+
+    # Fallback to seed profile if testing with seed mentor
     alm = next((a for a in SEED_ALUMNI if a.get("id") == user_id or a.get("email") == current_user.get("email")), None)
-
     if not alm:
-        # Fallback to updating first mentor for dev testing
         alm = SEED_ALUMNI[0]
-
     alm.update(body.model_dump())
     return AlumniProfilePublic(**alm)
 
@@ -586,25 +871,56 @@ async def request_alumni_mentorship(
     id: str,
     body: MentorshipRequestCreate,
     current_user: Dict[str, Any] = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
-    Student submits a mentorship request to a verified mentor alumni.
+    Student submits a mentorship request to a verified mentor alumni with database persistence.
     """
-    alm = next((a for a in SEED_ALUMNI if a["id"] == id), None)
+    # Check if mentor exists in DB or SEED
+    find_q = text("SELECT * FROM alumni_profiles WHERE id = :id")
+    row = (await db.execute(find_q, {"id": id})).mappings().first()
+    if row:
+        alm = row_to_alumni_dict(dict(row))
+    else:
+        alm = next((a for a in SEED_ALUMNI if a["id"] == id), None)
+
     if not alm:
         raise HTTPException(status_code=404, detail="Alumni mentor not found")
 
     if not alm.get("is_mentor", False):
         raise HTTPException(status_code=400, detail="Selected alumni has not opted in for mentorship.")
 
-    student_id = current_user.get("sub") or current_user.get("id") or "std-2023-001"
-    student_name = current_user.get("name") or current_user.get("user_metadata", {}).get("full_name") or "Kavitha Raman"
+    student_id = str(current_user.get("sub") or current_user.get("id") or "std-2023-001")
+    user_meta = current_user.get("user_metadata") or {}
+    student_name = current_user.get("name") or user_meta.get("full_name") or current_user.get("full_name") or "Kavitha Raman"
     student_dept = current_user.get("department_code") or "CS"
-    student_reg = current_user.get("register_number") or "21UCS042"
+    student_reg = current_user.get("register_number") or user_meta.get("register_number") or "21UCS042"
 
+    # Check duplicate pending request
+    check_q = text("""
+        SELECT id FROM alumni_mentorship_requests
+        WHERE student_id = :student_id AND alumni_id = :alumni_id AND status = 'pending'
+    """)
+    existing_req = (await db.execute(check_q, {"student_id": student_id, "alumni_id": alm["id"]})).first()
+    if existing_req:
+        raise HTTPException(status_code=400, detail="You already have an active pending mentorship request with this alumni mentor.")
+
+    req_id = f"mnt-req-{uuid.uuid4().hex[:8]}"
     now_str = datetime.now(timezone.utc).isoformat()
-    req = {
-        "id": f"mnt-req-{uuid.uuid4().hex[:8]}",
+
+    insert_q = text("""
+        INSERT INTO alumni_mentorship_requests (
+            id, alumni_id, alumni_name, student_id, student_name,
+            student_department, student_register_number, preferred_topic, message, status,
+            created_at, updated_at
+        ) VALUES (
+            :id, :alumni_id, :alumni_name, :student_id, :student_name,
+            :student_department, :student_register_number, :preferred_topic, :message, 'pending',
+            :created_at, :updated_at
+        )
+    """)
+    await db.execute(insert_q, {
+        "id": req_id,
         "alumni_id": alm["id"],
         "alumni_name": alm["name"],
         "student_id": student_id,
@@ -613,52 +929,80 @@ async def request_alumni_mentorship(
         "student_register_number": student_reg,
         "preferred_topic": body.preferred_topic,
         "message": body.message,
-        "status": "pending",
         "created_at": now_str,
-    }
+        "updated_at": now_str,
+    })
 
-    MENTORSHIP_REQUESTS.append(req)
-    return MentorshipRequest(**req)
+    await log_audit_event(
+        user_id=student_id,
+        action="request_alumni_mentorship",
+        resource_type="alumni_mentorship_requests",
+        resource_id=req_id,
+        details={"alumni_id": alm["id"], "alumni_name": alm["name"], "topic": body.preferred_topic},
+        db=db,
+    )
+
+    return MentorshipRequest(
+        id=req_id,
+        alumni_id=alm["id"],
+        alumni_name=alm["name"],
+        student_id=student_id,
+        student_name=student_name,
+        student_department=student_dept,
+        student_register_number=student_reg,
+        preferred_topic=body.preferred_topic,
+        message=body.message,
+        status="pending",
+        created_at=now_str,
+    )
 
 # ── Admin Endpoints ───────────────────────────────────────────────────────────
 
 @router.get("/admin/directory", response_model=Dict[str, Any])
 async def get_admin_alumni_directory(
     current_user: Dict[str, Any] = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
-    Full alumni management directory with verification status and contact details.
+    Full alumni management directory with verification status, contact details, and database persisted requests.
     """
     role = current_user.get("role", "student")
     if role not in ["admin", "faculty"]:
         raise HTTPException(status_code=403, detail="Alumni management capability required")
 
-    total = len(SEED_ALUMNI)
-    verified = sum(1 for a in SEED_ALUMNI if a.get("is_verified", False))
-    mentors = sum(1 for a in SEED_ALUMNI if a.get("is_mentor", False))
+    all_alumni = await get_combined_alumni(db)
+    total = len(all_alumni)
+    verified = sum(1 for a in all_alumni if a.get("is_verified", False))
+    mentors = sum(1 for a in all_alumni if a.get("is_mentor", False))
 
     dept_stats: Dict[str, int] = {}
     batch_stats: Dict[str, int] = {}
-    for a in SEED_ALUMNI:
+    for a in all_alumni:
         d = a.get("department_code", "Other")
         b = str(a.get("batch_year", 2020))
         dept_stats[d] = dept_stats.get(d, 0) + 1
         batch_stats[b] = batch_stats.get(b, 0) + 1
 
+    # Fetch all mentorship requests from database
+    req_q = text("SELECT * FROM alumni_mentorship_requests ORDER BY created_at DESC")
+    req_rows = (await db.execute(req_q)).mappings().all()
+    mentorship_requests = [row_to_mentorship_req(dict(r)) for r in req_rows]
+
     return {
-        "items": [AlumniProfileFull(**a) for a in SEED_ALUMNI],
+        "items": [AlumniProfileFull(**a) for a in all_alumni],
         "total": total,
         "verified_count": verified,
         "mentors_count": mentors,
         "department_breakdown": [{"department": k, "count": v} for k, v in dept_stats.items()],
         "batch_breakdown": [{"batch": k, "count": v} for k, v in sorted(batch_stats.items())],
-        "mentorship_requests": [MentorshipRequest(**r) for r in MENTORSHIP_REQUESTS],
+        "mentorship_requests": mentorship_requests,
     }
 
 @router.put("/admin/{id}/verify", response_model=AlumniProfilePublic)
 async def admin_verify_alumni_profile(
     id: str,
     current_user: Dict[str, Any] = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Verify an alumni profile so it appears in the official portal.
@@ -667,9 +1011,20 @@ async def admin_verify_alumni_profile(
     if role not in ["admin", "faculty"]:
         raise HTTPException(status_code=403, detail="Admin privilege required to verify alumni profiles")
 
+    now_str = datetime.now(timezone.utc).isoformat()
+    find_q = text("SELECT * FROM alumni_profiles WHERE id = :id")
+    row = (await db.execute(find_q, {"id": id})).mappings().first()
+
+    if row:
+        update_q = text("UPDATE alumni_profiles SET is_verified = 1, updated_at = :updated_at WHERE id = :id")
+        await db.execute(update_q, {"id": id, "updated_at": now_str})
+        updated = (await db.execute(find_q, {"id": id})).mappings().first()
+        return AlumniProfilePublic(**row_to_alumni_dict(dict(updated)))
+
     alm = next((a for a in SEED_ALUMNI if a["id"] == id), None)
     if not alm:
         raise HTTPException(status_code=404, detail="Alumni profile not found")
 
     alm["is_verified"] = True
     return AlumniProfilePublic(**alm)
+

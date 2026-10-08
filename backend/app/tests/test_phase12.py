@@ -11,10 +11,14 @@ from jose import jwt
 from app.main import app
 from app.core.config import settings
 
+import uuid
+
 def create_test_token(role: str = "student", extra_claims: dict = None) -> str:
+    default_sub = f"{role[:3]}-{uuid.uuid4().hex[:6]}"
+    sub_id = extra_claims.get("sub") if extra_claims and "sub" in extra_claims else default_sub
     payload = {
-        "sub": "std-2023-001" if role == "student" else "fac-2023-001" if role == "faculty" else "adm-2023-001",
-        "email": f"{role}@sfrc.edu.in",
+        "sub": sub_id,
+        "email": f"{sub_id}@sfrc.edu.in",
         "role": "authenticated",
         "user_metadata": {
             "role": role,
@@ -56,7 +60,7 @@ async def test_placement_drives_and_student_eligibility():
         assert any("CGPA" in r and "✓" in r for r in tcs["eligibility"]["reasons"])
 
         # 2. Ineligible student (CGPA 5.8, Attendance 65%)
-        low_token = create_test_token("student", {"sub": "std-low-002", "cgpa": 5.8, "attendance_pct": 65.0})
+        low_token = create_test_token("student", {"sub": f"std-low-{uuid.uuid4().hex[:6]}", "cgpa": 5.8, "attendance_pct": 65.0})
         low_headers = {"Authorization": f"Bearer {low_token}"}
 
         res_low = await ac.get("/api/v1/placement/drives", headers=low_headers)
@@ -73,7 +77,7 @@ async def test_placement_application_submission_and_eligibility_enforcement():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         # Ineligible student cannot apply
-        ineligible_token = create_test_token("student", {"sub": "std-ineligible-99", "cgpa": 5.5, "attendance_pct": 60.0})
+        ineligible_token = create_test_token("student", {"sub": f"std-ineligible-{uuid.uuid4().hex[:6]}", "cgpa": 5.5, "attendance_pct": 60.0})
         headers_inelig = {"Authorization": f"Bearer {ineligible_token}"}
 
         res_fail = await ac.post("/api/v1/placement/drives/drive-lt-005/apply", headers=headers_inelig)
@@ -81,7 +85,7 @@ async def test_placement_application_submission_and_eligibility_enforcement():
         assert "Ineligible to apply" in res_fail.json()["detail"]
 
         # Eligible student applies to Infosys drive
-        eligible_token = create_test_token("student", {"sub": "std-fresh-003", "cgpa": 8.9, "attendance_pct": 90.0})
+        eligible_token = create_test_token("student", {"sub": f"std-fresh-{uuid.uuid4().hex[:6]}", "cgpa": 8.9, "attendance_pct": 90.0})
         headers_elig = {"Authorization": f"Bearer {eligible_token}"}
 
         res_ok = await ac.post("/api/v1/placement/drives/drive-infy-002/apply", json={}, headers=headers_elig)
@@ -106,7 +110,7 @@ async def test_placement_application_submission_and_eligibility_enforcement():
 async def test_clubs_and_join_toggle():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        token = create_test_token("student", {"sub": "std-test-club-01"})
+        token = create_test_token("student", {"sub": f"std-test-club-{uuid.uuid4().hex[:6]}"})
         headers = {"Authorization": f"Bearer {token}"}
 
         res = await ac.get("/api/v1/clubs", headers=headers)

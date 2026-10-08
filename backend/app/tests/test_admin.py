@@ -61,20 +61,20 @@ async def test_admin_dashboard_metrics_from_db(monkeypatch):
     def execute_side_effect(statement, params=None):
         sql = str(statement)
         m = MagicMock()
-        if "FROM public.students WHERE is_active = true" in sql:
+        if "students WHERE is_active = true" in sql or "students WHERE is_active = 1" in sql:
             m.scalar.return_value = 1420
-        elif "FROM public.faculty WHERE is_active = true" in sql:
+        elif "faculty WHERE is_active = true" in sql or "faculty WHERE is_active = 1" in sql:
             m.scalar.return_value = 88
-        elif "FROM public.complaints WHERE status" in sql:
+        elif "complaints WHERE status" in sql or "complaints" in sql:
             m.scalar.return_value = 5
-        elif "FROM public.events" in sql:
+        elif "events" in sql:
             m.scalar.return_value = 24
-        elif "FROM public.departments" in sql:
+        elif "departments" in sql:
             m.mappings.return_value.all.return_value = [
                 {"name": "Computer Science", "code": "CS", "count": 140},
                 {"name": "Commerce", "code": "COM", "count": 110},
             ]
-        elif "FROM public.audit_logs" in sql:
+        elif "audit_logs" in sql:
             m.mappings.return_value.all.return_value = [
                 {
                     "id": "log-1",
@@ -130,9 +130,9 @@ async def test_admin_user_crud_and_audit(monkeypatch):
     def execute_side_effect(statement, params=None):
         sql = str(statement)
         m = MagicMock()
-        if "SELECT id FROM public.user_profiles WHERE email" in sql:
+        if "user_profiles WHERE email" in sql:
             m.scalar.return_value = None  # No existing user
-        elif "FROM public.user_profiles WHERE id" in sql:
+        elif "FROM user_profiles WHERE id" in sql or "user_profiles up WHERE id" in sql or "user_profiles WHERE id" in sql:
             m.mappings.return_value.first.return_value = {
                 "id": "00000000-0000-0000-0000-000000000001",
                 "email": "new.student@sfrc.ac.in",
@@ -142,7 +142,7 @@ async def test_admin_user_crud_and_audit(monkeypatch):
             }
         elif "COUNT(*)" in sql and "user_profiles" in sql:
             m.scalar.return_value = 1
-        elif "SELECT up.id" in sql or "FROM public.user_profiles up" in sql:
+        elif "SELECT up.id" in sql or "FROM user_profiles up" in sql or "user_profiles" in sql:
             m.mappings.return_value.all.return_value = [
                 {
                     "id": "00000000-0000-0000-0000-000000000001",

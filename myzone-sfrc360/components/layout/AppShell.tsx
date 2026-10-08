@@ -3,6 +3,7 @@
 import Sidebar from './Sidebar';
 import MobileNav from './MobileNav';
 import MobileBottomNav from './MobileBottomNav';
+import Footer from './Footer';
 import PragyaDrawer from '@/components/ai/PragyaDrawer';
 import type { UserRole } from '@/lib/types';
 
@@ -19,10 +20,11 @@ interface AppShellProps {
  * - Mobile header with drawer navigation (<lg)
  * - Mobile bottom navigation bar (5 role-aware actions down to 375px)
  * - Interactive Pragya AI Drawer (accessible globally)
+ * - Official SFRC Footer at bottom of scrollable content
  */
 export default function AppShell({ role, userName, children }: AppShellProps) {
   return (
-    <div className="flex h-[calc(100vh-4rem)] overflow-hidden relative">
+    <div className="flex h-[calc(100vh-5rem)] overflow-hidden relative">
       {/* Desktop Sidebar */}
       <div className="hidden lg:flex shrink-0">
         <Sidebar role={role} userName={userName} />
@@ -43,9 +45,12 @@ export default function AppShell({ role, userName, children }: AppShellProps) {
           </span>
         </div>
 
-        {/* Scrollable Page content with bottom padding for mobile nav */}
-        <div className="flex-1 overflow-y-auto bg-sfrc-bg pb-20 lg:pb-8">
-          {children}
+        {/* Scrollable Page content with Footer */}
+        <div className="flex-1 overflow-y-auto bg-sfrc-bg flex flex-col justify-between">
+          <div className="p-4 sm:p-6 lg:p-8 flex-1 pb-16 lg:pb-8">
+            {children}
+          </div>
+          <Footer />
         </div>
 
         {/* Mobile Bottom Navigation (role-aware 5 items) */}

@@ -177,20 +177,20 @@ export default function Header() {
   return (
     <header
       className={cn(
-        'sticky top-0 z-50 w-full h-16',
-        'bg-sfrc-surface dark:bg-card border-b-2 border-sfrc-accent shadow-xs',
+        'sticky top-0 z-50 w-full h-20',
+        'bg-sfrc-surface dark:bg-card border-b-2 border-sfrc-accent/70 shadow-xs',
         'flex items-center'
       )}
       role="banner"
     >
-      <div className="w-full max-w-screen-2xl mx-auto px-4 sm:px-6 flex items-center justify-between gap-4">
-        {/* ── LEFT — College Crest + Name ──────────────────────────────────── */}
+      <div className="w-full max-w-screen-2xl mx-auto px-4 sm:px-6 flex items-center justify-between gap-2">
+        {/* ── LEFT — Portal Identity ────────────────────────────────────────── */}
         <Link
           href="/"
-          className="flex items-center gap-3 min-w-0 shrink-0 group"
+          className="flex items-center gap-2.5 min-w-[140px] md:min-w-[180px] shrink-0 group"
           aria-label="MyZone SFRC 360 Home"
         >
-          <div className="relative w-10 h-10 shrink-0 rounded-full overflow-hidden ring-2 ring-sfrc-accent/40 group-hover:ring-sfrc-accent transition-all duration-200 shadow-xs">
+          <div className="relative w-10 h-10 shrink-0 rounded-full overflow-hidden ring-2 ring-sfrc-accent/60 group-hover:ring-sfrc-accent transition-all duration-200 shadow-xs bg-white p-0.5">
             <Image
               src="/wel_img.jpg"
               alt="SFRC Crest"
@@ -200,32 +200,33 @@ export default function Header() {
               priority
             />
           </div>
-          <div className="flex flex-col leading-tight min-w-0">
-            <span className="text-[10px] font-semibold text-sfrc-600 dark:text-sfrc-400 uppercase tracking-widest truncate hidden xs:block">
+          <div className="flex flex-col leading-none min-w-0">
+            <span className="text-[10px] font-bold text-sfrc-600 dark:text-amber-400 uppercase tracking-widest truncate hidden xs:block">
               SFRC, Sivakasi
             </span>
-            <span className="text-sm font-black text-sfrc-800 dark:text-foreground tracking-tight truncate">
+            <span className="text-base font-black text-sfrc-900 dark:text-white tracking-tight truncate mt-0.5">
               MyZone 360
             </span>
           </div>
         </Link>
 
-        {/* ── CENTER — College Banner Image ────────────────────────────────── */}
-        <div className="hidden sm:flex flex-1 justify-center items-center px-4">
-          <div className="relative h-12 w-full max-w-xl">
+        {/* ── CENTER — Official College Identity Banner (logo1.png) ────────── */}
+        <div className="hidden sm:flex flex-1 justify-center items-center px-2 min-w-0">
+          <div className="relative h-14 md:h-16 w-full max-w-[580px] lg:max-w-[640px] flex items-center justify-center">
             <Image
               src="/logo1.png"
-              alt="The Standard Fireworks Rajaratnam College for Women, Sivakasi"
+              alt="The Standard Fireworks Rajaratnam College for Women (Autonomous), Sivakasi"
               fill
-              sizes="(max-width: 768px) 0px, 576px"
+              sizes="(max-width: 768px) 0px, 640px"
               className="object-contain object-center"
               priority
+              unoptimized
             />
           </div>
         </div>
 
         {/* ── RIGHT — Global Search + Notification Bell + Nav slot / App badge ── */}
-        <div className="flex items-center gap-2.5 shrink-0">
+        <div className="flex items-center justify-end gap-2.5 min-w-[140px] md:min-w-[200px] shrink-0">
           {/* Global 360 Search Button (Cmd+K / Ctrl+K) */}
           <button
             type="button"
@@ -350,17 +351,19 @@ export default function Header() {
             </Link>
           ) : null}
 
-          <div
+          <Link
+            href="/student/profile"
             className={cn(
-              'flex items-center gap-1.5 px-3 py-1.5 rounded-lg',
+              'flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-sfrc-200 transition-colors cursor-pointer',
               'bg-sfrc-100 dark:bg-muted border border-sfrc-200 dark:border-border'
             )}
+            title="My Profile & Settings"
           >
             <div className="w-2 h-2 rounded-full bg-sfrc-accent animate-pulse" />
             <span className="text-xs font-bold text-sfrc-700 dark:text-sfrc-300 tracking-tight whitespace-nowrap">
-              MyZone SFRC 360
+              My Profile
             </span>
-          </div>
+          </Link>
         </div>
       </div>
 

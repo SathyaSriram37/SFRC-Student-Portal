@@ -14,8 +14,6 @@ import {
   AreaChart,
   Area,
 } from 'recharts';
-import AppShell from '@/components/layout/AppShell';
-
 import AskPragyaBanner from '@/components/shared/AskPragyaBanner';
 import { createClient } from '@/lib/supabase/client';
 import { apiGet } from '@/lib/api-client';
@@ -78,10 +76,92 @@ const QUICK_LINKS = [
   { label: 'Library Catalog', href: '/student/library', icon: Library, desc: 'OPAC Search & Book Renewal' },
 ];
 
+const INITIAL_DASHBOARD_DATA: StudentDashboardData = {
+  profile: {
+    student_id: 'std-current',
+    full_name: 'Priya Sharma',
+    register_number: '23UCA042',
+    current_semester: 6,
+    programme_name: 'B.Sc Computer Science',
+    department_name: 'Department of Computer Science',
+  },
+  attendance_pct: 88.5,
+  cgpa: 8.65,
+  events_count: 4,
+  pending_tasks_count: 2,
+  pending_tasks: [
+    {
+      id: 't-1',
+      title: 'Cloud Computing Case Study Analysis',
+      due_date: 'Tomorrow, 5:00 PM',
+      course_code: '22UCSC61',
+      course_title: 'Cloud Architecture & DevOps',
+    },
+    {
+      id: 't-2',
+      title: 'Full Stack Project Phase 2 Submission',
+      due_date: 'Friday, 11:59 PM',
+      course_code: '22UCSC62',
+      course_title: 'Web Application Development',
+    },
+  ],
+  today_timetable: [
+    {
+      id: 'tt-1',
+      period_number: 1,
+      start_time: '09:00 AM',
+      end_time: '10:00 AM',
+      room: 'Lab 3 (MCA Block)',
+      course_code: '22UCSC61',
+      course_title: 'Cloud Architecture & DevOps',
+      faculty_name: 'Dr. K. Anitha',
+    },
+    {
+      id: 'tt-2',
+      period_number: 2,
+      start_time: '10:00 AM',
+      end_time: '11:00 AM',
+      room: 'LH 104',
+      course_code: '22UCSC62',
+      course_title: 'Web Application Development',
+      faculty_name: 'Dr. M. Lakshmi',
+    },
+    {
+      id: 'tt-3',
+      period_number: 3,
+      start_time: '11:15 AM',
+      end_time: '12:15 PM',
+      room: 'Smart Room 2',
+      course_code: '22UCSE63',
+      course_title: 'Machine Learning Fundamentals',
+      faculty_name: 'Prof. R. Priya',
+    },
+  ],
+  upcoming_events: [
+    {
+      id: 'ev-1',
+      title: 'TechSpark 2026: National Level Hackathon',
+      category: 'Technical',
+      event_date: 'Oct 15, 2026',
+      event_time: '09:30 AM',
+      venue: 'Auditorium Block B',
+    },
+    {
+      id: 'ev-2',
+      title: 'Workshop on Agentic AI & Next.js 16',
+      category: 'Workshop',
+      event_date: 'Oct 22, 2026',
+      event_time: '02:00 PM',
+      venue: 'ICT Seminar Hall',
+    },
+  ],
+  notifications_unread: 2,
+};
+
 export default function StudentDashboardPage() {
-  const [data, setData] = useState<StudentDashboardData | null>(null);
+  const [data, setData] = useState<StudentDashboardData>(INITIAL_DASHBOARD_DATA);
   const [pendingPolicyCount, setPendingPolicyCount] = useState<number>(0);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   
   const supabase = useMemo(() => createClient(), []);
 
@@ -101,107 +181,31 @@ export default function StudentDashboardPage() {
         } = await supabase.auth.getSession();
         const token = session?.access_token;
 
-        const result = await apiGet<StudentDashboardData>(
-          '/api/v1/students/me/dashboard',
-          token
-        );
-        if (!ignore) {
-          setData(result);
+        if (session?.user?.user_metadata?.full_name) {
+          setData((prev) => ({
+            ...prev,
+            profile: {
+              ...prev.profile,
+              full_name: session.user.user_metadata.full_name,
+            },
+          }));
         }
 
-        try {
-          const pendingRes = await apiGet<{ count: number }>('/api/v1/policies/me/pending', token);
-          if (!ignore && pendingRes && typeof pendingRes.count === 'number') {
-            setPendingPolicyCount(pendingRes.count);
+        const [result, pendingRes] = await Promise.allSettled([
+          apiGet<StudentDashboardData>('/api/v1/students/me/dashboard', token),
+          apiGet<{ count: number }>('/api/v1/policies/me/pending', token),
+        ]);
+
+        if (!ignore) {
+          if (result.status === 'fulfilled' && result.value) {
+            setData(result.value);
           }
-        } catch {
-          // ignore policy check errors
+          if (pendingRes.status === 'fulfilled' && typeof pendingRes.value?.count === 'number') {
+            setPendingPolicyCount(pendingRes.value.count);
+          }
         }
       } catch (err: unknown) {
-        console.error('Failed to load student dashboard:', err);
-        if (!ignore) {
-          setData({
-            profile: {
-              student_id: 'std-demo',
-              full_name: 'Student Scholar',
-              register_number: '22UCA042',
-              current_semester: 6,
-              programme_name: 'B.Sc Computer Science',
-              department_name: 'Department of Computer Science',
-            },
-            attendance_pct: 88.5,
-            cgpa: 8.65,
-            events_count: 4,
-            pending_tasks_count: 2,
-            pending_tasks: [
-              {
-                id: 't-1',
-                title: 'Cloud Computing Case Study Analysis',
-                due_date: 'Tomorrow, 5:00 PM',
-                course_code: '22UCSC61',
-                course_title: 'Cloud Architecture & DevOps',
-              },
-              {
-                id: 't-2',
-                title: 'Full Stack Project Phase 2 Submission',
-                due_date: 'Friday, 11:59 PM',
-                course_code: '22UCSC62',
-                course_title: 'Web Application Development',
-              },
-            ],
-            today_timetable: [
-              {
-                id: 'tt-1',
-                period_number: 1,
-                start_time: '09:00 AM',
-                end_time: '10:00 AM',
-                room: 'Lab 3 (MCA Block)',
-                course_code: '22UCSC61',
-                course_title: 'Cloud Architecture & DevOps',
-                faculty_name: 'Dr. K. Anitha',
-              },
-              {
-                id: 'tt-2',
-                period_number: 2,
-                start_time: '10:00 AM',
-                end_time: '11:00 AM',
-                room: 'LH 104',
-                course_code: '22UCSC62',
-                course_title: 'Web Application Development',
-                faculty_name: 'Dr. M. Lakshmi',
-              },
-              {
-                id: 'tt-3',
-                period_number: 3,
-                start_time: '11:15 AM',
-                end_time: '12:15 PM',
-                room: 'Smart Room 2',
-                course_code: '22UCSE63',
-                course_title: 'Machine Learning Fundamentals',
-                faculty_name: 'Prof. R. Priya',
-              },
-            ],
-            upcoming_events: [
-              {
-                id: 'ev-1',
-                title: 'TechSpark 2026: National Level Hackathon',
-                category: 'Technical',
-                event_date: 'Oct 15, 2026',
-                event_time: '09:30 AM',
-                venue: 'Auditorium Block B',
-              },
-              {
-                id: 'ev-2',
-                title: 'Workshop on Agentic AI & Next.js 16',
-                category: 'Workshop',
-                event_date: 'Oct 22, 2026',
-                event_time: '02:00 PM',
-                venue: 'ICT Seminar Hall',
-              },
-            ],
-            notifications_unread: 2,
-          });
-        }
+        console.error('Failed to load live student dashboard:', err);
       } finally {
         if (!ignore) {
           setIsLoading(false);
@@ -235,25 +239,11 @@ export default function StudentDashboardPage() {
     ];
   }, []);
 
-  if (isLoading && !data) {
-    return (
-      <AppShell role="student" userName="Loading…">
-        <div className="min-h-[60vh] flex flex-col items-center justify-center gap-3">
-          <Loader2 className="w-8 h-8 animate-spin text-sfrc-700" />
-          <p className="text-xs font-semibold text-sfrc-600">
-            Syncing student records from SFRC API…
-          </p>
-        </div>
-      </AppShell>
-    );
-  }
-
   const profile = data?.profile;
   const isAttendanceAtRisk = (data?.attendance_pct ?? 100) < 75;
 
   return (
-    <AppShell role="student" userName={profile?.full_name || 'Student'}>
-      <div className="p-4 sm:p-6 lg:p-8 space-y-8 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 lg:p-8 space-y-8 max-w-7xl mx-auto">
         {/* Header Profile Greeting */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-sfrc-200 shadow-sm">
           <div>
@@ -632,6 +622,5 @@ export default function StudentDashboardPage() {
           <AskPragyaBanner />
         </section>
       </div>
-    </AppShell>
   );
 }

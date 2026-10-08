@@ -6,6 +6,7 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -383,21 +384,72 @@ SEED_SPORTS_ACHIEVEMENTS: List[Dict[str, Any]] = [
 @router.get("/sports/teams", response_model=List[SportsTeamItem])
 async def list_sports_teams(
     user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    """Retrieve all 8 active college athletic teams."""
-    return [SportsTeamItem(**t) for t in SEED_SPORTS_TEAMS]
+    """Retrieve all 8 active college athletic teams with user's persisted membership status."""
+    user_id = str(user.get("id") or user.get("sub") or "")
+    
+    # Query user's joined teams from database
+    q_user = text("SELECT team_id FROM sports_memberships WHERE user_id = :user_id AND status = 'active'")
+    joined_rows = (await db.execute(q_user, {"user_id": user_id})).scalars().all()
+    joined_set = set(str(t) for t in joined_rows)
+
+    # Query active counts from database
+    q_counts = text("SELECT team_id, COUNT(*) as cnt FROM sports_memberships WHERE status = 'active' GROUP BY team_id")
+    count_rows = (await db.execute(q_counts)).mappings().all()
+    extra_counts = {str(r["team_id"]): int(r["cnt"]) for r in count_rows}
+
+    results = []
+    for t in SEED_SPORTS_TEAMS:
+        t_id = t["id"]
+        is_joined = t_id in joined_set
+        base_count = t.get("members_count", 10)
+        # Dynamic count from database if greater or joined
+        total_count = max(base_count, extra_counts.get(t_id, 0))
+        if is_joined and extra_counts.get(t_id, 0) == 0:
+            total_count += 1
+
+        results.append(SportsTeamItem(
+            **{
+                **t,
+                "is_joined": is_joined,
+                "members_count": total_count,
+            }
+        ))
+    return results
 
 
 @router.get("/sports/teams/{id}", response_model=SportsTeamItem)
 async def get_sports_team_detail(
     id: str,
     user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    """Retrieve detailed sports team profile."""
+    """Retrieve detailed sports team profile with persisted membership status."""
     team = next((t for t in SEED_SPORTS_TEAMS if t["id"] == id or t["sport"].lower() == id.lower()), None)
     if not team:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sports team not found.")
-    return SportsTeamItem(**team)
+    
+    user_id = str(user.get("id") or user.get("sub") or "")
+    t_id = team["id"]
+
+    q_user = text("SELECT id FROM sports_memberships WHERE team_id = :team_id AND user_id = :user_id AND status = 'active'")
+    row = (await db.execute(q_user, {"team_id": t_id, "user_id": user_id})).first()
+    is_joined = row is not None
+
+    q_count = text("SELECT COUNT(*) FROM sports_memberships WHERE team_id = :team_id AND status = 'active'")
+    db_count = (await db.execute(q_count, {"team_id": t_id})).scalar() or 0
+    total_count = max(team.get("members_count", 10), db_count)
+    if is_joined and db_count == 0:
+        total_count += 1
+
+    return SportsTeamItem(
+        **{
+            **team,
+            "is_joined": is_joined,
+            "members_count": total_count,
+        }
+    )
 
 
 @router.post("/sports/teams/{id}/join", response_model=SportsTeamItem)
@@ -406,27 +458,74 @@ async def toggle_join_team(
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Join or leave a sports team squad."""
+    """Join or leave a sports team squad with database persistence."""
     team = next((t for t in SEED_SPORTS_TEAMS if t["id"] == id), None)
     if not team:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sports team not found.")
 
-    team["is_joined"] = not team.get("is_joined", False)
-    if team["is_joined"]:
-        team["members_count"] += 1
+    user_id = str(user.get("id") or user.get("sub") or "")
+    user_meta = user.get("user_metadata") or {}
+    student_name = user_meta.get("full_name") or user.get("full_name") or user.get("name") or "Student"
+    register_number = user.get("register_number") or user_meta.get("register_number") or "21UCS042"
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    # Check if membership record exists
+    check_q = text("SELECT id, status FROM sports_memberships WHERE team_id = :team_id AND user_id = :user_id")
+    existing = (await db.execute(check_q, {"team_id": id, "user_id": user_id})).mappings().first()
+
+    if existing:
+        if existing["status"] == "active":
+            # Leave team
+            update_q = text("UPDATE sports_memberships SET status = 'inactive', updated_at = :updated_at WHERE id = :id")
+            await db.execute(update_q, {"id": existing["id"], "updated_at": now_iso})
+            is_joined = False
+            action_name = "leave_sports_team"
+        else:
+            # Rejoin team
+            update_q = text("UPDATE sports_memberships SET status = 'active', updated_at = :updated_at WHERE id = :id")
+            await db.execute(update_q, {"id": existing["id"], "updated_at": now_iso})
+            is_joined = True
+            action_name = "join_sports_team"
     else:
-        team["members_count"] = max(1, team["members_count"] - 1)
+        # First time join
+        mem_id = str(uuid.uuid4())
+        insert_q = text("""
+            INSERT INTO sports_memberships (id, team_id, user_id, student_name, register_number, status, created_at, updated_at)
+            VALUES (:id, :team_id, :user_id, :student_name, :register_number, 'active', :created_at, :updated_at)
+        """)
+        await db.execute(insert_q, {
+            "id": mem_id,
+            "team_id": id,
+            "user_id": user_id,
+            "student_name": student_name,
+            "register_number": register_number,
+            "created_at": now_iso,
+            "updated_at": now_iso,
+        })
+        is_joined = True
+        action_name = "join_sports_team"
+
+    # Count active members from database
+    q_count = text("SELECT COUNT(*) FROM sports_memberships WHERE team_id = :team_id AND status = 'active'")
+    db_count = (await db.execute(q_count, {"team_id": id})).scalar() or 0
+    total_count = max(team.get("members_count", 10), db_count)
 
     await log_audit_event(
-        user_id=user.get("id"),
-        action="join_sports_team" if team["is_joined"] else "leave_sports_team",
+        user_id=user_id,
+        action=action_name,
         resource_type="sports_team",
         resource_id=id,
-        details={"team_name": team["name"], "is_joined": team["is_joined"]},
+        details={"team_name": team["name"], "is_joined": is_joined},
         db=db,
     )
 
-    return SportsTeamItem(**team)
+    return SportsTeamItem(
+        **{
+            **team,
+            "is_joined": is_joined,
+            "members_count": total_count,
+        }
+    )
 
 
 @router.get("/sports/events", response_model=List[SportsEventItem])

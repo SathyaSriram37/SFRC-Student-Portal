@@ -1,6 +1,7 @@
-"""Notification service for dispatching in-app alerts and Firebase Cloud Messaging (FCM) push notifications."""
+"""Notification service for persistent in-app alerts and Firebase Cloud Messaging (FCM) push notifications."""
 from __future__ import annotations
 
+import json
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -8,94 +9,63 @@ from typing import Optional, Dict, Any, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 
+from app.core.database import AsyncSessionLocal
+
 logger = logging.getLogger(__name__)
 
-# Persistent / In-Memory & Database-backed store for notifications
-SEED_NOTIFICATIONS: List[Dict[str, Any]] = [
-    {
-        "id": "notif-001",
-        "user_id": "00000000-0000-0000-0000-000000000001",
-        "title": "CIA-2 Examination Schedule Published",
-        "message": "The Continuous Internal Assessment 2 timetable for Semester VI is now available on your portal.",
-        "type": "info",
-        "entity_type": "exam",
-        "entity_id": "exam-cia2-2026",
-        "link": "/student/exams",
-        "read": False,
-        "created_at": "2026-09-30T07:30:00Z",
-    },
-    {
-        "id": "notif-002",
-        "user_id": "00000000-0000-0000-0000-000000000001",
-        "title": "Campus Care Ticket Updated",
-        "message": "Your complaint regarding Lab 3 projector has been marked as In Progress by the IT Maintenance team.",
-        "type": "complaint",
-        "entity_type": "complaint",
-        "entity_id": "CC-00023",
-        "link": "/student/campus-care",
-        "read": False,
-        "created_at": "2026-09-30T06:15:00Z",
-    },
-    {
-        "id": "notif-003",
-        "user_id": "00000000-0000-0000-0000-000000000001",
-        "title": "TechSpark 2026 Registration Confirmed",
-        "message": "Your team registration for the National Level Hackathon has been verified by the event coordinator.",
-        "type": "success",
-        "entity_type": "event",
-        "entity_id": "ev-1",
-        "link": "/student/events",
-        "read": False,
-        "created_at": "2026-09-29T14:20:00Z",
-    },
-    {
-        "id": "notif-004",
-        "user_id": "00000000-0000-0000-0000-000000000001",
-        "title": "Attendance Alert: 22UCSE63",
-        "message": "Your subject attendance in Machine Learning Fundamentals is currently at 76.5%. Ensure attendance remains above 75%.",
-        "type": "warning",
-        "entity_type": "attendance",
-        "entity_id": "22UCSE63",
-        "link": "/student/academics",
-        "read": True,
-        "created_at": "2026-09-28T11:00:00Z",
-    },
-    {
-        "id": "notif-005",
-        "user_id": "00000000-0000-0000-0000-000000000001",
-        "title": "Library Book Due Reminder",
-        "message": "Return 'Cloud Computing Concepts' (Acc No. 44102) to the IRC library by Friday to avoid overdue fines.",
-        "type": "info",
-        "entity_type": "library",
-        "entity_id": "book-44102",
-        "link": "/student/library",
-        "read": True,
-        "created_at": "2026-09-27T09:45:00Z",
-    },
-]
-
-# User notification preferences store
-USER_NOTIFICATION_PREFERENCES: Dict[str, Dict[str, Any]] = {
-    "default": {
-        "email_enabled": True,
-        "sms_enabled": False,
-        "push_enabled": True,
-        "academic_alerts": True,
-        "complaint_updates": True,
-        "event_announcements": True,
-        "library_reminders": True,
-        "fee_alerts": True,
-    }
+# Default fallback preferences for new user profiles
+DEFAULT_PREFERENCES: Dict[str, Any] = {
+    "email_enabled": True,
+    "sms_enabled": False,
+    "push_enabled": True,
+    "academic_alerts": True,
+    "complaint_updates": True,
+    "event_announcements": True,
+    "library_reminders": True,
+    "fee_alerts": True,
 }
-
-# Registered FCM device tokens
-DEVICE_TOKENS: List[Dict[str, Any]] = []
 
 
 class NotificationService:
     def __init__(self, db: Optional[AsyncSession] = None, fcm_enabled: bool = False):
         self.db = db
         self.fcm_enabled = fcm_enabled
+
+    async def _get_user_preferences(self, user_id: str, db: AsyncSession) -> Dict[str, Any]:
+        """Fetch user's persistent notification channel preferences."""
+        try:
+            q = text("SELECT preferences FROM user_profiles WHERE id = :user_id")
+            row = (await db.execute(q, {"user_id": user_id})).mappings().first()
+            if row and row.get("preferences"):
+                raw = row["preferences"]
+                if isinstance(raw, dict):
+                    prefs = dict(DEFAULT_PREFERENCES)
+                    prefs.update(raw)
+                    return prefs
+                elif isinstance(raw, str):
+                    prefs = dict(DEFAULT_PREFERENCES)
+                    prefs.update(json.loads(raw))
+                    return prefs
+        except Exception:
+            pass
+        return dict(DEFAULT_PREFERENCES)
+
+    def _should_suppress_notification(self, notif_type: str, prefs: Dict[str, Any]) -> bool:
+        """Check if notification should be suppressed based on user's persistent preferences."""
+        t = notif_type.lower()
+        if t in ("event", "events"):
+            if not prefs.get("event_announcements", True) or not prefs.get("event_reminders", True):
+                return True
+        if t in ("complaint", "grievance") and not prefs.get("complaint_updates", True):
+            return True
+        if t in ("library", "book") and not prefs.get("library_reminders", True):
+            return True
+        if t in ("fee", "fees", "dues"):
+            if not prefs.get("fee_alerts", True) or not prefs.get("fee_due_reminders", True):
+                return True
+        if t in ("exam", "attendance", "marks", "academic") and not prefs.get("academic_alerts", True):
+            return True
+        return False
 
     async def send(
         self,
@@ -107,57 +77,75 @@ class NotificationService:
         entity_id: Optional[str] = None,
         link: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Dispatch a notification to a specific user and optionally send FCM push."""
+        """Dispatch a notification to a specific user with database persistence and preference filtering."""
         notif_id = f"notif-{uuid.uuid4().hex[:8]}"
         now_iso = datetime.now(timezone.utc).isoformat()
 
-        notif_record = {
-            "id": notif_id,
-            "user_id": user_id,
-            "title": title,
-            "message": message,
-            "type": type,
-            "entity_type": entity_type,
-            "entity_id": entity_id,
-            "link": link,
-            "read": False,
-            "created_at": now_iso,
-        }
-
-        # Insert into in-memory store
-        SEED_NOTIFICATIONS.insert(0, notif_record)
-
-        # Persist to database if db session is available
-        if self.db is not None:
-            try:
-                query = text("""
-                    INSERT INTO public.notifications (id, user_id, title, message, type, entity_type, entity_id, link, read, created_at)
-                    VALUES (:id::uuid, :user_id::uuid, :title, :message, :type, :entity_type, :entity_id, :link, false, :created_at)
-                    ON CONFLICT (id) DO NOTHING
-                """)
-                await self.db.execute(query, {
-                    "id": str(uuid.UUID(hex=notif_id[6:])) if len(notif_id[6:]) == 32 else str(uuid.uuid4()),
-                    "user_id": user_id if len(user_id) == 36 else "00000000-0000-0000-0000-000000000001",
+        async def _execute_insert(session: AsyncSession) -> Dict[str, Any]:
+            prefs = await self._get_user_preferences(user_id, session)
+            if self._should_suppress_notification(type, prefs):
+                logger.info(f"Notification suppressed for user {user_id} based on preferences: {title} ({type})")
+                return {
+                    "id": notif_id,
+                    "user_id": user_id,
                     "title": title,
                     "message": message,
                     "type": type,
                     "entity_type": entity_type,
                     "entity_id": entity_id,
                     "link": link,
+                    "read": False,
+                    "suppressed": True,
                     "created_at": now_iso,
-                })
-                await self.db.commit()
-            except Exception as e:
-                logger.warning(f"Database insert for notification failed (non-blocking): {e}")
+                }
 
-        # FCM Push Dispatch (Graceful on failure)
-        if self.fcm_enabled:
-            try:
-                await self._send_push(user_id, title, message, link)
-            except Exception as e:
-                logger.warning(f"FCM push notification failed (non-critical): {e}")
+            ins_q = text("""
+                INSERT INTO notifications (
+                    id, user_id, title, message, type, entity_type, entity_id, link, read, created_at, updated_at
+                ) VALUES (
+                    :id, :user_id, :title, :message, :type, :entity_type, :entity_id, :link, 0, :created_at, :updated_at
+                )
+            """)
+            await session.execute(ins_q, {
+                "id": notif_id,
+                "user_id": user_id,
+                "title": title,
+                "message": message,
+                "type": type,
+                "entity_type": entity_type,
+                "entity_id": entity_id,
+                "link": link,
+                "created_at": now_iso,
+                "updated_at": now_iso,
+            })
 
-        return notif_record
+            # Check FCM push tokens
+            if self.fcm_enabled or prefs.get("push_enabled", True):
+                try:
+                    await self._send_push(user_id, title, message, link, session)
+                except Exception as ex:
+                    logger.warning(f"Push dispatch error: {ex}")
+
+            return {
+                "id": notif_id,
+                "user_id": user_id,
+                "title": title,
+                "message": message,
+                "type": type,
+                "entity_type": entity_type,
+                "entity_id": entity_id,
+                "link": link,
+                "read": False,
+                "created_at": now_iso,
+            }
+
+        if self.db is not None:
+            return await _execute_insert(self.db)
+        else:
+            async with AsyncSessionLocal() as session:
+                res = await _execute_insert(session)
+                await session.commit()
+                return res
 
     async def _send_push(
         self,
@@ -165,11 +153,12 @@ class NotificationService:
         title: str,
         message: str,
         link: Optional[str] = None,
+        db: Optional[AsyncSession] = None,
     ) -> None:
-        """Helper to invoke Firebase Cloud Messaging."""
-        user_tokens = [d["token"] for d in DEVICE_TOKENS if d.get("user_id") == user_id]
-        if not user_tokens:
-            return
-        # If firebase-admin is installed and configured, send batch push
-        # otherwise gracefully log dispatch attempt
-        logger.info(f"[FCM] Dispatched push to {len(user_tokens)} devices for user {user_id}: {title}")
+        """Query persistent device tokens and dispatch push notification."""
+        if db is not None:
+            q = text("SELECT token FROM device_tokens WHERE user_id = :user_id")
+            rows = (await db.execute(q, {"user_id": user_id})).fetchall()
+            tokens = [r[0] for r in rows]
+            if tokens:
+                logger.info(f"[FCM Push] Dispatched notification to {len(tokens)} devices for user {user_id}: {title}")

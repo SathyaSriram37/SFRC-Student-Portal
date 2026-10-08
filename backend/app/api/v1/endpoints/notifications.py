@@ -1,6 +1,7 @@
-"""Notification endpoints — User alerts, unread badges, bulk actions, preferences, and FCM tokens."""
+"""Notification endpoints — User alerts, unread badges, bulk actions, preferences, and FCM tokens backed by PostgreSQL/Supabase database."""
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
@@ -12,9 +13,7 @@ from sqlalchemy import text
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.services.notification_service import (
-    SEED_NOTIFICATIONS,
-    USER_NOTIFICATION_PREFERENCES,
-    DEVICE_TOKENS,
+    DEFAULT_PREFERENCES,
     NotificationService,
 )
 
@@ -60,9 +59,25 @@ class DeviceTokenRequest(BaseModel):
     device_type: Optional[str] = "web"  # web | android | ios
 
 
+def row_to_notification(r: dict[str, Any]) -> NotificationItem:
+    return NotificationItem(
+        id=str(r["id"]),
+        user_id=str(r["user_id"]),
+        title=r["title"],
+        message=r["message"],
+        type=r.get("type") or "info",
+        entity_type=r.get("entity_type"),
+        entity_id=r.get("entity_id"),
+        link=r.get("link"),
+        read=bool(r.get("read")),
+        created_at=str(r.get("created_at") or datetime.now(timezone.utc).isoformat()),
+    )
+
+
 # ── Endpoints ────────────────────────────────────────────────────────────────
 
 @router.get("/notifications", response_model=NotificationListResponse)
+@router.get("/notifications/", response_model=NotificationListResponse)
 async def list_notifications(
     read: Optional[bool] = Query(None, description="Filter by read status"),
     page: int = Query(1, ge=1),
@@ -70,25 +85,45 @@ async def list_notifications(
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Retrieve notifications for the current authenticated user with pagination and unread count."""
-    user_id = user.get("id") or user.get("sub") or "00000000-0000-0000-0000-000000000001"
+    """Retrieve notifications for the current authenticated user directly from the database."""
+    user_id = str(user.get("id") or user.get("sub") or "00000000-0000-0000-0000-000000000001")
 
-    # Filter by user (or global defaults)
-    user_notifs = [n for n in SEED_NOTIFICATIONS if n["user_id"] == user_id or n["user_id"] == "00000000-0000-0000-0000-000000000001"]
+    # Count unread for user
+    unread_q = text("""
+        SELECT count(*) FROM notifications
+        WHERE user_id = :user_id AND (read = 0 OR read = false)
+    """)
+    unread_count = (await db.execute(unread_q, {"user_id": user_id})).scalar() or 0
+
+    # Build query
+    conditions = ["user_id = :user_id"]
+    params: dict[str, Any] = {"user_id": user_id}
 
     if read is not None:
-        filtered = [n for n in user_notifs if n["read"] is read]
-    else:
-        filtered = user_notifs
+        if read:
+            conditions.append("(read = 1 OR read = true)")
+        else:
+            conditions.append("(read = 0 OR read = false)")
 
-    unread_count = sum(1 for n in user_notifs if not n["read"])
+    where_clause = f"WHERE {' AND '.join(conditions)}"
+    total_q = text(f"SELECT count(*) FROM notifications {where_clause}")
+    total = (await db.execute(total_q, params)).scalar() or 0
 
     offset = (page - 1) * limit
-    paginated = filtered[offset : offset + limit]
+    params["limit"] = limit
+    params["offset"] = offset
+
+    fetch_q = text(f"""
+        SELECT * FROM notifications
+        {where_clause}
+        ORDER BY created_at DESC
+        LIMIT :limit OFFSET :offset
+    """)
+    rows = (await db.execute(fetch_q, params)).mappings().all()
 
     return NotificationListResponse(
-        notifications=[NotificationItem(**n) for n in paginated],
-        total=len(filtered),
+        notifications=[row_to_notification(dict(r)) for r in rows],
+        total=total,
         unread_count=unread_count,
         page=page,
         limit=limit,
@@ -96,53 +131,55 @@ async def list_notifications(
 
 
 @router.post("/notifications/{id}/read", response_model=NotificationItem)
+@router.patch("/notifications/{id}/read", response_model=NotificationItem)
+@router.put("/notifications/{id}/read", response_model=NotificationItem)
 async def mark_notification_read(
     id: str,
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Mark a single notification as read."""
-    notif = next((n for n in SEED_NOTIFICATIONS if n["id"] == id), None)
-    if not notif:
+    """Mark a single notification as read in the database with recipient ownership validation."""
+    user_id = str(user.get("id") or user.get("sub") or "")
+    role = user.get("role", "student")
+
+    find_q = text("SELECT * FROM notifications WHERE id = :id")
+    row = (await db.execute(find_q, {"id": id})).mappings().first()
+    if not row:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found.")
 
-    notif["read"] = True
+    if role != "admin" and str(row["user_id"]) != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission to modify this notification.")
 
-    if db is not None:
-        try:
-            query = text("UPDATE public.notifications SET read = true WHERE id = :id::uuid")
-            await db.execute(query, {"id": id if len(id) == 36 else None})
-            await db.commit()
-        except Exception:
-            pass
+    now_iso = datetime.now(timezone.utc).isoformat()
+    update_q = text("UPDATE notifications SET read = 1, updated_at = :updated_at WHERE id = :id")
+    await db.execute(update_q, {"id": id, "updated_at": now_iso})
 
-    return NotificationItem(**notif)
+    updated_row = (await db.execute(find_q, {"id": id})).mappings().first()
+    return row_to_notification(dict(updated_row))
 
 
 @router.post("/notifications/read-all", response_model=Dict[str, Any])
+@router.put("/notifications/read-all", response_model=Dict[str, Any])
 async def mark_all_notifications_read(
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Mark all notifications as read for the authenticated user."""
-    user_id = user.get("id") or user.get("sub") or "00000000-0000-0000-0000-000000000001"
+    """Mark all unread notifications as read for the authenticated user in the database."""
+    user_id = str(user.get("id") or user.get("sub") or "00000000-0000-0000-0000-000000000001")
+    now_iso = datetime.now(timezone.utc).isoformat()
 
-    updated_count = 0
-    for n in SEED_NOTIFICATIONS:
-        if n["user_id"] == user_id or n["user_id"] == "00000000-0000-0000-0000-000000000001":
-            if not n["read"]:
-                n["read"] = True
-                updated_count += 1
+    # Count how many will be updated
+    count_q = text("SELECT count(*) FROM notifications WHERE user_id = :user_id AND (read = 0 OR read = false)")
+    unread_count = (await db.execute(count_q, {"user_id": user_id})).scalar() or 0
 
-    if db is not None:
-        try:
-            query = text("UPDATE public.notifications SET read = true WHERE user_id = :user_id::uuid")
-            await db.execute(query, {"user_id": user_id if len(user_id) == 36 else None})
-            await db.commit()
-        except Exception:
-            pass
+    update_q = text("""
+        UPDATE notifications
+        SET read = 1, updated_at = :updated_at
+        WHERE user_id = :user_id AND (read = 0 OR read = false)
+    """)
+    await db.execute(update_q, {"user_id": user_id, "updated_at": now_iso})
 
-    return {"message": "All notifications marked as read.", "count": updated_count}
+    return {"message": "All notifications marked as read.", "count": unread_count}
 
 
 @router.delete("/notifications/{id}", status_code=status.HTTP_200_OK)
@@ -151,32 +188,45 @@ async def delete_notification(
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Delete a notification."""
-    global SEED_NOTIFICATIONS
-    notif = next((n for n in SEED_NOTIFICATIONS if n["id"] == id), None)
-    if not notif:
+    """Delete a notification from the database with ownership enforcement."""
+    user_id = str(user.get("id") or user.get("sub") or "")
+    role = user.get("role", "student")
+
+    find_q = text("SELECT * FROM notifications WHERE id = :id")
+    row = (await db.execute(find_q, {"id": id})).mappings().first()
+    if not row:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found.")
 
-    SEED_NOTIFICATIONS = [n for n in SEED_NOTIFICATIONS if n["id"] != id]
+    if role != "admin" and str(row["user_id"]) != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission to delete this notification.")
 
-    if db is not None:
-        try:
-            query = text("DELETE FROM public.notifications WHERE id = :id::uuid")
-            await db.execute(query, {"id": id if len(id) == 36 else None})
-            await db.commit()
-        except Exception:
-            pass
+    del_q = text("DELETE FROM notifications WHERE id = :id")
+    await db.execute(del_q, {"id": id})
 
     return {"message": f"Notification {id} deleted successfully."}
 
 
 @router.get("/notifications/preferences", response_model=NotificationPreferenceItem)
 async def get_notification_preferences(
+    db: AsyncSession = Depends(get_db),
     user: dict = Depends(get_current_user),
 ):
-    """Retrieve notification channel preferences for current user."""
-    user_id = user.get("id") or user.get("sub") or "default"
-    prefs = USER_NOTIFICATION_PREFERENCES.get(user_id, USER_NOTIFICATION_PREFERENCES["default"])
+    """Retrieve notification channel preferences for current user directly from user_profiles table in DB."""
+    user_id = str(user.get("id") or user.get("sub") or "")
+    query = text("SELECT preferences FROM user_profiles WHERE id = :uid")
+    row = (await db.execute(query, {"uid": user_id})).mappings().first()
+    
+    prefs = dict(DEFAULT_PREFERENCES)
+    if row and row.get("preferences"):
+        raw_prefs = row["preferences"]
+        if isinstance(raw_prefs, dict):
+            prefs.update(raw_prefs)
+        elif isinstance(raw_prefs, str):
+            try:
+                prefs.update(json.loads(raw_prefs))
+            except Exception:
+                pass
+
     return NotificationPreferenceItem(**prefs)
 
 
@@ -186,9 +236,46 @@ async def update_notification_preferences(
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Update notification preferences."""
-    user_id = user.get("id") or user.get("sub") or "default"
-    USER_NOTIFICATION_PREFERENCES[user_id] = body.model_dump()
+    """Update and persist notification preferences to user_profiles table in database."""
+    user_id = str(user.get("id") or user.get("sub") or "")
+    prefs_dict = body.model_dump()
+    prefs_json = json.dumps(prefs_dict)
+    
+    # Check if user profile exists
+    check_q = text("SELECT id, preferences FROM user_profiles WHERE id = :uid")
+    p_row = (await db.execute(check_q, {"uid": user_id})).mappings().first()
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    if p_row:
+        existing_prefs = {}
+        raw = p_row.get("preferences")
+        if isinstance(raw, str):
+            try:
+                existing_prefs = json.loads(raw)
+            except Exception:
+                pass
+        elif isinstance(raw, dict):
+            existing_prefs = raw
+        existing_prefs.update(prefs_dict)
+
+        update_q = text("UPDATE user_profiles SET preferences = :prefs, updated_at = :updated_at WHERE id = :uid")
+        await db.execute(update_q, {"prefs": json.dumps(existing_prefs), "updated_at": now_iso, "uid": user_id})
+    else:
+        # Insert minimal profile
+        insert_q = text("""
+            INSERT INTO user_profiles (id, email, role, full_name, preferences, created_at, updated_at)
+            VALUES (:uid, :email, :role, :full_name, :prefs, :created_at, :updated_at)
+        """)
+        await db.execute(insert_q, {
+            "uid": user_id,
+            "email": user.get("email") or f"{user_id}@sfrc.edu.in",
+            "role": user.get("role") or "student",
+            "full_name": user.get("full_name") or user.get("name") or "User",
+            "prefs": prefs_json,
+            "created_at": now_iso,
+            "updated_at": now_iso,
+        })
+
     return body
 
 
@@ -198,22 +285,38 @@ async def register_device_token(
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Register an FCM push notification token for user's device."""
-    user_id = user.get("id") or user.get("sub") or "00000000-0000-0000-0000-000000000001"
+    """Register an FCM push notification token for user's device in database."""
+    user_id = str(user.get("id") or user.get("sub") or "00000000-0000-0000-0000-000000000001")
+    now_iso = datetime.now(timezone.utc).isoformat()
 
-    # Upsert token
-    existing = next((d for d in DEVICE_TOKENS if d["token"] == body.token), None)
-    if existing:
-        existing["user_id"] = user_id
-        existing["device_type"] = body.device_type
-        existing["updated_at"] = datetime.now(timezone.utc).isoformat()
+    check_q = text("SELECT id FROM device_tokens WHERE token = :token")
+    row = (await db.execute(check_q, {"token": body.token})).mappings().first()
+
+    if row:
+        update_q = text("""
+            UPDATE device_tokens
+            SET user_id = :user_id, device_type = :device_type, updated_at = :updated_at
+            WHERE token = :token
+        """)
+        await db.execute(update_q, {
+            "token": body.token,
+            "user_id": user_id,
+            "device_type": body.device_type,
+            "updated_at": now_iso,
+        })
     else:
-        DEVICE_TOKENS.append({
-            "id": f"tok-{uuid.uuid4().hex[:8]}",
+        new_tok_id = f"tok-{uuid.uuid4().hex[:8]}"
+        insert_q = text("""
+            INSERT INTO device_tokens (id, user_id, token, device_type, created_at, updated_at)
+            VALUES (:id, :user_id, :token, :device_type, :created_at, :updated_at)
+        """)
+        await db.execute(insert_q, {
+            "id": new_tok_id,
             "user_id": user_id,
             "token": body.token,
             "device_type": body.device_type,
-            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": now_iso,
+            "updated_at": now_iso,
         })
 
     return {"status": "registered", "token": body.token[:12] + "..."}

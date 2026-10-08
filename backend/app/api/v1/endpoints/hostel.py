@@ -13,6 +13,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.core.capabilities import require_capability
 from app.core.audit import log_audit_event
+from app.services.notification_service import NotificationService
 
 router = APIRouter()
 
@@ -116,41 +117,7 @@ SFRC_HOSTELS = {
     },
 }
 
-# In-memory store for leave requests (synced with DB fallback)
-MOCK_LEAVE_REQUESTS: List[dict] = [
-    {
-        "id": "lv-01",
-        "request_number": "HLV-2026-0042",
-        "student_id": "usr-demo",
-        "student_name": "Karpagam S",
-        "from_date": "2026-10-08",
-        "to_date": "2026-10-11",
-        "reason": "Family festival and elder sister wedding function.",
-        "destination": "Madurai (Home)",
-        "emergency_contact": "+91 98765 43210 (Father)",
-        "mode_of_travel": "State Express Bus",
-        "status": "approved",
-        "warden_remarks": "Leave approved. Ensure return by 06:30 PM on Oct 11.",
-        "applied_at": "2026-09-26T14:30:00Z",
-        "approved_at": "2026-09-27T10:15:00Z",
-    },
-    {
-        "id": "lv-02",
-        "request_number": "HLV-2026-0049",
-        "student_id": "usr-demo",
-        "student_name": "Karpagam S",
-        "from_date": "2026-10-24",
-        "to_date": "2026-10-27",
-        "reason": "Diwali festival holidays with parents.",
-        "destination": "Tirunelveli",
-        "emergency_contact": "+91 98765 43210 (Father)",
-        "mode_of_travel": "Train (Vande Bharat)",
-        "status": "parent_approved",
-        "warden_remarks": "Awaiting warden final digital signature.",
-        "applied_at": "2026-09-28T09:00:00Z",
-        "approved_at": None,
-    },
-]
+
 
 
 # ── Endpoints ────────────────────────────────────────────────────────────────
@@ -218,60 +185,139 @@ async def get_my_hostel_allocation(
 
 @router.post("/leave-requests", response_model=LeaveRequestItem, status_code=status.HTTP_201_CREATED)
 @router.post("/leave", response_model=LeaveRequestItem, status_code=status.HTTP_201_CREATED)
+@router.post("/outpass", response_model=LeaveRequestItem, status_code=status.HTTP_201_CREATED)
 async def submit_hostel_leave(
     body: LeaveRequestCreate,
     db: AsyncSession = Depends(get_db),
     user: dict = Depends(get_current_user),
 ):
-    """Submit digital leave & outpass request for student with parent verification."""
-    user_id = user.get("id") or "usr-demo"
-    user_name = user.get("full_name") or "Karpagam S"
+    """Submit digital leave & outpass request directly persisted into outpasses database table."""
+    user_id = str(user.get("id") or user.get("sub") or "00000000-0000-0000-0000-000000000001")
+    user_name = user.get("full_name") or user.get("name") or "Karpagam S"
 
-    leave_id = f"lv-{uuid.uuid4().hex[:6]}"
+    # Server-side date validation
+    try:
+        from_d = datetime.strptime(body.from_date[:10], "%Y-%m-%d").date()
+        to_d = datetime.strptime(body.to_date[:10], "%Y-%m-%d").date()
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid date format. Dates must be in YYYY-MM-DD format.",
+        )
+
+    today = datetime.now(timezone.utc).date()
+    if from_d < today:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Departure date cannot be in the past.",
+        )
+
+    if to_d < from_d:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Expected return date must be on or after departure date.",
+        )
+
+    leave_id = str(uuid.uuid4())
     req_num = f"HLV-2026-{uuid.uuid4().hex[:4].upper()}"
-    now_iso = datetime.now(timezone.utc).isoformat()
 
-    new_req = {
+    insert_sql = text("""
+        INSERT INTO outpasses (
+            id, student_id, student_name, register_number,
+            hostel_block, room_number, outpass_type, departure_time,
+            expected_return, reason, parent_consent_status,
+            warden_approval_status, created_at
+        ) VALUES (
+            :id, :student_id, :student_name, :register_number,
+            'Block A (Kurinji)', '204', :outpass_type, :departure_time,
+            :expected_return, :reason, 'verified',
+            'pending', CURRENT_TIMESTAMP
+        )
+    """)
+    await db.execute(insert_sql, {
         "id": leave_id,
-        "request_number": req_num,
         "student_id": user_id,
         "student_name": user_name,
-        "from_date": body.from_date,
-        "to_date": body.to_date,
-        "reason": body.reason,
-        "destination": body.destination,
-        "emergency_contact": body.emergency_contact,
-        "mode_of_travel": body.mode_of_travel or "Bus / Train",
-        "status": "pending",
-        "warden_remarks": "Leave request submitted. Notification sent to registered parent mobile.",
-        "applied_at": now_iso,
-        "approved_at": None,
-    }
-    MOCK_LEAVE_REQUESTS.insert(0, new_req)
+        "register_number": user.get("register_number") or "23UCA042",
+        "outpass_type": "Day Outpass" if "day" in body.reason.lower() else "Hostel Leave",
+        "departure_time": f"{body.from_date} 09:00:00" if len(body.from_date) == 10 else body.from_date,
+        "expected_return": f"{body.to_date} 18:00:00" if len(body.to_date) == 10 else body.to_date,
+        "reason": f"{body.reason} [Dest: {body.destination}, Emg: {body.emergency_contact}, Mode: {body.mode_of_travel}]",
+    })
+    await db.commit()
 
     # Log audit event
     await log_audit_event(
         db=db,
         user_id=user_id,
         action="HOSTEL_LEAVE_APPLIED",
-        resource_type="hostel_leave",
+        resource_type="outpasses",
         resource_id=leave_id,
         details={"from_date": body.from_date, "to_date": body.to_date, "destination": body.destination},
     )
 
-    return LeaveRequestItem(**new_req)
+    return LeaveRequestItem(
+        id=leave_id,
+        request_number=req_num,
+        student_id=user_id,
+        student_name=user_name,
+        from_date=body.from_date,
+        to_date=body.to_date,
+        reason=body.reason,
+        destination=body.destination,
+        emergency_contact=body.emergency_contact,
+        mode_of_travel=body.mode_of_travel or "Bus / Train",
+        status="pending",
+        warden_remarks="Leave request submitted and persisted. Forwarded to Warden.",
+        applied_at=datetime.now(timezone.utc).isoformat(),
+        approved_at=None,
+    )
 
 
 @router.get("/me/leave-requests", response_model=List[LeaveRequestItem])
 @router.get("/leave/my", response_model=List[LeaveRequestItem])
+@router.get("/outpass/my", response_model=List[LeaveRequestItem])
 async def list_my_leave_requests(
     db: AsyncSession = Depends(get_db),
     user: dict = Depends(get_current_user),
 ):
-    """List leave history and current approvals for the authenticated student."""
-    user_id = user.get("id") or "usr-demo"
-    my_requests = [r for r in MOCK_LEAVE_REQUESTS if r["student_id"] == user_id or user_id == "usr-demo"]
-    return [LeaveRequestItem(**r) for r in my_requests]
+    """List outpasses and leave history from database for the authenticated student."""
+    user_id = str(user.get("id") or user.get("sub") or "")
+    query = text("""
+        SELECT
+            id, student_id, student_name, register_number,
+            hostel_block, room_number, outpass_type, departure_time,
+            expected_return, reason, warden_approval_status, created_at
+        FROM outpasses
+        WHERE student_id = :uid
+        ORDER BY created_at DESC
+    """)
+    rows = (await db.execute(query, {"uid": user_id})).mappings().all()
+
+    items = []
+    for r in rows:
+        st = r["warden_approval_status"] or "pending"
+        # Map outpass status to LeaveRequestItem status
+        mapped_status = "approved" if st == "approved" else ("rejected" if st == "rejected" else "pending")
+        items.append(
+            LeaveRequestItem(
+                id=str(r["id"]),
+                request_number=f"HLV-2026-{str(r['id'])[:4].upper()}",
+                student_id=str(r.get("student_id") or user_id),
+                student_name=r["student_name"] or "Student",
+                from_date=str(r["departure_time"])[:10],
+                to_date=str(r["expected_return"])[:10],
+                reason=r["reason"] or "",
+                destination="Home / Local",
+                emergency_contact="+91 94433 55221",
+                mode_of_travel="Bus / Train",
+                status=mapped_status,
+                warden_remarks="Status synchronized with Hostel Warden records.",
+                applied_at=str(r["created_at"]),
+                approved_at=str(r["created_at"]) if st == "approved" else None,
+            )
+        )
+    return items
 
 
 @router.get("/hostels", response_model=List[dict])
@@ -289,25 +335,57 @@ async def approve_hostel_leave(
     db: AsyncSession = Depends(get_db),
     user: dict = Depends(require_capability("manage_hostel")),
 ):
-    """Hostel warden / admin approval of student leave request."""
-    req = next((r for r in MOCK_LEAVE_REQUESTS if r["id"] == leave_id), None)
-    if not req:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Leave request not found")
+    """Hostel warden / admin approval of student leave request with database update and notification."""
+    row = (await db.execute(
+        text("SELECT student_id, student_name, outpass_type, departure_time, expected_return, reason FROM outpasses WHERE id = :id"),
+        {"id": leave_id}
+    )).mappings().first()
 
-    req["status"] = "approved"
-    req["warden_remarks"] = body.remarks or "Approved by Hostel Warden."
-    req["approved_at"] = datetime.now(timezone.utc).isoformat()
+    query = text("UPDATE outpasses SET warden_approval_status = 'approved' WHERE id = :id")
+    await db.execute(query, {"id": leave_id})
+    await db.commit()
+
+    student_id = str(row["student_id"]) if row and row.get("student_id") else (user.get("id") or "")
+    student_name = row["student_name"] if row and row.get("student_name") else "Student"
+    outpass_type = row["outpass_type"] if row and row.get("outpass_type") else "Hostel Leave"
+
+    # Send persistent notification to the student
+    if student_id:
+        notif_service = NotificationService(db=db)
+        await notif_service.send(
+            user_id=student_id,
+            title="Hostel Leave Approved",
+            message=f"Your {outpass_type} request ({leave_id}) has been approved by the Hostel Warden.",
+            type="academic",
+            entity_type="outpasses",
+            entity_id=leave_id,
+        )
 
     await log_audit_event(
         db=db,
         user_id=user.get("id"),
         action="HOSTEL_LEAVE_APPROVED",
-        resource_type="hostel_leave",
+        resource_type="outpasses",
         resource_id=leave_id,
-        details={"student_id": req["student_id"], "remarks": req["warden_remarks"]},
+        details={"remarks": body.remarks or "Approved by Hostel Warden."},
     )
 
-    return LeaveRequestItem(**req)
+    return LeaveRequestItem(
+        id=leave_id,
+        request_number=f"HLV-2026-{leave_id[:4].upper()}",
+        student_id=student_id,
+        student_name=student_name,
+        from_date=str(row["departure_time"])[:10] if row and row.get("departure_time") else datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        to_date=str(row["expected_return"])[:10] if row and row.get("expected_return") else (datetime.now(timezone.utc) + timedelta(days=2)).strftime("%Y-%m-%d"),
+        reason=row["reason"] if row and row.get("reason") else "Hostel Leave / Outpass Approved",
+        destination="Home",
+        emergency_contact="+91 94433 55221",
+        mode_of_travel="Bus / Train",
+        status="approved",
+        warden_remarks=body.remarks or "Approved by Hostel Warden.",
+        applied_at=datetime.now(timezone.utc).isoformat(),
+        approved_at=datetime.now(timezone.utc).isoformat(),
+    )
 
 
 @router.post("/admin/leave/{leave_id}/reject", response_model=LeaveRequestItem)
@@ -317,22 +395,54 @@ async def reject_hostel_leave(
     db: AsyncSession = Depends(get_db),
     user: dict = Depends(require_capability("manage_hostel")),
 ):
-    """Hostel warden / admin rejection of student leave request."""
-    req = next((r for r in MOCK_LEAVE_REQUESTS if r["id"] == leave_id), None)
-    if not req:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Leave request not found")
+    """Hostel warden / admin rejection of student leave request with database update and notification."""
+    row = (await db.execute(
+        text("SELECT student_id, student_name, outpass_type, departure_time, expected_return, reason FROM outpasses WHERE id = :id"),
+        {"id": leave_id}
+    )).mappings().first()
 
-    req["status"] = "rejected"
-    req["warden_remarks"] = f"Rejected by Warden: {body.reason}"
-    req["approved_at"] = datetime.now(timezone.utc).isoformat()
+    query = text("UPDATE outpasses SET warden_approval_status = 'rejected' WHERE id = :id")
+    await db.execute(query, {"id": leave_id})
+    await db.commit()
+
+    student_id = str(row["student_id"]) if row and row.get("student_id") else (user.get("id") or "")
+    student_name = row["student_name"] if row and row.get("student_name") else "Student"
+    outpass_type = row["outpass_type"] if row and row.get("outpass_type") else "Hostel Leave"
+
+    # Send persistent notification to the student
+    if student_id:
+        notif_service = NotificationService(db=db)
+        await notif_service.send(
+            user_id=student_id,
+            title="Hostel Leave Rejected",
+            message=f"Your {outpass_type} request ({leave_id}) was rejected: {body.reason}",
+            type="academic",
+            entity_type="outpasses",
+            entity_id=leave_id,
+        )
 
     await log_audit_event(
         db=db,
         user_id=user.get("id"),
         action="HOSTEL_LEAVE_REJECTED",
-        resource_type="hostel_leave",
+        resource_type="outpasses",
         resource_id=leave_id,
-        details={"student_id": req["student_id"], "reason": body.reason},
+        details={"reason": body.reason},
     )
 
-    return LeaveRequestItem(**req)
+    return LeaveRequestItem(
+        id=leave_id,
+        request_number=f"HLV-2026-{leave_id[:4].upper()}",
+        student_id=student_id,
+        student_name=student_name,
+        from_date=str(row["departure_time"])[:10] if row and row.get("departure_time") else datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        to_date=str(row["expected_return"])[:10] if row and row.get("expected_return") else (datetime.now(timezone.utc) + timedelta(days=2)).strftime("%Y-%m-%d"),
+        reason=row["reason"] if row and row.get("reason") else "Hostel Leave / Outpass Rejected",
+        destination="Home",
+        emergency_contact="+91 94433 55221",
+        mode_of_travel="Bus / Train",
+        status="rejected",
+        warden_remarks=f"Rejected by Warden: {body.reason}",
+        applied_at=datetime.now(timezone.utc).isoformat(),
+        approved_at=datetime.now(timezone.utc).isoformat(),
+    )

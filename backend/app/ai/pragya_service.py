@@ -358,7 +358,7 @@ class PragyaService:
             )
 
         # 6. Transport / Bus Routes
-        if contains_any(msg, ["transport", "bus", "route", "timing", "stop", "stopping", "driver"]):
+        if contains_any(msg, ["transport", "bus", "bus route", "bus timing", "bus stop", "stopping", "driver"]):
             routes = [t["bus_route"] for t in TRANSPORT_DATA]
             bus_numbers = [t["bus_number"] for t in TRANSPORT_DATA]
 
@@ -616,7 +616,7 @@ class PragyaService:
                 conv_meta.pop("pending_complaint", None)
                 conv["updated_at"] = datetime.now(timezone.utc).isoformat()
 
-                reply = f"Ticket <b>{ref}</b> created successfully! Track status in Campus Care."
+                reply = f"Ticket <b>{ref}</b> created! Track in Campus Care."
                 sources = ["Campus Care Service Desk"]
                 buttons = MAIN_BUTTONS
                 cls._record_messages(conv_id, user_message, reply, sources, "complaint")
@@ -643,27 +643,17 @@ class PragyaService:
                     "buttons": buttons,
                 }
 
-        # 4. First Check Deterministic SFRC_Assist Rule Engine
-        sfrc_result = cls._match_sfrc_assist_rules(user_message)
-        if sfrc_result:
-            reply, buttons, sources, intent = sfrc_result
-            cls._record_messages(conv_id, user_message, reply, sources, intent)
-            conv["updated_at"] = datetime.now(timezone.utc).isoformat()
-            return {
-                "reply": reply,
-                "conversation_id": conv_id,
-                "sources": sources,
-                "intent": intent,
-                "buttons": buttons,
-            }
-
-        # 5. Check Student Tools Intent
+        # 4. Check Student Tools Intent & Dynamic Capabilities
         msg_clean = normalize(user_message)
         tool_result: Optional[str] = None
         tool_source: Optional[str] = None
         tool_intent: Optional[str] = None
 
-        if contains_any(msg_clean, ["attendance", "present", "absent", "od", "duty leave"]):
+        if contains_any(msg_clean, ["library", "irc", "book", "volumes", "delnet", "jgate"]):
+            tool_result = cls._tool_library()
+            tool_source = "SFRC Library Information"
+            tool_intent = "library"
+        elif contains_any(msg_clean, ["attendance", "present", "absent", "od", "duty leave"]):
             tool_result = cls._tool_attendance(user)
             tool_source = "SFRC Attendance Registry"
             tool_intent = "attendance"
@@ -683,10 +673,6 @@ class PragyaService:
             tool_result = cls._tool_marks(user)
             tool_source = "Controller of Examinations Portal"
             tool_intent = "marks"
-        elif contains_any(msg_clean, ["library", "irc", "book", "volumes", "delnet", "jgate"]):
-            tool_result = cls._tool_library()
-            tool_source = "SFRC Library Information"
-            tool_intent = "library"
         elif contains_any(msg_clean, ["hostel", "warden", "curfew", "mess"]):
             tool_result = cls._tool_hostel()
             tool_source = "SFRC Hostel Rules"
@@ -694,7 +680,7 @@ class PragyaService:
         elif contains_any(msg_clean, ["report", "broken", "not working", "projector", "wifi", "fan", "leak", "complaint"]):
             conv_meta["complaint_step"] = "awaiting_description"
             conv["updated_at"] = datetime.now(timezone.utc).isoformat()
-            reply = "I can help report that. Describe briefly (what issue, which room/block)?"
+            reply = "I can help report that. Describe briefly (what, where)?"
             sources = ["Campus Care Service Desk"]
             buttons = ["Cancel"]
             cls._record_messages(conv_id, user_message, reply, sources, "complaint")
@@ -703,6 +689,32 @@ class PragyaService:
                 "conversation_id": conv_id,
                 "sources": sources,
                 "intent": "complaint",
+                "buttons": buttons,
+            }
+
+        if tool_result:
+            sources = [tool_source] if tool_source else ["SFRC Knowledge Base"]
+            cls._record_messages(conv_id, user_message, tool_result, sources, tool_intent)
+            conv["updated_at"] = datetime.now(timezone.utc).isoformat()
+            return {
+                "reply": tool_result,
+                "conversation_id": conv_id,
+                "sources": sources,
+                "intent": tool_intent,
+                "buttons": MAIN_BUTTONS,
+            }
+
+        # 5. Check Deterministic SFRC_Assist Rule Engine
+        sfrc_result = cls._match_sfrc_assist_rules(user_message)
+        if sfrc_result:
+            reply, buttons, sources, intent = sfrc_result
+            cls._record_messages(conv_id, user_message, reply, sources, intent)
+            conv["updated_at"] = datetime.now(timezone.utc).isoformat()
+            return {
+                "reply": reply,
+                "conversation_id": conv_id,
+                "sources": sources,
+                "intent": intent,
                 "buttons": buttons,
             }
 

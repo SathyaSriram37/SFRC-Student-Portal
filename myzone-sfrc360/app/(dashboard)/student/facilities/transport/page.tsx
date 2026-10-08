@@ -14,7 +14,6 @@ import {
   Loader2,
   CheckCircle2,
 } from 'lucide-react';
-import AppShell from '@/components/layout/AppShell';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -80,8 +79,7 @@ export default function StudentTransportPage() {
   };
 
   return (
-    <AppShell role="student" userName={busPass?.student_name || 'Student'}>
-      <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
         {/* Header Profile Greeting */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card p-6 rounded-3xl border border-border shadow-xs">
           <div>
@@ -368,6 +366,5 @@ export default function StudentTransportPage() {
           )}
         </div>
       </div>
-    </AppShell>
   );
 }

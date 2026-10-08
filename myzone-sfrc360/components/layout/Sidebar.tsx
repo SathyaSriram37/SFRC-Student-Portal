@@ -28,12 +28,13 @@ import {
   Shield,
   LogOut,
   ChevronRight,
+  User,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useCapabilities } from '@/lib/hooks/use-capabilities';
 import { openPragyaDrawer } from '@/components/ai/PragyaDrawer';
 import { createClient } from '@/lib/supabase/client';
-import type { UserRole } from '@/lib/types';
+import { ROLE_CAPABILITIES, type UserRole, type Capability } from '@/lib/types';
 
 interface NavItem {
   label: string;
@@ -46,13 +47,17 @@ interface NavItem {
 const navByRole: Record<UserRole, NavItem[]> = {
   student: [
     { label: 'Dashboard', href: '/student/dashboard', icon: LayoutDashboard },
+    { label: 'My Profile & Settings', href: '/student/profile', icon: User },
     { label: 'Academics', href: '/student/academics', icon: GraduationCap, capability: 'courses:view' },
+    { label: 'Examinations & Marks', href: '/student/marks', icon: BarChart3, capability: 'marks:view' },
     { label: 'E-Content', href: '/student/e-content', icon: FileText, capability: 'courses:view' },
-    { label: 'Examinations', href: '/student/marks', icon: BarChart3, capability: 'marks:view' },
+    { label: 'Leave & OD', href: '/student/leave', icon: ClipboardList, capability: 'leave:apply' },
+    { label: 'Fee Payments', href: '/student/fees', icon: FileText, capability: 'fees:view' },
     { label: 'Mentoring', href: '/student/mentoring', icon: Users, capability: 'courses:view' },
     { label: 'Library', href: '/student/library', icon: Library, capability: 'library:search' },
     { label: 'Hostel', href: '/student/hostel', icon: Home, capability: 'courses:view' },
     { label: 'Facilities', href: '/student/facilities', icon: Building2 },
+    { label: 'Sports & Athletics', href: '/student/sports', icon: Award },
     { label: 'Campus Care', href: '/student/campus-care', icon: LifeBuoy, capability: 'complaints:create' },
     { label: 'Events', href: '/student/events', icon: Calendar, capability: 'events:view' },
     { label: 'Placements', href: '/student/placements', icon: Briefcase, capability: 'placements:apply' },
@@ -92,26 +97,27 @@ const navByRole: Record<UserRole, NavItem[]> = {
     { label: 'User Management', href: '/admin/users', icon: Users },
     { label: 'Academics', href: '/admin/academics', icon: GraduationCap },
     { label: 'E-Content', href: '/admin/e-content', icon: FileText },
-    { label: 'Campus Ops', href: '/admin/facilities', icon: Building2 },
-    { label: 'Events', href: '/admin/events', icon: Calendar },
-    { label: 'Library', href: '/admin/library', icon: Library },
-    { label: 'Hostel', href: '/admin/hostel', icon: Home },
-    { label: 'Placements', href: '/admin/placements', icon: Briefcase },
-    { label: 'Research', href: '/admin/research', icon: FlaskConical },
-    { label: 'Entrepreneurship', href: '/admin/iedc', icon: Lightbulb },
-    { label: 'Student Life', href: '/admin/life', icon: Heart },
-    { label: 'Alumni', href: '/admin/alumni', icon: Award },
-    { label: 'IQAC', href: '/admin/iqac', icon: FileCheck },
-    { label: 'Policies', href: '/admin/policies', icon: Shield },
-    { label: 'Facilities', href: '/admin/infrastructure', icon: Building2 },
-    { label: 'Transport', href: '/admin/transport', icon: Briefcase },
-    { label: 'Sports', href: '/admin/sports', icon: Award },
-    { label: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
-    { label: 'Campus Care', href: '/admin/complaints', icon: LifeBuoy },
+    { label: 'Campus Venues & Ops', href: '/admin/facilities', icon: Building2 },
+    { label: 'Events & Symposiums', href: '/admin/events', icon: Calendar },
+    { label: 'Library Catalog', href: '/admin/library', icon: Library },
+    { label: 'Hostel & Housing', href: '/admin/hostel', icon: Home },
+    { label: 'Placements & Career', href: '/admin/placements', icon: Briefcase },
+    { label: 'Mentoring Cell', href: '/admin/mentoring', icon: Users },
+    { label: 'Research & Grants', href: '/admin/research', icon: FlaskConical },
+    { label: 'Entrepreneurship (IEDC)', href: '/admin/iedc', icon: Lightbulb },
+    { label: 'Student Life & Clubs', href: '/admin/life', icon: Heart },
+    { label: 'Alumni Network', href: '/admin/alumni', icon: Award },
+    { label: 'IQAC Cell', href: '/admin/iqac', icon: FileCheck },
+    { label: 'Policies & Compliance', href: '/admin/policies', icon: Shield },
+    { label: 'ICT & Infrastructure', href: '/admin/infrastructure', icon: Building2 },
+    { label: 'Bus Transport', href: '/admin/transport', icon: Briefcase },
+    { label: 'Sports & Varsity', href: '/admin/sports', icon: Award },
+    { label: 'Analytics Suite', href: '/admin/analytics', icon: BarChart3 },
+    { label: 'Campus Care Helpdesk', href: '/admin/complaints', icon: LifeBuoy },
     { label: 'Pragya AI', href: '#pragya', icon: Sparkles, isPragya: true },
-    { label: 'RAG', href: '/admin/rag', icon: BookOpen },
+    { label: 'RAG Knowledgebase', href: '/admin/rag', icon: BookOpen },
     { label: 'Notifications', href: '/notifications', icon: Bell },
-    { label: 'Integrations', href: '/admin/integrations', icon: Settings },
+    { label: 'Integrations (ERMS)', href: '/admin/integrations', icon: Settings },
     { label: 'System Settings', href: '/admin/settings', icon: Settings },
     { label: 'Audit Logs', href: '/admin/audit-logs', icon: Shield },
   ],
@@ -133,15 +139,17 @@ interface SidebarProps {
 export default function Sidebar({ role, userName, onClose }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { can } = useCapabilities();
+  const { can, user } = useCapabilities();
   const rawNavItems = navByRole[role] ?? [];
   const RoleIcon = roleIcons[role] || GraduationCap;
   const supabase = createClient();
 
-  // Filter items based on capabilities
+  // Filter items based on capabilities, with fallback to role's default capabilities
   const visibleNavItems = rawNavItems.filter((item) => {
     if (!item.capability) return true;
-    return can(item.capability);
+    if (user) return can(item.capability);
+    const roleCaps = ROLE_CAPABILITIES[role] || [];
+    return roleCaps.includes('*') || roleCaps.includes(item.capability as Capability);
   });
 
   const handleSignOut = async () => {
@@ -152,17 +160,24 @@ export default function Sidebar({ role, userName, onClose }: SidebarProps) {
   return (
     <aside className="flex flex-col h-full w-64 bg-sfrc-surface border-r border-sfrc-200">
       {/* Role Profile Header */}
-      <div className="flex items-center gap-3 p-4 border-b border-sfrc-200">
-        <div className="w-10 h-10 rounded-xl bg-sfrc-100 flex items-center justify-center shrink-0 shadow-inner">
+      <Link
+        href={role === 'student' ? '/student/profile' : `/${role}/dashboard`}
+        onClick={onClose}
+        className="flex items-center gap-3 p-4 border-b border-sfrc-200 hover:bg-sfrc-100/60 transition-colors group cursor-pointer"
+        title="View Profile & Settings"
+      >
+        <div className="w-10 h-10 rounded-xl bg-sfrc-100 group-hover:bg-sfrc-200 flex items-center justify-center shrink-0 shadow-inner transition-colors">
           <RoleIcon className="w-5 h-5 text-sfrc-700" />
         </div>
         <div className="min-w-0">
-          <p className="text-[11px] text-sfrc-600 font-bold uppercase tracking-wider">
-            {role} Portal
+          <p className="text-[11px] text-sfrc-600 font-bold uppercase tracking-wider flex items-center gap-1">
+            <span>{role} Portal</span>
           </p>
-          <p className="text-sm font-bold text-sfrc-900 truncate">{userName}</p>
+          <p className="text-sm font-bold text-sfrc-900 truncate group-hover:text-sfrc-700 transition-colors">
+            {userName}
+          </p>
         </div>
-      </div>
+      </Link>
 
       {/* Navigation Links */}
       <nav className="flex-1 overflow-y-auto p-3 space-y-0.5 no-scrollbar" role="navigation">

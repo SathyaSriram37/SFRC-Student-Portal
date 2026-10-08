@@ -11,10 +11,13 @@ from jose import jwt
 from app.main import app
 from app.core.config import settings
 
+import uuid
+
 def create_test_token(role: str = "student", extra_claims: dict = None) -> str:
+    sub_id = extra_claims.get("sub") if extra_claims and "sub" in extra_claims else f"{role[:3]}-p13-{uuid.uuid4().hex[:6]}"
     payload = {
-        "sub": "std-2023-001" if role == "student" else "fac-2023-001" if role == "faculty" else "adm-2023-001",
-        "email": f"{role}@sfrc.edu.in",
+        "sub": sub_id,
+        "email": f"{sub_id}@sfrc.edu.in",
         "role": "authenticated",
         "user_metadata": {
             "role": role,
@@ -41,7 +44,7 @@ async def test_alumni_directory_visibility_and_phone_privacy():
         headers = {"Authorization": f"Bearer {student_token}"}
 
         # 1. Student lists directory: should see only public profiles
-        res = await ac.get("/api/v1/alumni", headers=headers)
+        res = await ac.get("/api/v1/alumni?limit=50", headers=headers)
         assert res.status_code == 200
         data = res.json()
         assert "items" in data

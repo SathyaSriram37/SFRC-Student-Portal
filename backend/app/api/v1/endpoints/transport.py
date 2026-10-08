@@ -1,11 +1,10 @@
-"""Transport Management endpoints — Campus bus routes, stop timings, bus passes, and route administration."""
-from __future__ import annotations
-
+import json
 import uuid
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -218,13 +217,53 @@ SEED_TRANSPORT_ROUTES: List[Dict[str, Any]] = [
 ]
 
 
+# ── Deserialization Helpers ──────────────────────────────────────────────────
+
+def parse_json_list(val: Any) -> List[Any]:
+    if isinstance(val, list):
+        return val
+    if isinstance(val, str):
+        try:
+            parsed = json.loads(val)
+            if isinstance(parsed, list):
+                return parsed
+        except Exception:
+            return [val] if val else []
+    return []
+
+
+def row_to_route(row: Dict[str, Any]) -> TransportRouteItem:
+    return TransportRouteItem(
+        id=str(row["id"]),
+        route_number=row["route_number"],
+        name=row["name"],
+        start_point=row["start_point"],
+        destination=row["destination"],
+        bus_registration=row["bus_registration"],
+        driver_name=row["driver_name"],
+        driver_phone=row["driver_phone"],
+        total_stops=int(row.get("total_stops") or 0),
+        morning_departure=row["morning_departure"],
+        morning_arrival_sfrc=row["morning_arrival_sfrc"],
+        evening_departure_sfrc=row["evening_departure_sfrc"],
+        evening_arrival_terminus=row["evening_arrival_terminus"],
+        capacity=int(row.get("capacity") or 40),
+        occupied_seats=int(row.get("occupied_seats") or 0),
+        note=row.get("note"),
+    )
+
+
 # ── Endpoints ────────────────────────────────────────────────────────────────
 
 @router.get("/transport/routes", response_model=List[TransportRouteItem])
 async def list_transport_routes(
     user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    """Retrieve all college bus routes with stop counts and timings."""
+    """Retrieve all college bus routes with stop counts and timings from database."""
+    rows = (await db.execute(text("SELECT * FROM transport_routes ORDER BY route_number ASC"))).mappings().all()
+    if rows:
+        return [row_to_route(dict(r)) for r in rows]
     return [TransportRouteItem(**r) for r in SEED_TRANSPORT_ROUTES]
 
 
@@ -232,8 +271,15 @@ async def list_transport_routes(
 async def get_route_stops(
     id: str,
     user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    """Retrieve detailed list of stops and morning/evening pickup times for a specific route."""
+    """Retrieve detailed list of stops and morning/evening pickup times for a specific route from database."""
+    q = text("SELECT * FROM transport_routes WHERE id = :id OR LOWER(route_number) = LOWER(:id)")
+    row = (await db.execute(q, {"id": id})).mappings().first()
+    if row:
+        stops = parse_json_list(row.get("stops"))
+        return [BusStopItem(**s) for s in stops]
+
     route = next((r for r in SEED_TRANSPORT_ROUTES if r["id"] == id or r["route_number"].lower() == id.lower()), None)
     if not route:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transport route not found.")
@@ -272,9 +318,28 @@ async def create_transport_route(
     user: dict = Depends(require_capability("manage_transport")),
     db: AsyncSession = Depends(get_db),
 ):
-    """Create or register a new campus transport route."""
-    new_route = {
-        "id": f"rt-{uuid.uuid4().hex[:8]}",
+    """Create or register a new campus transport route with database persistence."""
+    new_id = f"rt-{uuid.uuid4().hex[:8]}"
+    stops_json = json.dumps([
+        s.model_dump() if hasattr(s, "model_dump") else (s.dict() if hasattr(s, "dict") else dict(s))
+        for s in (body.stops or [])
+    ])
+
+    insert_q = text("""
+        INSERT INTO transport_routes (
+            id, route_number, name, start_point, destination, bus_registration,
+            driver_name, driver_phone, total_stops, morning_departure, morning_arrival_sfrc,
+            evening_departure_sfrc, evening_arrival_terminus, capacity, occupied_seats,
+            note, stops
+        ) VALUES (
+            :id, :route_number, :name, :start_point, :destination, :bus_registration,
+            :driver_name, :driver_phone, :total_stops, :morning_departure, :morning_arrival_sfrc,
+            :evening_departure_sfrc, :evening_arrival_terminus, :capacity, 0,
+            :note, :stops
+        )
+    """)
+    await db.execute(insert_q, {
+        "id": new_id,
         "route_number": body.route_number,
         "name": body.name,
         "start_point": body.start_point,
@@ -288,19 +353,19 @@ async def create_transport_route(
         "evening_departure_sfrc": body.evening_departure_sfrc,
         "evening_arrival_terminus": body.evening_arrival_terminus,
         "capacity": body.capacity,
-        "occupied_seats": 0,
-        "note": "Demo transport data. Not official SFRC bus routes.",
-        "stops": body.stops,
-    }
-    SEED_TRANSPORT_ROUTES.append(new_route)
+        "note": "Official SFRC bus route.",
+        "stops": stops_json,
+    })
 
     await log_audit_event(
         user_id=user.get("id"),
         action="create_transport_route",
         resource_type="transport_route",
-        resource_id=new_route["id"],
+        resource_id=new_id,
         details={"route_number": body.route_number, "name": body.name},
         db=db,
     )
 
-    return TransportRouteItem(**new_route)
+    fetch_q = text("SELECT * FROM transport_routes WHERE id = :id")
+    row = (await db.execute(fetch_q, {"id": new_id})).mappings().first()
+    return row_to_route(dict(row))

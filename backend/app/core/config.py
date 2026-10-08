@@ -1,11 +1,18 @@
-from __future__ import annotations
-
+import os
 from typing import List
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=[
+            ".env",
+            "backend/.env",
+            os.path.join(os.path.dirname(__file__), "../../../.env"),
+            os.path.join(os.path.dirname(__file__), "../../.env"),
+        ],
+        extra="ignore",
+    )
 
     # ── Database ──────────────────────────────────────────────────────────────
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/postgres"

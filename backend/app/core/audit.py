@@ -22,8 +22,8 @@ async def log_audit_event(
     """Log an audit event asynchronously to the audit_logs table."""
     active_session = session or db
     query = text("""
-        INSERT INTO public.audit_logs (user_id, action, resource_type, resource_id, details, ip_address)
-        VALUES (:user_id, :action, :resource_type, :resource_id, :details::jsonb, :ip_address)
+        INSERT INTO audit_logs (user_id, action, resource_type, resource_id, details, ip_address)
+        VALUES (:user_id, :action, :resource_type, :resource_id, :details, :ip_address)
     """)
     params = {
         "user_id": user_id,

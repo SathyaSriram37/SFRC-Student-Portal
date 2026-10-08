@@ -6,7 +6,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Users, Search, UserPlus, Shield, GraduationCap, BookOpen, Heart, CheckCircle2, XCircle, Loader2, ArrowLeft, ChevronLeft, ChevronRight, X } from 'lucide-react';
-import AppShell from '@/components/layout/AppShell';
 import AskPragyaBanner from '@/components/shared/AskPragyaBanner';
 import { createClient } from '@/lib/supabase/client';
 import { apiGet, apiPost } from '@/lib/api-client';
@@ -163,8 +162,7 @@ export default function AdminUsersPage() {
   const totalPages = Math.ceil(total / 20) || 1;
 
   return (
-    <AppShell role="admin" userName="Administrator">
-      <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -503,6 +501,5 @@ export default function AdminUsersPage() {
 
         <AskPragyaBanner />
       </div>
-    </AppShell>
   );
 }

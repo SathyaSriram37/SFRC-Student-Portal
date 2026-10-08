@@ -112,6 +112,51 @@ export interface UserProfile {
   createdAt: string;
 }
 
+export interface StudentDetailedProfile {
+  student_id: string;
+  user_id: string;
+  full_name: string;
+  register_number: string;
+  roll_number?: string;
+  avatar_url?: string;
+  email?: string;
+  phone_number?: string;
+  personal_email?: string;
+  gender?: string;
+  dob?: string;
+  blood_group?: string;
+  permanent_address?: string;
+  residential_address?: string;
+  bio?: string;
+  linkedin_url?: string;
+  github_url?: string;
+  programme_name?: string;
+  department_name?: string;
+  current_semester: number;
+  batch_year?: string;
+  section?: string;
+  shift?: string;
+  admission_date?: string;
+  abc_id?: string;
+  apaar_id?: string;
+  mentor_name?: string;
+  mentor_email?: string;
+  mentor_phone?: string;
+  parent_name?: string;
+  parent_relationship?: string;
+  parent_phone?: string;
+  parent_email?: string;
+  parent_occupation?: string;
+  is_hosteller: boolean;
+  hostel_block?: string;
+  room_number?: string;
+  bus_route_no?: string;
+  attendance_pct: number;
+  cgpa: number;
+  earned_credits: number;
+  total_credits: number;
+}
+
 // ── Student ───────────────────────────────────────────────────────────────────
 export interface Student {
   id: string;

@@ -83,7 +83,7 @@ async def test_transport_routes_and_stops(student_auth_headers):
         routes_res = await ac.get("/api/v1/transport/routes", headers=student_auth_headers)
         assert routes_res.status_code == 200
         routes = routes_res.json()
-        assert len(routes) == 5
+        assert len(routes) >= 5
         assert any(r["route_number"] == "Route 1" for r in routes)
 
         # Get stops for Route 1

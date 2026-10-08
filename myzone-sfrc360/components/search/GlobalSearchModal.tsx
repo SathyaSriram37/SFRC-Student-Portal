@@ -17,6 +17,12 @@ import {
   Loader2,
   Clock,
   ExternalLink,
+  Compass,
+  BookMarked,
+  Bus,
+  Rocket,
+  Briefcase,
+  GraduationCap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
@@ -41,20 +47,29 @@ interface SearchResponse {
 
 const CATEGORY_TABS = [
   { id: 'all', label: 'All Results' },
-  { id: 'events', label: 'Events' },
+  { id: 'navigation', label: 'Shortcuts' },
+  { id: 'library', label: 'Library' },
+  { id: 'transport', label: 'Transport' },
   { id: 'courses', label: 'Courses' },
   { id: 'econtent', label: 'E-Content' },
+  { id: 'placements', label: 'Placements' },
+  { id: 'startups', label: 'Startups' },
+  { id: 'events', label: 'Events' },
   { id: 'facilities', label: 'Facilities' },
-  { id: 'policies', label: 'Policies' },
   { id: 'alumni', label: 'Alumni' },
+  { id: 'faculty', label: 'Faculty' },
+  { id: 'policies', label: 'Policies' },
 ];
 
 const QUICK_SUGGESTIONS = [
-  { label: 'Campus Bus Routes & Timings', type: 'facilities', href: '/student/facilities/transport' },
-  { label: 'Library Catalog & E-Resources', type: 'facilities', href: '/student/library' },
-  { label: 'Academic Regulations & Policies', type: 'policies', href: '/student/policies' },
-  { label: 'YWED Skill Certification Courses', type: 'courses', href: '/student/student-life' },
-  { label: 'Placement Drives & Schedules', type: 'events', href: '/student/placements' },
+  { label: 'Attendance & Hourly Regularity', type: 'navigation', href: '/student/attendance' },
+  { label: 'Continuous Internal Assessment (CIA) Marks', type: 'navigation', href: '/student/marks' },
+  { label: 'Central Library Catalog & E-Resources', type: 'library', href: '/student/library' },
+  { label: 'Campus Bus Routes & Stop Timings', type: 'transport', href: '/student/facilities/transport' },
+  { label: 'Placement Drives & Recruitment Schedules', type: 'placements', href: '/student/placements' },
+  { label: 'ACIDE Student Incubated Startups', type: 'startups', href: '/student/student-life' },
+  { label: 'YWED Vocational Skill Certificate Courses', type: 'courses', href: '/student/student-life' },
+  { label: 'Statutory Anti-Ragging & Institutional Policies', type: 'policies', href: '/student/policies' },
 ];
 
 export function GlobalSearchModal({
@@ -173,6 +188,18 @@ export function GlobalSearchModal({
 
   const getTypeIcon = (type: string) => {
     switch (type) {
+      case 'navigation':
+        return <Compass className="w-4 h-4 text-indigo-500" />;
+      case 'library':
+        return <BookMarked className="w-4 h-4 text-violet-500" />;
+      case 'transport':
+        return <Bus className="w-4 h-4 text-sky-500" />;
+      case 'startups':
+        return <Rocket className="w-4 h-4 text-amber-500" />;
+      case 'placements':
+        return <Briefcase className="w-4 h-4 text-emerald-600" />;
+      case 'faculty':
+        return <GraduationCap className="w-4 h-4 text-teal-500" />;
       case 'events':
         return <Calendar className="w-4 h-4 text-rose-500" />;
       case 'courses':
@@ -180,7 +207,7 @@ export function GlobalSearchModal({
       case 'econtent':
         return <FileText className="w-4 h-4 text-emerald-500" />;
       case 'facilities':
-        return <Building2 className="w-4 h-4 text-amber-500" />;
+        return <Building2 className="w-4 h-4 text-amber-600" />;
       case 'policies':
         return <ShieldCheck className="w-4 h-4 text-purple-500" />;
       case 'alumni':
@@ -192,6 +219,18 @@ export function GlobalSearchModal({
 
   const getTypeBadgeClass = (type: string) => {
     switch (type) {
+      case 'navigation':
+        return 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300';
+      case 'library':
+        return 'bg-violet-100 text-violet-700 dark:bg-violet-950/60 dark:text-violet-300';
+      case 'transport':
+        return 'bg-sky-100 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300';
+      case 'startups':
+        return 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300';
+      case 'placements':
+        return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300';
+      case 'faculty':
+        return 'bg-teal-100 text-teal-700 dark:bg-teal-950/60 dark:text-teal-300';
       case 'events':
         return 'bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300';
       case 'courses':

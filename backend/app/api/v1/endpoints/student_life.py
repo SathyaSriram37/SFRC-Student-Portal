@@ -5,12 +5,18 @@ Phase 12: Official clubs, NSS/NCC units, student startups, and vocational certif
 
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
+import json
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.audit import log_audit_event
 
 router = APIRouter()
 
@@ -621,11 +627,6 @@ SEED_YWED_COURSES: List[Dict[str, Any]] = [
     },
 ]
 
-# Track student YWED enrollments
-STUDENT_YWED_ENROLLMENTS: Dict[str, List[str]] = {
-    "std-2023-001": ["ywed-lt-04", "ywed-st-01"],
-}
-
 # ── Seed Data: Student Certificates ───────────────────────────────────────────
 
 SEED_CERTIFICATES: List[Dict[str, Any]] = [
@@ -665,23 +666,46 @@ async def list_clubs(
     category: Optional[str] = None,
     search: Optional[str] = None,
     current_user: Dict[str, Any] = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
-    List all official SFRC clubs & NSS/NCC units with current user's membership status.
+    List all official SFRC clubs & NSS/NCC units with current user's persisted membership status.
     """
-    student_id = current_user.get("sub") or current_user.get("id") or "std-2023-001"
+    user_id = str(current_user.get("id") or current_user.get("sub") or "")
+
+    # Query active memberships for current user
+    q_user = text("SELECT club_id FROM club_members WHERE user_id = :user_id AND status = 'active'")
+    joined_rows = (await db.execute(q_user, {"user_id": user_id})).scalars().all()
+    joined_set = set(str(c) for c in joined_rows)
+
+    # Query member counts per club
+    q_counts = text("SELECT club_id, COUNT(*) as cnt FROM club_members WHERE status = 'active' GROUP BY club_id")
+    count_rows = (await db.execute(q_counts)).mappings().all()
+    extra_counts = {str(r["club_id"]): int(r["cnt"]) for r in count_rows}
 
     results: List[ClubItem] = []
     for c in SEED_CLUBS:
         if category and category != "all" and c["category"] != category:
             continue
         if search:
-            q = search.lower()
-            if q not in c["name"].lower() and q not in c["description"].lower():
+            q_str = search.lower()
+            if q_str not in c["name"].lower() and q_str not in c["description"].lower():
                 continue
 
-        is_member = student_id in STUDENT_CLUB_MEMBERSHIPS.get(c["id"], [])
-        results.append(ClubItem(**c, is_member=is_member))
+        c_id = c["id"]
+        is_member = c_id in joined_set
+        base_count = c.get("member_count", 50)
+        total_count = max(base_count, extra_counts.get(c_id, 0))
+        if is_member and extra_counts.get(c_id, 0) == 0:
+            total_count += 1
+
+        results.append(ClubItem(
+            **{
+                **c,
+                "is_member": is_member,
+                "member_count": total_count,
+            }
+        ))
 
     return results
 
@@ -689,34 +713,78 @@ async def list_clubs(
 async def join_club(
     id: str,
     current_user: Dict[str, Any] = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
-    Toggle or enroll student into a club or extension unit.
+    Toggle or enroll student into a club or extension unit with database persistence.
     """
     club = next((c for c in SEED_CLUBS if c["id"] == id), None)
     if not club:
         raise HTTPException(status_code=404, detail="Club not found")
 
-    student_id = current_user.get("sub") or current_user.get("id") or "std-2023-001"
+    user_id = str(current_user.get("id") or current_user.get("sub") or "")
+    user_meta = current_user.get("user_metadata") or {}
+    student_name = user_meta.get("full_name") or current_user.get("full_name") or current_user.get("name") or "Student"
+    register_number = current_user.get("register_number") or user_meta.get("register_number") or "21UCS042"
+    now_iso = datetime.now(timezone.utc).isoformat()
 
-    if id not in STUDENT_CLUB_MEMBERSHIPS:
-        STUDENT_CLUB_MEMBERSHIPS[id] = []
+    # Check if membership record exists
+    check_q = text("SELECT id, status FROM club_members WHERE club_id = :club_id AND user_id = :user_id")
+    existing = (await db.execute(check_q, {"club_id": id, "user_id": user_id})).mappings().first()
 
-    if student_id in STUDENT_CLUB_MEMBERSHIPS[id]:
-        STUDENT_CLUB_MEMBERSHIPS[id].remove(student_id)
-        club["member_count"] = max(0, club["member_count"] - 1)
-        is_member = False
-        msg = f"Successfully un-enrolled from {club['name']}."
+    if existing:
+        if existing["status"] == "active":
+            # Leave club
+            update_q = text("UPDATE club_members SET status = 'inactive', updated_at = :updated_at WHERE id = :id")
+            await db.execute(update_q, {"id": existing["id"], "updated_at": now_iso})
+            is_member = False
+            msg = f"Successfully un-enrolled from {club['name']}."
+            action_name = "leave_club"
+        else:
+            # Rejoin club
+            update_q = text("UPDATE club_members SET status = 'active', updated_at = :updated_at WHERE id = :id")
+            await db.execute(update_q, {"id": existing["id"], "updated_at": now_iso})
+            is_member = True
+            msg = f"🎉 Welcome! You are now a registered member of {club['name']}."
+            action_name = "join_club"
     else:
-        STUDENT_CLUB_MEMBERSHIPS[id].append(student_id)
-        club["member_count"] += 1
+        # First time join
+        mem_id = str(uuid.uuid4())
+        insert_q = text("""
+            INSERT INTO club_members (id, club_id, user_id, student_name, register_number, status, created_at, updated_at)
+            VALUES (:id, :club_id, :user_id, :student_name, :register_number, 'active', :created_at, :updated_at)
+        """)
+        await db.execute(insert_q, {
+            "id": mem_id,
+            "club_id": id,
+            "user_id": user_id,
+            "student_name": student_name,
+            "register_number": register_number,
+            "created_at": now_iso,
+            "updated_at": now_iso,
+        })
         is_member = True
         msg = f"🎉 Welcome! You are now a registered member of {club['name']}."
+        action_name = "join_club"
+
+    # Count active members from database
+    q_count = text("SELECT COUNT(*) FROM club_members WHERE club_id = :club_id AND status = 'active'")
+    db_count = (await db.execute(q_count, {"club_id": id})).scalar() or 0
+    total_count = max(club.get("member_count", 50), db_count)
+
+    await log_audit_event(
+        user_id=user_id,
+        action=action_name,
+        resource_type="club",
+        resource_id=id,
+        details={"club_name": club["name"], "is_member": is_member},
+        db=db,
+    )
 
     return {
         "club_id": id,
         "is_member": is_member,
-        "member_count": club["member_count"],
+        "member_count": total_count,
         "message": msg,
     }
 
@@ -724,19 +792,41 @@ async def join_club(
 async def list_ywed_courses(
     course_type: Optional[str] = None,
     current_user: Dict[str, Any] = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
-    List available YWED vocational courses (5 long-term + 12 short-term) with student's enrollment status.
+    List available YWED vocational courses with student's database persisted enrollment status.
     """
-    student_id = current_user.get("sub") or current_user.get("id") or "std-2023-001"
-    my_enrolled = STUDENT_YWED_ENROLLMENTS.get(student_id, [])
+    user_id = str(current_user.get("id") or current_user.get("sub") or "")
+
+    # Query active enrollments for user
+    q_user = text("SELECT course_id FROM ywed_enrollments WHERE user_id = :user_id AND status = 'enrolled'")
+    enrolled_rows = (await db.execute(q_user, {"user_id": user_id})).scalars().all()
+    enrolled_set = set(str(c) for c in enrolled_rows)
+
+    # Query enrollment counts per course
+    q_counts = text("SELECT course_id, COUNT(*) as cnt FROM ywed_enrollments WHERE status = 'enrolled' GROUP BY course_id")
+    count_rows = (await db.execute(q_counts)).mappings().all()
+    extra_counts = {str(r["course_id"]): int(r["cnt"]) for r in count_rows}
 
     results = []
     for crs in SEED_YWED_COURSES:
         if course_type and course_type != "all" and crs["course_type"] != course_type:
             continue
-        is_enrolled = crs["id"] in my_enrolled
-        results.append(YWEDCourse(**crs, is_enrolled=is_enrolled))
+        c_id = crs["id"]
+        is_enrolled = c_id in enrolled_set
+        base_count = crs.get("enrolled_count", 20)
+        total_count = max(base_count, extra_counts.get(c_id, 0))
+        if is_enrolled and extra_counts.get(c_id, 0) == 0:
+            total_count += 1
+
+        results.append(YWEDCourse(
+            **{
+                **crs,
+                "is_enrolled": is_enrolled,
+                "enrolled_count": total_count,
+            }
+        ))
 
     return {
         "courses": results,
@@ -748,41 +838,118 @@ async def list_ywed_courses(
 async def enroll_ywed_course(
     id: str,
     current_user: Dict[str, Any] = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
-    Enroll student into a YWED course.
+    Enroll or drop student in a YWED course with database persistence.
     """
     course = next((c for c in SEED_YWED_COURSES if c["id"] == id), None)
     if not course:
         raise HTTPException(status_code=404, detail="YWED Course not found")
 
-    student_id = current_user.get("sub") or current_user.get("id") or "std-2023-001"
-    if student_id not in STUDENT_YWED_ENROLLMENTS:
-        STUDENT_YWED_ENROLLMENTS[student_id] = []
+    user_id = str(current_user.get("id") or current_user.get("sub") or "")
+    user_meta = current_user.get("user_metadata") or {}
+    student_name = user_meta.get("full_name") or current_user.get("full_name") or current_user.get("name") or "Student"
+    register_number = current_user.get("register_number") or user_meta.get("register_number") or "21UCS042"
+    now_iso = datetime.now(timezone.utc).isoformat()
 
-    if id in STUDENT_YWED_ENROLLMENTS[student_id]:
-        STUDENT_YWED_ENROLLMENTS[student_id].remove(id)
-        course["enrolled_count"] = max(0, course["enrolled_count"] - 1)
-        is_enrolled = False
-        msg = f"Dropped enrollment for {course['course_name']}."
+    # Check if enrollment record exists
+    check_q = text("SELECT id, status FROM ywed_enrollments WHERE course_id = :course_id AND user_id = :user_id")
+    existing = (await db.execute(check_q, {"course_id": id, "user_id": user_id})).mappings().first()
+
+    if existing:
+        if existing["status"] == "enrolled":
+            # Drop course
+            update_q = text("UPDATE ywed_enrollments SET status = 'dropped', updated_at = :updated_at WHERE id = :id")
+            await db.execute(update_q, {"id": existing["id"], "updated_at": now_iso})
+            is_enrolled = False
+            msg = f"Dropped enrollment for {course['course_name']}."
+            action_name = "drop_ywed_course"
+        else:
+            # Re-enroll
+            update_q = text("UPDATE ywed_enrollments SET status = 'enrolled', updated_at = :updated_at WHERE id = :id")
+            await db.execute(update_q, {"id": existing["id"], "updated_at": now_iso})
+            is_enrolled = True
+            msg = f"Enrolled in {course['course_name']}."
+            action_name = "enroll_ywed_course"
     else:
-        STUDENT_YWED_ENROLLMENTS[student_id].append(id)
-        course["enrolled_count"] += 1
+        # First time enroll
+        enr_id = str(uuid.uuid4())
+        insert_q = text("""
+            INSERT INTO ywed_enrollments (id, course_id, user_id, student_name, register_number, status, created_at, updated_at)
+            VALUES (:id, :course_id, :user_id, :student_name, :register_number, 'enrolled', :created_at, :updated_at)
+        """)
+        await db.execute(insert_q, {
+            "id": enr_id,
+            "course_id": id,
+            "user_id": user_id,
+            "student_name": student_name,
+            "register_number": register_number,
+            "created_at": now_iso,
+            "updated_at": now_iso,
+        })
         is_enrolled = True
         msg = f"Enrolled in {course['course_name']}."
+        action_name = "enroll_ywed_course"
+
+    # Count active enrollments from database
+    q_count = text("SELECT COUNT(*) FROM ywed_enrollments WHERE course_id = :course_id AND status = 'enrolled'")
+    db_count = (await db.execute(q_count, {"course_id": id})).scalar() or 0
+    total_count = max(course.get("enrolled_count", 20), db_count)
+
+    await log_audit_event(
+        user_id=user_id,
+        action=action_name,
+        resource_type="ywed_course",
+        resource_id=id,
+        details={"course_name": course["course_name"], "is_enrolled": is_enrolled},
+        db=db,
+    )
 
     return {
         "course_id": id,
         "is_enrolled": is_enrolled,
-        "enrolled_count": course["enrolled_count"],
+        "enrolled_count": total_count,
         "message": msg,
     }
 
+def parse_json_list(val: Any) -> List[Any]:
+    if isinstance(val, list):
+        return val
+    if isinstance(val, str):
+        try:
+            parsed = json.loads(val)
+            if isinstance(parsed, list):
+                return parsed
+        except Exception:
+            return [val] if val else []
+    return []
+
+def row_to_startup(row: Dict[str, Any]) -> StartupShowcase:
+    return StartupShowcase(
+        id=str(row["id"]),
+        startup_name=row["startup_name"],
+        founder_names=parse_json_list(row.get("founder_names")),
+        department=row["department"],
+        founded_year=int(row.get("founded_year") or 2024),
+        tagline=row.get("tagline") or "",
+        description=row.get("description") or "",
+        revenue_stage=row.get("revenue_stage") or "Incubated",
+        logo_url=row.get("logo_url"),
+        website_url=row.get("website_url"),
+        mentors=parse_json_list(row.get("mentors")),
+    )
+
 @router.get("/student-life/acide-startups", response_model=List[StartupShowcase])
-async def list_acide_startups():
+async def list_acide_startups(
+    db: AsyncSession = Depends(get_db),
+):
     """
-    List all 7 SFRC student-founded startups supported by ACIDE.
+    List all SFRC student-founded startups supported by ACIDE from database.
     """
+    rows = (await db.execute(text("SELECT * FROM acide_startups ORDER BY founded_year DESC, id ASC"))).mappings().all()
+    if rows:
+        return [row_to_startup(dict(r)) for r in rows]
     return [StartupShowcase(**s) for s in SEED_ACIDE_STARTUPS]
 
 @router.get("/student-life/certificates", response_model=List[StudentCertificate])

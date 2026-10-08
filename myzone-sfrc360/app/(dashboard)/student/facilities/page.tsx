@@ -46,9 +46,11 @@ interface FacilityComplaint {
   created_at: string;
 }
 
+const DEFAULT_CATEGORIES = ['All', 'Computer Laboratories', 'Science Laboratories', 'Smart Classrooms', 'Auditoriums & Seminar Halls', 'Sports & Fitness', 'Library Spaces'];
+
 export default function StudentFacilitiesPage() {
   const [facilities, setFacilities] = useState<Facility[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
+  const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -64,7 +66,9 @@ export default function StudentFacilitiesPage() {
       ]);
 
       if (Array.isArray(facsData)) setFacilities(facsData);
-      if (Array.isArray(catsData) && catsData.length > 0) setCategories(['All', ...catsData]);
+      if (Array.isArray(catsData) && catsData.length > 0) {
+        setCategories(['All', ...Array.from(new Set(catsData))]);
+      }
     } catch (err) {
       console.error('Failed to load facilities:', err);
     } finally {

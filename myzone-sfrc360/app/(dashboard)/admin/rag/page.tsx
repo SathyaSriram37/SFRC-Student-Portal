@@ -17,7 +17,6 @@ import {
   Activity,
   Search,
 } from 'lucide-react';
-import AppShell from '@/components/layout/AppShell';
 import { Card, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -188,8 +187,7 @@ export default function AdminRagPage() {
   }, [sources]);
 
   return (
-    <AppShell role="admin" userName="System Administrator">
-      <div className="p-4 sm:p-6 lg:p-8 space-y-8 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 lg:p-8 space-y-8 max-w-7xl mx-auto">
         {/* Header Title & Actions */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card p-6 rounded-3xl border border-border shadow-xs">
           <div>
@@ -614,6 +612,5 @@ export default function AdminRagPage() {
           </DialogContent>
         </Dialog>
       </div>
-    </AppShell>
   );
 }

@@ -6,7 +6,7 @@ from jose import jwt
 
 from app.main import app
 from app.core.config import settings
-from app.services.notification_service import NotificationService, SEED_NOTIFICATIONS
+from app.services.notification_service import NotificationService
 
 
 def create_test_token(role: str = "student", user_id: str = None) -> str:

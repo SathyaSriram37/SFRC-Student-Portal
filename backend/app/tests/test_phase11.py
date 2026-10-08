@@ -22,9 +22,11 @@ def create_token(user_id: str, email: str, role: str) -> str:
     return jwt.encode(payload, settings.supabase_jwt_secret or "test-jwt-secret-key-1234567890", algorithm="HS256")
 
 
+import uuid
+
 @pytest.fixture
 def student_token():
-    return create_token("usr-student-01", "student@sfrc.edu.in", "student")
+    return create_token(f"usr-student-{uuid.uuid4().hex[:6]}", "student@sfrc.edu.in", "student")
 
 
 @pytest.fixture

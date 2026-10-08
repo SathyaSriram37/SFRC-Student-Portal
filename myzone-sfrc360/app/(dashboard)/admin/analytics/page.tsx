@@ -25,7 +25,6 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import AppShell from '@/components/layout/AppShell';
 import AskPragyaBanner from '@/components/shared/AskPragyaBanner';
 import { createClient } from '@/lib/supabase/client';
 import { apiGet } from '@/lib/api-client';
@@ -148,8 +147,7 @@ export default function AdminAnalyticsPage() {
   }, [supabase]);
 
   return (
-    <AppShell role="admin" userName="Administrator">
-      <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -532,6 +530,5 @@ export default function AdminAnalyticsPage() {
 
         <AskPragyaBanner />
       </div>
-    </AppShell>
   );
 }

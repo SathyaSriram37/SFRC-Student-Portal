@@ -10,7 +10,12 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.database import get_db
 from app.core.security import get_current_user, require_role
+from app.core.audit import log_audit_event
 
 router = APIRouter()
 
@@ -399,66 +404,119 @@ async def acknowledge_policy(
 # ── Grievance Endpoints (User/Student Facing) ─────────────────────────────────
 
 @router.post("/grievances", response_model=Dict[str, Any], tags=["Grievances & Redressal"])
+@router.post("/policies/grievances", response_model=Dict[str, Any], tags=["Grievances & Redressal"])
 async def submit_grievance(
     payload: GrievanceCreate,
     current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Submit a formal student/stakeholder grievance.
     Enforces minimum 50 characters for description.
     Supports anonymous reporting while recording tracking reference (e.g. GRV-00001).
+    Directly persists into student_grievances table.
     """
-    global grievance_counter
-    grievance_counter += 1
-    ref_number = f"GRV-{grievance_counter:05d}"
+    count_q = text("SELECT COUNT(*) FROM student_grievances")
+    current_count = (await db.execute(count_q)).scalar() or 0
+    ref_number = f"GRV-{current_count + 1:05d}"
+    
+    grv_id = str(uuid.uuid4())
     now_iso = datetime.now(timezone.utc).isoformat()
+    user_id = str(current_user.get("id") or current_user.get("sub") or "")
 
     user_meta = current_user.get("user_metadata") or {}
-    user_name = user_meta.get("full_name") or current_user.get("email") or "Student"
+    user_name = user_meta.get("full_name") or current_user.get("full_name") or current_user.get("email") or "Student"
+    user_email = current_user.get("email") or ""
 
-    new_grievance = {
-        "id": f"grv-{uuid.uuid4().hex[:8]}",
+    insert_q = text("""
+        INSERT INTO student_grievances (
+            id, reference, user_id, reporter_name, reporter_email,
+            category, subject, description, is_anonymous, status,
+            admin_response_notes, created_at, updated_at, resolved_at
+        ) VALUES (
+            :id, :reference, :user_id, :reporter_name, :reporter_email,
+            :category, :subject, :description, :is_anonymous, :status,
+            :admin_response_notes, :created_at, :updated_at, :resolved_at
+        )
+    """)
+    await db.execute(insert_q, {
+        "id": grv_id,
         "reference": ref_number,
+        "user_id": user_id,
+        "reporter_name": user_name,
+        "reporter_email": user_email,
         "category": payload.category,
         "subject": payload.subject,
         "description": payload.description,
-        "is_anonymous": payload.is_anonymous,
+        "is_anonymous": 1 if payload.is_anonymous else 0,
         "status": "Received",
-        "reporter_id": current_user.get("id"),
-        "reporter_name": user_name,
-        "reporter_email": current_user.get("email"),
         "admin_response_notes": None,
         "created_at": now_iso,
         "updated_at": now_iso,
         "resolved_at": None,
-    }
+    })
 
-    DB_GRIEVANCES.append(new_grievance)
+    await log_audit_event(
+        user_id=user_id,
+        action="submit_student_grievance",
+        resource_type="student_grievances",
+        resource_id=grv_id,
+        details={"reference": ref_number, "category": payload.category, "is_anonymous": payload.is_anonymous},
+        db=db,
+    )
 
     return {
         "reference": ref_number,
-        "id": new_grievance["id"],
-        "category": new_grievance["category"],
-        "subject": new_grievance["subject"],
-        "status": new_grievance["status"],
-        "is_anonymous": new_grievance["is_anonymous"],
-        "created_at": new_grievance["created_at"],
+        "id": grv_id,
+        "category": payload.category,
+        "subject": payload.subject,
+        "status": "Received",
+        "is_anonymous": payload.is_anonymous,
+        "created_at": now_iso,
         "message": f"Grievance registered successfully with reference number {ref_number}. You may track resolution status in My Grievances.",
     }
 
 
 @router.get("/grievances/me", response_model=Dict[str, Any], tags=["Grievances & Redressal"])
-async def get_my_grievances(current_user: dict = Depends(get_current_user)):
+@router.get("/policies/grievances/me", response_model=Dict[str, Any], tags=["Grievances & Redressal"])
+async def get_my_grievances(
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
     """
-    Retrieve all grievances submitted by the current authenticated user.
+    Retrieve all grievances submitted by the current authenticated user directly from the database.
+    Ensures student privacy and confidentiality.
     """
-    user_id = current_user.get("id")
-    my_list = [g for g in DB_GRIEVANCES if g.get("reporter_id") == user_id]
-    my_list.sort(key=lambda x: x["created_at"], reverse=True)
+    user_id = str(current_user.get("id") or current_user.get("sub") or "")
+    q = text("""
+        SELECT * FROM student_grievances
+        WHERE user_id = :user_id
+        ORDER BY created_at DESC
+    """)
+    rows = (await db.execute(q, {"user_id": user_id})).mappings().all()
+    
+    grievances = []
+    for r in rows:
+        grievances.append({
+            "id": str(r["id"]),
+            "reference": r["reference"],
+            "category": r["category"],
+            "subject": r["subject"],
+            "description": r["description"],
+            "is_anonymous": bool(r["is_anonymous"]),
+            "status": r["status"],
+            "reporter_id": str(r["user_id"]),
+            "reporter_name": r["reporter_name"],
+            "reporter_email": r["reporter_email"],
+            "admin_response_notes": r["admin_response_notes"],
+            "created_at": str(r["created_at"]),
+            "updated_at": str(r["updated_at"]),
+            "resolved_at": str(r["resolved_at"]) if r["resolved_at"] else None,
+        })
 
     return {
-        "grievances": my_list,
-        "total": len(my_list),
+        "grievances": grievances,
+        "total": len(grievances),
     }
 
 
@@ -564,28 +622,45 @@ async def get_admin_grievances(
     category: Optional[str] = Query(None),
     status_filter: Optional[str] = Query(None, alias="status"),
     admin: dict = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
 ):
     """
-    Administrative grievance repository.
+    Administrative grievance repository directly queried from the database.
     Masks reporter personal identity if is_anonymous is True.
     """
+    conditions = []
+    params: Dict[str, Any] = {}
+    if category and category != "all":
+        conditions.append("LOWER(category) = :category")
+        params["category"] = category.lower()
+    if status_filter and status_filter != "all":
+        conditions.append("LOWER(status) = :status_filter")
+        params["status_filter"] = status_filter.lower()
+
+    where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+    q = text(f"SELECT * FROM student_grievances {where_clause} ORDER BY created_at DESC")
+    rows = (await db.execute(q, params)).mappings().all()
+
     results: List[Dict[str, Any]] = []
-
-    for g in DB_GRIEVANCES:
-        if category and category != "all" and g["category"].lower() != category.lower():
-            continue
-        if status_filter and status_filter != "all" and g["status"].lower() != status_filter.lower():
-            continue
-
-        item = dict(g)
-        if item.get("is_anonymous", False):
-            item["reporter_name"] = "Anonymous Student"
-            item["reporter_email"] = "Protected by Policy"
-            item["reporter_id"] = "ANON-REDACTED"
-
+    for r in rows:
+        is_anon = bool(r["is_anonymous"])
+        item = {
+            "id": str(r["id"]),
+            "reference": r["reference"],
+            "category": r["category"],
+            "subject": r["subject"],
+            "description": r["description"],
+            "is_anonymous": is_anon,
+            "status": r["status"],
+            "reporter_id": "ANON-REDACTED" if is_anon else str(r["user_id"]),
+            "reporter_name": "Anonymous Student" if is_anon else r["reporter_name"],
+            "reporter_email": "Protected by Policy" if is_anon else r["reporter_email"],
+            "admin_response_notes": r["admin_response_notes"],
+            "created_at": str(r["created_at"]),
+            "updated_at": str(r["updated_at"]),
+            "resolved_at": str(r["resolved_at"]) if r["resolved_at"] else None,
+        }
         results.append(item)
-
-    results.sort(key=lambda x: x["created_at"], reverse=True)
 
     return {
         "grievances": results,
@@ -598,20 +673,59 @@ async def update_grievance_status(
     id: str,
     payload: GrievanceStatusUpdate,
     admin: dict = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
 ):
     """
-    Update grievance investigation status and provide official administrative response notes.
+    Update grievance investigation status and provide official administrative response notes in the database.
     """
-    grievance = next((g for g in DB_GRIEVANCES if g["id"] == id), None)
-    if not grievance:
+    find_q = text("SELECT * FROM student_grievances WHERE id = :id")
+    row = (await db.execute(find_q, {"id": id})).mappings().first()
+    if not row:
         raise HTTPException(status_code=404, detail="Grievance record not found")
 
     now_iso = datetime.now(timezone.utc).isoformat()
-    grievance["status"] = payload.status
-    grievance["admin_response_notes"] = payload.admin_response_notes
-    grievance["updated_at"] = now_iso
+    resolved_at = now_iso if payload.status in ["Resolved", "Closed"] else row["resolved_at"]
 
-    if payload.status in ["Resolved", "Closed"]:
-        grievance["resolved_at"] = now_iso
+    update_q = text("""
+        UPDATE student_grievances
+        SET status = :status,
+            admin_response_notes = :admin_response_notes,
+            updated_at = :updated_at,
+            resolved_at = :resolved_at
+        WHERE id = :id
+    """)
+    await db.execute(update_q, {
+        "id": id,
+        "status": payload.status,
+        "admin_response_notes": payload.admin_response_notes,
+        "updated_at": now_iso,
+        "resolved_at": resolved_at,
+    })
 
-    return grievance
+    admin_user_id = str(admin.get("id") or admin.get("sub") or "")
+    await log_audit_event(
+        user_id=admin_user_id,
+        action="update_grievance_status",
+        resource_type="student_grievances",
+        resource_id=id,
+        details={"status": payload.status, "reference": row["reference"]},
+        db=db,
+    )
+
+    updated_row = (await db.execute(find_q, {"id": id})).mappings().first()
+    return GrievanceItem(
+        id=str(updated_row["id"]),
+        reference=updated_row["reference"],
+        category=updated_row["category"],
+        subject=updated_row["subject"],
+        description=updated_row["description"],
+        is_anonymous=bool(updated_row["is_anonymous"]),
+        status=updated_row["status"],
+        reporter_id=str(updated_row["user_id"]),
+        reporter_name=updated_row["reporter_name"],
+        reporter_email=updated_row["reporter_email"],
+        admin_response_notes=updated_row["admin_response_notes"],
+        created_at=str(updated_row["created_at"]),
+        updated_at=str(updated_row["updated_at"]),
+        resolved_at=str(updated_row["resolved_at"]) if updated_row["resolved_at"] else None,
+    )

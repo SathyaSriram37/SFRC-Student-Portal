@@ -145,9 +145,9 @@ async def test_mentoring_goals_crud(monkeypatch):
     def execute_side_effect(statement, params=None):
         sql = str(statement)
         m = MagicMock()
-        if "FROM public.students WHERE user_id" in sql:
+        if "students WHERE user_id" in sql or "FROM students" in sql:
             m.mappings.return_value.first.return_value = {"id": "00000000-0000-0000-0000-000000000001"}
-        elif "FROM public.mentoring_goals" in sql:
+        elif "mentoring_goals" in sql:
             m.mappings.return_value.all.return_value = [
                 {
                     "id": "g-1",
