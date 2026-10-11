@@ -5,12 +5,8 @@ import {
   CreditCard,
   Download,
   CheckCircle2,
-  Clock,
   ShieldCheck,
   Receipt,
-  FileSpreadsheet,
-  AlertCircle,
-  Building,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,7 +25,7 @@ interface FeeItem {
 }
 
 export default function StudentFeesPage() {
-  const [fees, setFees] = useState<FeeItem[]>([
+  const [fees] = useState<FeeItem[]>([
     {
       id: 'fee-1',
       category: 'Semester VI Tuition & Special Lab Fee',
@@ -178,7 +174,7 @@ export default function StudentFeesPage() {
                       {item.transaction_ref || '-'}
                     </td>
                     <td className="py-3 px-4 text-center">
-                      <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-300 text-xs">
+                      <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-300 text-xs">
                         <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
                         Paid
                       </Badge>

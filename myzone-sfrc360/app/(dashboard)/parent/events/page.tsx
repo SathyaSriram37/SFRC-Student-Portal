@@ -1,41 +1,58 @@
 'use client';
 
-
+import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
-import { Calendar, Clock, MapPin, ArrowLeft } from 'lucide-react';
+import { Calendar, Clock, MapPin, ArrowLeft, Tag } from 'lucide-react';
 import AppShell from '@/components/layout/AppShell';
 import AskPragyaBanner from '@/components/shared/AskPragyaBanner';
+import { createClient } from '@/lib/supabase/client';
+import { apiGet } from '@/lib/api-client';
+
+interface EventItem {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  department?: string;
+  venue: string;
+  start_date: string;
+  end_date?: string;
+  time?: string;
+  is_registration_open?: boolean;
+}
 
 export default function ParentEventsPage() {
-  const events = [
-    {
-      id: 'e-1',
-      title: 'Parent-Teacher Association (PTA) General Body Meeting',
-      date: '15 Oct 2026',
-      time: '10:00 AM - 1:00 PM',
-      venue: 'Multipurpose Auditorium, Main Block',
-      category: 'PTA Meeting',
-      description: 'Annual parent-teacher interaction to discuss academic progression, skill enhancement initiatives, and placement records.',
-    },
-    {
-      id: 'e-2',
-      title: 'TechnoFemme 2026 - Inter-Collegiate Science Expo',
-      date: '24 Oct 2026',
-      time: '9:30 AM - 4:30 PM',
-      venue: 'Science Block Seminar Hall',
-      category: 'Campus Event',
-      description: 'Grand science and technology exhibition featuring student projects and innovations. Parents are welcome to visit.',
-    },
-    {
-      id: 'e-3',
-      title: 'College Day & Graduation Awards Ceremony',
-      date: '12 Dec 2026',
-      time: '10:30 AM - 2:00 PM',
-      venue: 'Open Air Theatre (OAT)',
-      category: 'College Celebration',
-      description: 'Annual college day celebrating academic achievers, university rank holders, and cultural talents.',
-    },
-  ];
+  const [events, setEvents] = useState<EventItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const supabase = useMemo(() => createClient(), []);
+
+  useEffect(() => {
+    let ignore = false;
+    async function loadEvents() {
+      setIsLoading(true);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        const res = await apiGet<{ events?: EventItem[] } | EventItem[]>('/api/v1/events', token);
+        if (!ignore) {
+          if (Array.isArray(res)) {
+            setEvents(res);
+          } else if (res && Array.isArray(res.events)) {
+            setEvents(res.events);
+          } else {
+            setEvents([]);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load events:', err);
+        if (!ignore) setEvents([]);
+      } finally {
+        if (!ignore) setIsLoading(false);
+      }
+    }
+    loadEvents();
+    return () => { ignore = true; };
+  }, [supabase]);
 
   return (
     <AppShell role="parent" userName="Parent">
@@ -53,40 +70,48 @@ export default function ParentEventsPage() {
               College Events & Parent Gatherings
             </h1>
             <p className="text-xs text-sfrc-600">
-              Institutional events, PTA conferences, and campus functions
+              Official institutional events, PTA conferences, and campus celebrations
             </p>
           </div>
         </div>
 
         <div className="space-y-4">
-          {events.map((ev) => (
-            <div
-              key={ev.id}
-              className="bg-white rounded-3xl border border-sfrc-200 p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6"
-            >
-              <div className="space-y-2 flex-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-md bg-sfrc-100 text-sfrc-800">
-                  {ev.category}
-                </span>
-                <h2 className="text-base font-black text-sfrc-900">{ev.title}</h2>
-                <p className="text-xs text-sfrc-600 leading-relaxed">{ev.description}</p>
-                <div className="flex flex-wrap items-center gap-4 text-xs text-sfrc-700 font-medium pt-1">
-                  <div className="flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5 text-sfrc-500" />
-                    <span>{ev.date}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 text-sfrc-500" />
-                    <span>{ev.time}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <MapPin className="w-3.5 h-3.5 text-sfrc-500" />
-                    <span>{ev.venue}</span>
+          {events.length > 0 ? (
+            events.map((ev) => (
+              <div
+                key={ev.id}
+                className="bg-white rounded-3xl border border-sfrc-200 p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6"
+              >
+                <div className="space-y-2 flex-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-md bg-sfrc-100 text-sfrc-800">
+                    {ev.category || 'General'}
+                  </span>
+                  <h2 className="text-base font-black text-sfrc-900">{ev.title}</h2>
+                  <p className="text-xs text-sfrc-600 leading-relaxed">{ev.description}</p>
+                  <div className="flex flex-wrap items-center gap-4 text-xs text-sfrc-700 font-medium pt-1">
+                    <div className="flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-sfrc-500" />
+                      <span>{ev.start_date}</span>
+                    </div>
+                    {ev.time && (
+                      <div className="flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-sfrc-500" />
+                        <span>{ev.time}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-sfrc-500" />
+                      <span>{ev.venue}</span>
+                    </div>
                   </div>
                 </div>
               </div>
+            ))
+          ) : (
+            <div className="bg-white rounded-3xl border border-sfrc-200 p-8 text-center text-xs text-sfrc-500">
+              {isLoading ? 'Loading campus events...' : 'No upcoming institutional events found.'}
             </div>
-          ))}
+          )}
         </div>
 
         <AskPragyaBanner />

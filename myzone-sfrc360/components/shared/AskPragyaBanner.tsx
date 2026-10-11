@@ -64,7 +64,7 @@ export default function AskPragyaBanner() {
         </div>
 
         {/* Input Trigger Form */}
-        <div className="w-full md:w-auto md:min-w-[340px]">
+        <div className="w-full md:w-auto md:min-w-85">
           <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2">
             <input
               type="text"

@@ -1,6 +1,7 @@
 """Marks endpoints — entry, validation, CIA recording, and semester result queries."""
 from __future__ import annotations
 
+import uuid
 from typing import Any, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
@@ -60,23 +61,23 @@ async def enter_marks(
             )
 
     user_id = user.get("id") or user.get("sub")
-    fac_query = text("SELECT id FROM public.faculty WHERE user_id = :user_id::uuid")
+    fac_query = text("SELECT id FROM faculty WHERE user_id = :user_id")
     fac_row = (await db.execute(fac_query, {"user_id": user_id})).mappings().first()
-    faculty_id = str(fac_row["id"]) if fac_row else None
+    faculty_id = str(fac_row["id"]) if fac_row else str(user_id)
 
-    # Upsert each record
+    # Upsert each record in SQLite
     delete_existing = text("""
-        DELETE FROM public.marks 
-        WHERE course_id = :course_id::uuid 
+        DELETE FROM marks 
+        WHERE course_id = :course_id 
           AND assessment_type = :assessment_type 
           AND academic_year = :academic_year 
           AND semester = :semester
-          AND student_id = :student_id::uuid
+          AND student_id = :student_id
     """)
 
     insert_sql = text("""
-        INSERT INTO public.marks (student_id, course_id, assessment_type, marks_obtained, max_marks, academic_year, semester, entered_by)
-        VALUES (:student_id::uuid, :course_id::uuid, :assessment_type, :marks_obtained, :max_marks, :academic_year, :semester, :entered_by::uuid)
+        INSERT INTO marks (id, student_id, course_id, assessment_type, marks_obtained, max_marks, academic_year, semester, entered_by, created_at)
+        VALUES (:id, :student_id, :course_id, :assessment_type, :marks_obtained, :max_marks, :academic_year, :semester, :entered_by, CURRENT_TIMESTAMP)
     """)
 
     count = 0
@@ -89,6 +90,7 @@ async def enter_marks(
             "student_id": rec.student_id,
         })
         await db.execute(insert_sql, {
+            "id": str(uuid.uuid4()),
             "student_id": rec.student_id,
             "course_id": body.course_id,
             "assessment_type": body.assessment_type,
@@ -133,13 +135,22 @@ async def get_student_marks(
     user: dict = Depends(get_current_user),
 ):
     """Retrieve all marks for a student."""
-    query = text("""
-        SELECT m.id, m.assessment_type, m.marks_obtained, m.max_marks, m.academic_year, m.semester, c.code as course_code, c.title as course_title
-        FROM public.marks m
-        JOIN public.courses c ON m.course_id = c.id
-        WHERE m.student_id = :student_id::uuid
-          AND (:semester::int IS NULL OR m.semester = :semester::int)
-        ORDER BY m.created_at DESC
-    """)
-    rows = (await db.execute(query, {"student_id": student_id, "semester": semester})).mappings().all()
+    if semester is not None:
+        query = text("""
+            SELECT m.id, m.assessment_type, m.marks_obtained, m.max_marks, m.academic_year, m.semester, c.code as course_code, c.title as course_title
+            FROM marks m
+            JOIN courses c ON m.course_id = c.id
+            WHERE m.student_id = :student_id AND m.semester = :semester
+            ORDER BY m.created_at DESC
+        """)
+        rows = (await db.execute(query, {"student_id": student_id, "semester": semester})).mappings().all()
+    else:
+        query = text("""
+            SELECT m.id, m.assessment_type, m.marks_obtained, m.max_marks, m.academic_year, m.semester, c.code as course_code, c.title as course_title
+            FROM marks m
+            JOIN courses c ON m.course_id = c.id
+            WHERE m.student_id = :student_id
+            ORDER BY m.created_at DESC
+        """)
+        rows = (await db.execute(query, {"student_id": student_id})).mappings().all()
     return {"student_id": student_id, "marks": [dict(r) for r in rows]}

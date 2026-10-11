@@ -67,8 +67,8 @@ const QUICK_SUGGESTIONS = [
   { label: 'Central Library Catalog & E-Resources', type: 'library', href: '/student/library' },
   { label: 'Campus Bus Routes & Stop Timings', type: 'transport', href: '/student/facilities/transport' },
   { label: 'Placement Drives & Recruitment Schedules', type: 'placements', href: '/student/placements' },
-  { label: 'ACIDE Student Incubated Startups', type: 'startups', href: '/student/student-life' },
-  { label: 'YWED Vocational Skill Certificate Courses', type: 'courses', href: '/student/student-life' },
+  { label: 'ACIDE Student Incubated Startups', type: 'startups', href: '/student/iedc' },
+  { label: 'YWED Vocational Skill Certificate Courses', type: 'courses', href: '/student/life' },
   { label: 'Statutory Anti-Ragging & Institutional Policies', type: 'policies', href: '/student/policies' },
 ];
 
@@ -94,31 +94,24 @@ export function GlobalSearchModal({
 
   // Autofocus input when opened
   useEffect(() => {
-    if (isOpen) {
-      setTimeout(() => {
-        inputRef.current?.focus();
-        inputRef.current?.select();
-      }, 50);
-    } else {
-      setQuery('');
-      setResults([]);
-      setSelectedIndex(0);
-      setTookMs(null);
-    }
+    if (!isOpen) return;
+    const timer = setTimeout(() => {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }, 50);
+    return () => clearTimeout(timer);
   }, [isOpen]);
 
   // Live debounced search (300ms)
   useEffect(() => {
     const trimmed = query.trim();
     if (trimmed.length < 2) {
-      setResults([]);
-      setTookMs(null);
-      setLoading(false);
       return;
     }
 
-    setLoading(true);
+    let ignore = false;
     const timer = setTimeout(async () => {
+      setLoading(true);
       try {
         const {
           data: { session },
@@ -129,18 +122,27 @@ export function GlobalSearchModal({
         const url = `/api/v1/search?q=${encodeURIComponent(trimmed)}${typesParam}`;
 
         const data = await apiGet<SearchResponse>(url, token);
-        setResults(data.results || []);
-        setTookMs(data.took_ms ?? null);
-        setSelectedIndex(0);
+        if (!ignore) {
+          setResults(data.results || []);
+          setTookMs(data.took_ms ?? null);
+          setSelectedIndex(0);
+        }
       } catch (err) {
-        console.error('Global search error:', err);
-        setResults([]);
+        if (!ignore) {
+          console.error('Global search error:', err);
+          setResults([]);
+        }
       } finally {
-        setLoading(false);
+        if (!ignore) {
+          setLoading(false);
+        }
       }
     }, 300);
 
-    return () => clearTimeout(timer);
+    return () => {
+      ignore = true;
+      clearTimeout(timer);
+    };
   }, [query, activeCategory, supabase]);
 
   // Filter results if changed locally or by category tab

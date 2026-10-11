@@ -374,7 +374,7 @@ export default function StudentAcademicsPage() {
                       {displayAttendance.courses.map((c) => (
                         <tr key={c.course_id} className="hover:bg-sfrc-surface transition-colors">
                           <td className="py-3.5 font-bold text-sfrc-800">{c.course_code}</td>
-                          <td className="py-3.5 font-semibold text-sfrc-900 max-w-[200px] truncate">
+                          <td className="py-3.5 font-semibold text-sfrc-900 max-w-50 truncate">
                             {c.course_title}
                           </td>
                           <td className="py-3.5 text-center text-sfrc-600">{c.classes_held}</td>
@@ -495,7 +495,7 @@ export default function StudentAcademicsPage() {
                     {displayMarks.course_marks.map((m) => (
                       <tr key={m.course_id} className="hover:bg-sfrc-surface transition-colors">
                         <td className="py-3.5 font-bold text-sfrc-800">{m.course_code}</td>
-                        <td className="py-3.5 font-semibold text-sfrc-900 max-w-[200px] truncate">
+                        <td className="py-3.5 font-semibold text-sfrc-900 max-w-50 truncate">
                           {m.course_title}
                         </td>
                         <td className="py-3.5 text-center">{m.cia1 ?? '—'}</td>
@@ -534,7 +534,7 @@ export default function StudentAcademicsPage() {
 
             {/* Weekly Grid (overflow-x-auto for smooth horizontal mobile scrolling) */}
             <div className="overflow-x-auto no-scrollbar pb-2">
-              <div className="min-w-[760px] grid grid-cols-7 gap-2">
+              <div className="min-w-190 grid grid-cols-7 gap-2">
                 {/* Header Row */}
                 <div className="p-2.5 rounded-xl bg-sfrc-100 text-center text-xs font-bold text-sfrc-800">
                   Day / Period
@@ -565,7 +565,7 @@ export default function StudentAcademicsPage() {
                           <div
                             key={periodNum}
                             className={cn(
-                              'p-2.5 rounded-xl border text-xs flex flex-col justify-between min-h-[72px] transition-all',
+                              'p-2.5 rounded-xl border text-xs flex flex-col justify-between min-h-18 transition-all',
                               slot
                                 ? 'bg-white border-sfrc-200 hover:border-sfrc-accent shadow-2xs'
                                 : 'bg-sfrc-bg/40 border-dashed border-sfrc-200 text-sfrc-400'
@@ -739,7 +739,7 @@ export default function StudentAcademicsPage() {
                             <span className="inline-flex items-center gap-1 px-3 py-1 rounded-xl text-xs font-bold bg-red-50 text-red-600 border border-red-200">
                               <XCircle className="w-3.5 h-3.5" /> Ineligible
                             </span>
-                            <span className="text-[10px] text-red-500 mt-0.5 max-w-[180px] text-right truncate">
+                            <span className="text-[10px] text-red-500 mt-0.5 max-w-45 text-right truncate">
                               {ex.ineligibility_reason || 'Below 75% attendance'}
                             </span>
                           </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   FlaskConical,
   BookOpen,
@@ -11,7 +11,6 @@ import {
   FileText,
   Sparkles,
   Building,
-  CheckCircle2,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -56,35 +55,44 @@ export default function StudentResearchPage() {
 
   const supabase = useMemo(() => createClient(), []);
 
-  const loadResearchData = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const token = session?.access_token;
-
-      const [projRes, pubRes] = await Promise.allSettled([
-        apiGet<ResearchProject[]>('/api/v1/research/projects', token),
-        apiGet<Publication[]>('/api/v1/research/publications', token),
-      ]);
-
-      if (projRes.status === 'fulfilled' && Array.isArray(projRes.value)) {
-        setProjects(projRes.value);
-      }
-      if (pubRes.status === 'fulfilled' && Array.isArray(pubRes.value)) {
-        setPublications(pubRes.value);
-      }
-    } catch (err) {
-      console.error('Failed to load research hub:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [supabase]);
-
   useEffect(() => {
-    loadResearchData();
-  }, [loadResearchData]);
+    let ignore = false;
+    (async () => {
+      setIsLoading(true);
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        const token = session?.access_token;
+
+        const [projRes, pubRes] = await Promise.allSettled([
+          apiGet<ResearchProject[]>('/api/v1/research/projects', token),
+          apiGet<Publication[]>('/api/v1/research/publications', token),
+        ]);
+
+        if (!ignore) {
+          if (projRes.status === 'fulfilled' && Array.isArray(projRes.value)) {
+            setProjects(projRes.value);
+          }
+          if (pubRes.status === 'fulfilled' && Array.isArray(pubRes.value)) {
+            setPublications(pubRes.value);
+          }
+        }
+      } catch (err) {
+        if (!ignore) {
+          console.error('Failed to load research hub:', err);
+        }
+      } finally {
+        if (!ignore) {
+          setIsLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      ignore = true;
+    };
+  }, [supabase]);
 
   const filteredProjects = useMemo(() => {
     if (!searchQuery.trim()) return projects;
@@ -220,7 +228,7 @@ export default function StudentResearchPage() {
                   <Badge variant="outline" className="font-mono text-xs">
                     {p.department_code}
                   </Badge>
-                  <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-300 text-xs">
+                  <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-300 text-xs">
                     {p.status}
                   </Badge>
                 </div>
@@ -258,7 +266,7 @@ export default function StudentResearchPage() {
                       {pub.authors.join(', ')} • <em>{pub.journal_name}</em> ({pub.publication_year})
                     </div>
                   </div>
-                  <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-300 text-xs shrink-0">
+                  <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-300 text-xs shrink-0">
                     {pub.indexing}
                   </Badge>
                 </div>

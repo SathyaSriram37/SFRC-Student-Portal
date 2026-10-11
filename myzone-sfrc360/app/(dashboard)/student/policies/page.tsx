@@ -73,36 +73,38 @@ export default function StudentPoliciesPage() {
     }
   }, [supabase]);
 
-  const loadData = useCallback(async () => {
-    try {
-      const token = await getAuthToken();
-      const [policiesRes, pendingRes] = await Promise.allSettled([
-        apiGet<{ policies: PolicyItem[]; total: number }>('/api/v1/policies', token),
-        apiGet<{ pending_policies: PolicyItem[]; total_pending: number }>('/api/v1/policies/me/pending', token),
-      ]);
-
-      if (policiesRes.status === 'fulfilled' && policiesRes.value?.policies) {
-        setPolicies(policiesRes.value.policies);
-      }
-      if (pendingRes.status === 'fulfilled' && pendingRes.value?.pending_policies) {
-        setPendingPolicies(pendingRes.value.pending_policies);
-      }
-    } catch (err) {
-      console.error('Failed to load policies data:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [getAuthToken]);
-
   useEffect(() => {
     let ignore = false;
     (async () => {
-      await loadData();
+      try {
+        const token = await getAuthToken();
+        const [policiesRes, pendingRes] = await Promise.allSettled([
+          apiGet<{ policies: PolicyItem[]; total: number }>('/api/v1/policies', token),
+          apiGet<{ pending_policies: PolicyItem[]; total_pending: number }>('/api/v1/policies/me/pending', token),
+        ]);
+
+        if (!ignore) {
+          if (policiesRes.status === 'fulfilled' && policiesRes.value?.policies) {
+            setPolicies(policiesRes.value.policies);
+          }
+          if (pendingRes.status === 'fulfilled' && pendingRes.value?.pending_policies) {
+            setPendingPolicies(pendingRes.value.pending_policies);
+          }
+        }
+      } catch (err) {
+        if (!ignore) {
+          console.error('Failed to load policies data:', err);
+        }
+      } finally {
+        if (!ignore) {
+          setIsLoading(false);
+        }
+      }
     })();
     return () => {
       ignore = true;
     };
-  }, [loadData]);
+  }, [getAuthToken]);
 
   // Handle Acknowledgement
   const handleAcknowledge = async (policy: PolicyItem) => {
@@ -169,7 +171,7 @@ export default function StudentPoliciesPage() {
   return (
     <div className="space-y-6 pb-12">
       {/* Header Banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-sfrc-900 via-slate-900 to-indigo-950 p-6 sm:p-8 text-white shadow-xl">
+      <div className="relative overflow-hidden rounded-2xl bg-linear-to-br from-sfrc-900 via-slate-900 to-indigo-950 p-6 sm:p-8 text-white shadow-xl">
         <div className="absolute top-0 right-0 -mt-10 -mr-10 w-72 h-72 bg-sfrc-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
           <div className="space-y-2">
@@ -198,14 +200,14 @@ export default function StudentPoliciesPage() {
       {pendingPolicies.length > 0 && (
         <div className="rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-start gap-3">
-            <div className="w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-900/60 border border-amber-300 dark:border-amber-700 flex items-center justify-center text-amber-700 dark:text-amber-400 shrink-0 mt-0.5">
+            <div className="w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-950 border border-amber-300 dark:border-amber-700 flex items-center justify-center text-amber-700 dark:text-amber-400 shrink-0 mt-0.5">
               <AlertTriangle className="w-5 h-5" />
             </div>
             <div>
               <h3 className="text-sm font-bold text-amber-900 dark:text-amber-200">
                 Action Required: {pendingPolicies.length} {pendingPolicies.length === 1 ? 'Policy Requires' : 'Policies Require'} Your Acknowledgement
               </h3>
-              <p className="text-xs text-amber-700 dark:text-amber-300/90 mt-0.5">
+              <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
                 Institutional compliance requires you to review and acknowledge official policy guidelines for this semester.
               </p>
             </div>
@@ -217,7 +219,7 @@ export default function StudentPoliciesPage() {
                 size="sm"
                 variant="outline"
                 onClick={() => handleOpenDetail(p)}
-                className="bg-white dark:bg-slate-900 border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-300 hover:bg-amber-100 text-xs font-semibold"
+                className="bg-white dark:bg-slate-900 border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-400 hover:bg-amber-100 text-xs font-semibold"
               >
                 Review {p.category}
               </Button>
@@ -354,7 +356,7 @@ export default function StudentPoliciesPage() {
             <>
               <DialogHeader>
                 <div className="flex items-center gap-2 mb-1">
-                  <Badge className="bg-sfrc-100 text-sfrc-800 dark:bg-sfrc-900 dark:text-sfrc-200 border-sfrc-200 text-xs font-semibold">
+                  <Badge className="bg-sfrc-100 text-sfrc-800 dark:bg-sfrc-950 dark:text-sfrc-300 border-sfrc-200 text-xs font-semibold">
                     {selectedPolicy.category}
                   </Badge>
                   <Badge variant="outline" className="font-mono text-xs">
@@ -374,7 +376,7 @@ export default function StudentPoliciesPage() {
 
               <div className="space-y-4 my-2 text-sm">
                 {/* Summary Box */}
-                <div className="p-3.5 rounded-xl bg-sfrc-50 dark:bg-slate-900/60 border border-sfrc-200 dark:border-slate-800 text-xs text-sfrc-900 dark:text-sfrc-200 leading-relaxed font-medium">
+                <div className="p-3.5 rounded-xl bg-sfrc-50 dark:bg-slate-900/60 border border-sfrc-200 dark:border-slate-800 text-xs text-sfrc-900 dark:text-sfrc-300 leading-relaxed font-medium">
                   {selectedPolicy.description}
                 </div>
 
@@ -399,7 +401,7 @@ export default function StudentPoliciesPage() {
                       href={selectedPolicy.document_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-sfrc-100 hover:bg-sfrc-200 dark:bg-sfrc-900 dark:hover:bg-sfrc-800 text-sfrc-800 dark:text-sfrc-200 transition-colors"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-sfrc-100 hover:bg-sfrc-200 dark:bg-sfrc-950 dark:hover:bg-sfrc-900 text-sfrc-800 dark:text-sfrc-300 transition-colors"
                     >
                       <Download className="w-3.5 h-3.5" />
                       Download PDF
@@ -410,7 +412,7 @@ export default function StudentPoliciesPage() {
                 {/* Acknowledgement Status or Form */}
                 <div className="pt-3 border-t border-border space-y-3">
                   {ackSuccessMsg && (
-                    <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 text-xs font-semibold flex items-center gap-2">
+                    <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs font-semibold flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
                       <span>{ackSuccessMsg}</span>
                     </div>

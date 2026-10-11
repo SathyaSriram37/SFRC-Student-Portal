@@ -25,6 +25,12 @@ interface ChatApiResponse {
 
 const DEFAULT_BUTTONS = ['Admissions', 'Departments', 'Fees', 'Faculty', 'PhD Guides', 'Transport', 'Contact'];
 
+const PROACTIVE_BUBBLE_MESSAGES = [
+  "👋 Hii.. I'm Pragya! How can I help you today?",
+  "✨ Need help with marks, attendance, or fees?",
+  "💬 Have questions? Ask me anything about SFRC!",
+];
+
 const DEFAULT_WELCOME_MESSAGE =
   `Hello 👋 <b>Welcome to The Standard Fireworks Rajaratnam College for Women!</b><br>` +
   `I'm <b>Pragya</b>, your AI guide.<br>` +
@@ -41,6 +47,8 @@ export default function PragyaDrawer() {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [bubbleIndex, setBubbleIndex] = useState(0);
+  const [isBubbleVisible, setIsBubbleVisible] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'welcome',
@@ -86,6 +94,50 @@ export default function PragyaDrawer() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, closeChat]);
+
+  // Periodic polite speech bubble cycle:
+  // Shows for 5.5s -> stays hidden for 18s -> shows next tip -> repeat
+  useEffect(() => {
+    if (isOpen) {
+      setIsBubbleVisible(false);
+      return;
+    }
+
+    let isMounted = true;
+    let hideTimer: NodeJS.Timeout | undefined;
+    let showTimer: NodeJS.Timeout | undefined;
+
+    // Initial greeting after 3.5s
+    const initialTimer = setTimeout(() => {
+      if (!isMounted) return;
+      setIsBubbleVisible(true);
+
+      const scheduleCycle = () => {
+        // Keep visible for 5.5s
+        hideTimer = setTimeout(() => {
+          if (!isMounted) return;
+          setIsBubbleVisible(false);
+
+          // Quiet interval: stay hidden for 18s before next bubble appears
+          showTimer = setTimeout(() => {
+            if (!isMounted) return;
+            setBubbleIndex((prev) => (prev + 1) % PROACTIVE_BUBBLE_MESSAGES.length);
+            setIsBubbleVisible(true);
+            scheduleCycle();
+          }, 18000);
+        }, 5500);
+      };
+
+      scheduleCycle();
+    }, 3500);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(initialTimer);
+      if (hideTimer) clearTimeout(hideTimer);
+      if (showTimer) clearTimeout(showTimer);
+    };
+  }, [isOpen]);
 
   const handleSendMessageRef = useRef<((text?: string) => Promise<void>) | null>(null);
 
@@ -196,11 +248,37 @@ export default function PragyaDrawer() {
     <>
       {!isOpen && (
         <div className="chat-launcher-wrap" id="chatTriggerWrap">
-          <button type="button" className="chat-trigger" id="chatTrigger" onClick={openChat} aria-label="Open Pragya chatbot">
-            <Image src="/images/pragya/Pragya-logo-maroon.png" alt="Pragya logo" width={120} height={120} className="trigger-logo" priority />
-          </button>
-          <button type="button" className="chat-label" onClick={openChat} aria-label="Open Pragya chatbot">
-            Ask Pragya
+          <div
+            onClick={openChat}
+            className={`pragya-bubble-popup ${isBubbleVisible ? 'visible' : 'hidden'}`}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openChat(); } }}
+            aria-label="Ask Pragya AI"
+          >
+            <div className="pragya-bubble-header">
+              <span className="pragya-bubble-status-dot" />
+              <span className="pragya-bubble-badge">Pragya AI</span>
+            </div>
+            <p className="pragya-bubble-text">{PROACTIVE_BUBBLE_MESSAGES[bubbleIndex]}</p>
+            <div className="pragya-bubble-arrow" />
+          </div>
+
+          <button
+            type="button"
+            className="chat-trigger"
+            id="chatTrigger"
+            onClick={openChat}
+            aria-label="Open Pragya chatbot"
+          >
+            <Image
+              src="/images/pragya/Pragya-logo-maroon.png"
+              alt="Pragya logo"
+              width={120}
+              height={120}
+              className="trigger-logo"
+              priority
+            />
           </button>
         </div>
       )}

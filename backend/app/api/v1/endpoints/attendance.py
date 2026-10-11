@@ -1,6 +1,7 @@
 """Attendance marking and retrieval endpoints."""
 from __future__ import annotations
 
+import uuid
 from datetime import date
 from typing import Any, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -53,27 +54,40 @@ async def mark_bulk_attendance(
     user_id = user.get("id") or user.get("sub")
     
     # Resolve faculty id
-    fac_query = text("SELECT id FROM public.faculty WHERE user_id = :user_id::uuid")
+    fac_query = text("SELECT id FROM faculty WHERE user_id = :user_id")
     fac_row = (await db.execute(fac_query, {"user_id": user_id})).mappings().first()
-    faculty_id = str(fac_row["id"]) if fac_row else None
-
-    # Upsert each record
-    upsert_sql = text("""
-        INSERT INTO public.attendance_records (student_id, course_id, date, session, status, marked_by)
-        VALUES (:student_id::uuid, :course_id::uuid, :date::date, :session, :status, :marked_by::uuid)
-        ON CONFLICT (student_id, course_id, date, session)
-        DO UPDATE SET status = EXCLUDED.status, marked_by = EXCLUDED.marked_by, created_at = NOW()
-    """)
+    faculty_id = str(fac_row["id"]) if fac_row else str(user_id)
 
     valid_statuses = ["present", "absent", "od", "medical"]
     count = 0
+
+    delete_sql = text("""
+        DELETE FROM attendance_records
+        WHERE student_id = :student_id
+          AND course_id = :course_id
+          AND date = :date
+          AND session = :session
+    """)
+
+    insert_sql = text("""
+        INSERT INTO attendance_records (id, student_id, course_id, date, session, status, marked_by, created_at)
+        VALUES (:id, :student_id, :course_id, :date, :session, :status, :marked_by, CURRENT_TIMESTAMP)
+    """)
 
     for rec in body.records:
         rec_status = rec.status.lower()
         if rec_status not in valid_statuses:
             rec_status = "present"
 
-        await db.execute(upsert_sql, {
+        await db.execute(delete_sql, {
+            "student_id": rec.student_id,
+            "course_id": body.course_id,
+            "date": body.date,
+            "session": body.session,
+        })
+
+        await db.execute(insert_sql, {
+            "id": str(uuid.uuid4()),
             "student_id": rec.student_id,
             "course_id": body.course_id,
             "date": body.date,
@@ -120,10 +134,10 @@ async def get_attendance_summary(
             c.code as course_code,
             c.title as course_title,
             COUNT(*) as total,
-            COUNT(*) FILTER (WHERE ar.status IN ('present', 'od')) as attended
-        FROM public.attendance_records ar
-        JOIN public.courses c ON ar.course_id = c.id
-        WHERE ar.student_id = :student_id::uuid
+            SUM(CASE WHEN ar.status IN ('present', 'od') THEN 1 ELSE 0 END) as attended
+        FROM attendance_records ar
+        JOIN courses c ON ar.course_id = c.id
+        WHERE ar.student_id = :student_id
         GROUP BY c.id, c.code, c.title
     """)
     rows = (await db.execute(query, {"student_id": student_id})).mappings().all()
@@ -134,8 +148,8 @@ async def get_attendance_summary(
                 "course_code": r["course_code"],
                 "course_title": r["course_title"],
                 "total": r["total"],
-                "attended": r["attended"],
-                "percentage": round((r["attended"] / r["total"] * 100.0), 1) if r["total"] > 0 else 100.0,
+                "attended": r["attended"] or 0,
+                "percentage": round(((r["attended"] or 0) / r["total"] * 100.0), 1) if r["total"] > 0 else 100.0,
             }
             for r in rows
         ],

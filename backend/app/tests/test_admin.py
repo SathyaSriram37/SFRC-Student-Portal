@@ -123,6 +123,7 @@ async def test_admin_user_crud_and_audit(monkeypatch):
     """SUCCESS CRITERIA 2: User management create role types and audit log."""
     secret = "test-secret-12345"
     monkeypatch.setattr(settings, "supabase_jwt_secret", secret)
+    monkeypatch.setattr(settings, "supabase_url", "")
     admin_token = create_token("a-1", "admin@sfrc.ac.in", "admin")
 
     mock_db = AsyncMock()

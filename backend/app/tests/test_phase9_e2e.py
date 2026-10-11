@@ -79,7 +79,7 @@ async def test_iqac_full_lifecycle_persistence():
         assert created_meet["title"] == meeting_payload["title"]
 
         # Admin should be able to read this persisted meeting in meetings list
-        get_meets = await client.get("/api/v1/admin/iqac/meetings", headers=admin_headers)
+        get_meets = await client.get("/api/v1/admin/iqac/meetings?limit=50", headers=admin_headers)
         assert get_meets.status_code == 200
         assert any(m["id"] == meet_id for m in get_meets.json()["items"])
 

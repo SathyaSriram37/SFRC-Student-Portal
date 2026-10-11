@@ -1,18 +1,15 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
-  GraduationCap,
   Calendar,
   Clock,
   MapPin,
   Download,
   AlertTriangle,
   CheckCircle2,
-  FileText,
   ShieldCheck,
   QrCode,
-  Info,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -41,27 +38,31 @@ export default function StudentExamsPage() {
 
   const supabase = useMemo(() => createClient(), []);
 
-  const loadExamSchedule = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      const res = await apiGet<ExamScheduleItem[]>('/api/v1/students/me/exam-schedule', token);
-      if (Array.isArray(res)) {
-        setExams(res);
-      }
-    } catch (err) {
-      console.error('Failed to load exam schedule:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [supabase]);
-
   useEffect(() => {
-    loadExamSchedule();
-  }, [loadExamSchedule]);
+    let ignore = false;
+    async function fetchExamSchedule() {
+      setIsLoading(true);
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        const res = await apiGet<ExamScheduleItem[]>('/api/v1/students/me/exam-schedule', token);
+        if (!ignore && Array.isArray(res)) {
+          setExams(res);
+        }
+      } catch (err) {
+        console.error('Failed to load exam schedule:', err);
+      } finally {
+        if (!ignore) setIsLoading(false);
+      }
+    }
+
+    fetchExamSchedule();
+    return () => {
+      ignore = true;
+    };
+  }, [supabase]);
 
   const allEligible = useMemo(() => {
     if (exams.length === 0) return true;
@@ -238,12 +239,12 @@ export default function StudentExamsPage() {
                       </td>
                       <td className="py-3 px-4 text-center">
                         {item.is_eligible ? (
-                          <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-300 text-xs">
+                          <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-300 text-xs">
                             <CheckCircle2 className="w-3 h-3 mr-1" />
                             Eligible
                           </Badge>
                         ) : (
-                          <Badge className="bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-300 text-xs">
+                          <Badge className="bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-300 text-xs">
                             <AlertTriangle className="w-3 h-3 mr-1" />
                             Shortage
                           </Badge>

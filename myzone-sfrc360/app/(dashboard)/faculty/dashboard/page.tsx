@@ -68,53 +68,6 @@ export default function FacultyDashboardPage() {
         }
       } catch (err) {
         console.error('Failed to load faculty dashboard:', err);
-        if (!ignore) {
-          setData({
-            profile: {
-              faculty_id: 'fac-1',
-              full_name: 'Dr. K. Anitha',
-              employee_id: 'SFRC-FAC-2018',
-              designation: 'Associate Professor & HOD',
-              department_name: 'Department of Computer Science',
-            },
-            today_schedule: [
-              {
-                id: 's-1',
-                period_number: 1,
-                start_time: '09:00 AM',
-                end_time: '10:00 AM',
-                room: 'Lab 3 (MCA Block)',
-                course_code: '22UCSC61',
-                course_title: 'Cloud Architecture & DevOps',
-                programme_name: 'B.Sc Computer Science',
-                semester: 6,
-              },
-              {
-                id: 's-2',
-                period_number: 3,
-                start_time: '11:15 AM',
-                end_time: '12:15 PM',
-                room: 'LH 202',
-                course_code: '22PCSC21',
-                course_title: 'Advanced Machine Learning',
-                programme_name: 'M.Sc Computer Science',
-                semester: 2,
-              },
-            ],
-            pending_attendance_courses: [
-              {
-                course_id: 'c-1',
-                course_code: '22UCSC61',
-                course_title: 'Cloud Architecture & DevOps',
-                semester: 6,
-                start_time: '09:00 AM',
-              },
-            ],
-            pending_marks_count: 1,
-            mentee_count: 18,
-            total_classes_today: 2,
-          });
-        }
       } finally {
         if (!ignore) {
           setIsLoading(false);

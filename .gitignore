@@ -40,8 +40,10 @@ myzone-sfrc360/.env.local
 *.db
 *.sqlite
 *.sqlite3
-college.db
+!college.db
 backend/college.db
+college.db.bak*
+college.db.backup*
 
 # Temporary / Scratch files
 *.log

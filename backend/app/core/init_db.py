@@ -91,11 +91,61 @@ CREATE TABLE IF NOT EXISTS faculty (
 );
 
 CREATE TABLE IF NOT EXISTS parents (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    relation TEXT DEFAULT 'Parent',
+    ward_student_id TEXT,
+    is_active BOOLEAN DEFAULT 1,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_parents_user_ward ON parents(user_id, ward_student_id);
+
+CREATE TABLE IF NOT EXISTS timetables (
     id UUID PRIMARY KEY,
-    user_id UUID NOT NULL UNIQUE,
+    course_id UUID,
+    programme_id UUID,
+    faculty_id UUID,
+    day_of_week INTEGER NOT NULL,
+    period_number INTEGER NOT NULL,
+    start_time VARCHAR(20) NOT NULL,
+    end_time VARCHAR(20) NOT NULL,
+    room VARCHAR(50),
+    semester INTEGER DEFAULT 1,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS enrollments (
+    id UUID PRIMARY KEY,
     student_id UUID NOT NULL,
-    relationship VARCHAR(50) NOT NULL,
-    occupation VARCHAR(255),
+    course_id UUID NOT NULL,
+    semester INTEGER DEFAULT 1,
+    academic_year VARCHAR(50) DEFAULT '2026-2027',
+    status VARCHAR(50) DEFAULT 'enrolled',
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS attendance_records (
+    id UUID PRIMARY KEY,
+    student_id UUID NOT NULL,
+    course_id UUID NOT NULL,
+    date DATE NOT NULL,
+    session VARCHAR(10) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'present',
+    marked_by UUID,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(student_id, course_id, date, session)
+);
+
+CREATE TABLE IF NOT EXISTS marks (
+    id UUID PRIMARY KEY,
+    student_id UUID NOT NULL,
+    course_id UUID NOT NULL,
+    assessment_type VARCHAR(50) NOT NULL,
+    marks_obtained REAL NOT NULL,
+    max_marks REAL NOT NULL DEFAULT 100.0,
+    academic_year VARCHAR(50) DEFAULT '2026-2027',
+    semester INTEGER DEFAULT 1,
+    entered_by UUID,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -521,6 +571,19 @@ CREATE TABLE IF NOT EXISTS device_tokens (
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS announcements (
+    id VARCHAR(100) PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL,
+    audience TEXT DEFAULT '["student","faculty","parent","admin"]',
+    priority VARCHAR(50) DEFAULT 'normal',
+    type VARCHAR(50) DEFAULT 'info',
+    department_id VARCHAR(100),
+    created_by VARCHAR(100),
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS iqac_meetings (
     id VARCHAR(100) PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
@@ -648,6 +711,19 @@ CREATE TABLE IF NOT EXISTS transport_routes (
     note TEXT,
     stops TEXT DEFAULT '[]',
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS pragya_knowledge_base (
+    id VARCHAR(100) PRIMARY KEY,
+    category VARCHAR(100) NOT NULL,
+    topic VARCHAR(255) NOT NULL,
+    question_patterns TEXT NOT NULL,
+    answer TEXT NOT NULL,
+    quick_buttons TEXT DEFAULT '[]',
+    sources TEXT DEFAULT '["SFRC Institutional Guide"]',
+    keywords TEXT,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 """
 
@@ -901,7 +977,31 @@ async def init_database():
                             "created_at": datetime.now(timezone.utc).isoformat(),
                         })
             except Exception as e:
-                logger.warning(f"Phase 9 tables seeding notice: {e}")
+                logger.warning(f"Phase 9 seeding notice: {e}")
+
+            try:
+                kb_count = (await conn.execute(text("SELECT count(*) FROM pragya_knowledge_base"))).scalar()
+                if not kb_count:
+                    import json
+                    from app.ai.pragya_knowledge_seeds import SEED_PRAGYA_KNOWLEDGE
+                    for kb in SEED_PRAGYA_KNOWLEDGE:
+                        await conn.execute(text("""
+                            INSERT INTO pragya_knowledge_base (id, category, topic, question_patterns, answer, quick_buttons, sources, keywords, created_at, updated_at)
+                            VALUES (:id, :category, :topic, :question_patterns, :answer, :quick_buttons, :sources, :keywords, :created_at, :updated_at)
+                        """), {
+                            "id": kb["id"],
+                            "category": kb["category"],
+                            "topic": kb["topic"],
+                            "question_patterns": json.dumps(kb.get("question_patterns") or []),
+                            "answer": kb["answer"],
+                            "quick_buttons": json.dumps(kb.get("quick_buttons") or []),
+                            "sources": json.dumps(kb.get("sources") or ["SFRC Institutional Guide"]),
+                            "keywords": kb.get("keywords") or "",
+                            "created_at": datetime.now(timezone.utc).isoformat(),
+                            "updated_at": datetime.now(timezone.utc).isoformat(),
+                        })
+            except Exception as e:
+                logger.warning(f"Pragya knowledge base seeding notice: {e}")
 
         logger.info("Database schema initialized successfully.")
     except Exception as e:

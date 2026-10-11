@@ -1,5 +1,6 @@
 import os
 from typing import List
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,6 +17,22 @@ class Settings(BaseSettings):
 
     # ── Database ──────────────────────────────────────────────────────────────
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/postgres"
+
+    @field_validator("database_url", mode="after")
+    @classmethod
+    def resolve_sqlite_path(cls, v: str) -> str:
+        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../"))
+        root_db = os.path.join(repo_root, "college.db")
+        # If database_url points to a non-existent SQLite path or generic fallback, use root college.db if present
+        if v and v.startswith("sqlite"):
+            clean_path = v.replace("sqlite+aiosqlite:///", "").replace("sqlite:///", "")
+            if not os.path.exists(clean_path) and os.path.exists(root_db):
+                formatted = root_db.replace("\\", "/")
+                return f"sqlite+aiosqlite:///{formatted}"
+        elif (not v or "postgres" in v) and os.path.exists(root_db):
+            formatted = root_db.replace("\\", "/")
+            return f"sqlite+aiosqlite:///{formatted}"
+        return v
 
     # ── Supabase ──────────────────────────────────────────────────────────────
     supabase_url: str = ""

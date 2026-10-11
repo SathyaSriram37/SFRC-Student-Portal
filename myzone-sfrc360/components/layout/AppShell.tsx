@@ -4,7 +4,6 @@ import Sidebar from './Sidebar';
 import MobileNav from './MobileNav';
 import MobileBottomNav from './MobileBottomNav';
 import Footer from './Footer';
-import PragyaDrawer from '@/components/ai/PragyaDrawer';
 import type { UserRole } from '@/lib/types';
 
 interface AppShellProps {
@@ -40,7 +39,7 @@ export default function AppShell({ role, userName, children }: AppShellProps) {
               {role} Portal
             </span>
           </div>
-          <span className="text-xs font-semibold text-sfrc-600 truncate max-w-[140px]">
+          <span className="text-xs font-semibold text-sfrc-600 truncate max-w-35">
             {userName}
           </span>
         </div>
@@ -56,9 +55,6 @@ export default function AppShell({ role, userName, children }: AppShellProps) {
         {/* Mobile Bottom Navigation (role-aware 5 items) */}
         <MobileBottomNav role={role} />
       </div>
-
-      {/* Pragya AI Slide-in Chat Drawer */}
-      <PragyaDrawer />
     </div>
   );
 }

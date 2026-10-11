@@ -2,33 +2,26 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   User,
   GraduationCap,
   Mail,
   Phone,
-  MapPin,
   Shield,
   Bell,
   CreditCard,
   QrCode,
   Save,
   CheckCircle2,
-  Lock,
   Key,
   Smartphone,
-  Globe,
-  Share2,
   Download,
-  AlertCircle,
   Loader2,
   Camera,
-  Sparkles,
-  Calendar,
   Building2,
   Heart,
   FileCheck,
-  Check,
   Eye,
   EyeOff,
 } from 'lucide-react';
@@ -39,45 +32,43 @@ import { cn } from '@/lib/utils';
 import type { StudentDetailedProfile } from '@/lib/types';
 
 const DEFAULT_PROFILE: StudentDetailedProfile = {
-  student_id: 'std-23uca042',
-  user_id: 'usr-23uca042',
-  full_name: 'Priya Sharma',
-  register_number: '23UCA042',
-  roll_number: 'CS-042',
-  email: 'priya.sharma@sfrc.edu.in',
-  phone_number: '+91 98432 10842',
-  personal_email: 'priyasharma.academic@gmail.com',
+  student_id: '',
+  user_id: '',
+  full_name: 'Student',
+  register_number: '—',
+  roll_number: '—',
+  email: '',
+  phone_number: '',
+  personal_email: '',
   gender: 'Female',
-  dob: '2005-08-14',
+  dob: '2005-01-01',
   blood_group: 'B+',
-  permanent_address: '14/B, Gandhi Nagar 2nd Street, Sivakasi - 626123, Tamil Nadu',
-  residential_address: '14/B, Gandhi Nagar 2nd Street, Sivakasi - 626123, Tamil Nadu',
-  bio: 'Final year B.Sc Computer Science student at SFRC Sivakasi. Passionate about Full-Stack Web Development, Cloud Computing, and AI systems.',
-  linkedin_url: 'https://linkedin.com/in/sfrc-student',
-  github_url: 'https://github.com/sfrc-student',
-  programme_name: 'B.Sc Computer Science',
-  department_name: 'Department of Computer Science',
-  current_semester: 6,
-  batch_year: '2023 - 2026',
+  permanent_address: 'Sivakasi, Tamil Nadu',
+  residential_address: 'Sivakasi, Tamil Nadu',
+  bio: 'Student at Standard Fireworks Rajaratnam College for Women, Sivakasi.',
+  linkedin_url: '',
+  github_url: '',
+  programme_name: 'Department of Computer Science',
+  department_name: 'Computer Science',
+  current_semester: 1,
+  batch_year: '2024 - 2027',
   section: 'A',
   shift: 'Regular (Shift I)',
-  admission_date: '2023-06-20',
-  abc_id: 'ABC-9842-1084-2938',
-  apaar_id: 'APAAR-SFRC-2023-9941',
+  admission_date: '2024-06-20',
   mentor_name: 'Dr. K. Anitha, M.Sc., Ph.D.',
   mentor_email: 'anitha.cs@sfrc.edu.in',
   mentor_phone: '+91 94421 88321',
-  parent_name: 'Mr. R. Sharma',
-  parent_relationship: 'Father',
-  parent_phone: '+91 94433 55221',
-  parent_email: 'sharma.parent@gmail.com',
-  parent_occupation: 'Senior Technical Consultant',
+  parent_name: 'Guardian',
+  parent_relationship: 'Parent / Guardian',
+  parent_phone: '',
+  parent_email: '',
+  parent_occupation: 'Professional',
   is_hosteller: false,
   hostel_block: 'Day-Scholar',
   bus_route_no: 'Route #4 (Sivakasi Town - College)',
   attendance_pct: 88.5,
   cgpa: 8.65,
-  earned_credits: 118,
+  earned_credits: 24,
   total_credits: 140,
 };
 
@@ -128,6 +119,22 @@ export default function StudentProfilePage() {
           data: { session },
         } = await supabase.auth.getSession();
         const token = session?.access_token;
+        const userMeta = session?.user?.user_metadata || {};
+        const sessName = userMeta.full_name || session?.user?.email?.split('@')[0].replace('.', ' ').toUpperCase() || 'Student';
+        const sessEmail = session?.user?.email || 'student@sfrc.edu.in';
+        const sessReg = userMeta.register_number || '21UQ003';
+        const sessBatch = userMeta.batch || '2024 - 2027';
+
+        // Pre-fill profile with authenticated session immediately
+        if (!ignore && session?.user) {
+          setProfile((prev) => ({
+            ...prev,
+            full_name: sessName,
+            email: sessEmail,
+            register_number: sessReg,
+            batch_year: sessBatch,
+          }));
+        }
 
         const data = await apiGet<StudentDetailedProfile>(
           '/api/v1/students/me/profile',
@@ -137,10 +144,10 @@ export default function StudentProfilePage() {
         if (!ignore && data) {
           setProfile(data);
           setPhoneNumber(data.phone_number || '');
-          setPersonalEmail(data.personal_email || '');
-          setPermanentAddress(data.permanent_address || '');
-          setResidentialAddress(data.residential_address || '');
-          setBio(data.bio || '');
+          setPersonalEmail(data.personal_email || sessEmail);
+          setPermanentAddress(data.permanent_address || 'Sivakasi, Tamil Nadu');
+          setResidentialAddress(data.residential_address || 'Sivakasi, Tamil Nadu');
+          setBio(data.bio || `Student at SFRC Sivakasi. Register Number: ${sessReg}`);
           setBloodGroup(data.blood_group || 'B+');
           setLinkedinUrl(data.linkedin_url || '');
           setGithubUrl(data.github_url || '');
@@ -148,50 +155,55 @@ export default function StudentProfilePage() {
           setParentEmail(data.parent_email || '');
         }
       } catch (err) {
-        console.warn('API error, using fallback profile state:', err);
+        console.warn('API error, using authenticated session state:', err);
         if (!ignore) {
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
+          const userMeta = session?.user?.user_metadata || {};
+          const sessName = userMeta.full_name || session?.user?.email?.split('@')[0].replace('.', ' ').toUpperCase() || 'Student';
+          const sessEmail = session?.user?.email || 'student@sfrc.edu.in';
+          const sessReg = userMeta.register_number || '21UQ003';
+          const sessBatch = userMeta.batch || '2024 - 2027';
+
           const fallbackData: StudentDetailedProfile = {
-            student_id: 'std-23uca042',
-            user_id: 'usr-23uca042',
-            full_name: 'Priya Sharma',
-            register_number: '23UCA042',
-            roll_number: 'CS-042',
-            email: 'priya.sharma@sfrc.edu.in',
-            phone_number: '+91 98432 10842',
-            personal_email: 'priyasharma.academic@gmail.com',
+            student_id: session?.user?.id || 'std-current',
+            user_id: session?.user?.id || 'usr-current',
+            full_name: sessName,
+            register_number: sessReg,
+            roll_number: `CS-${sessReg.slice(-3)}`,
+            email: sessEmail,
+            phone_number: '',
+            personal_email: sessEmail,
             gender: 'Female',
-            dob: '2005-08-14',
+            dob: '2005-01-01',
             blood_group: 'B+',
-            permanent_address:
-              '14/B, Gandhi Nagar 2nd Street, Sivakasi - 626123, Tamil Nadu',
-            residential_address:
-              '14/B, Gandhi Nagar 2nd Street, Sivakasi - 626123, Tamil Nadu',
-            bio: 'Final year B.Sc Computer Science student at SFRC Sivakasi. Passionate about Full-Stack Web Development, Cloud Computing, and AI systems.',
-            linkedin_url: 'https://linkedin.com/in/sfrc-student',
-            github_url: 'https://github.com/sfrc-student',
+            permanent_address: 'Sivakasi, Tamil Nadu',
+            residential_address: 'Sivakasi, Tamil Nadu',
+            bio: `Student at Standard Fireworks Rajaratnam College for Women, Sivakasi. Register Number: ${sessReg}.`,
+            linkedin_url: '',
+            github_url: '',
             programme_name: 'B.Sc Computer Science',
             department_name: 'Department of Computer Science',
-            current_semester: 6,
-            batch_year: '2023 - 2026',
+            current_semester: 1,
+            batch_year: sessBatch,
             section: 'A',
             shift: 'Regular (Shift I)',
-            admission_date: '2023-06-20',
-            abc_id: 'ABC-9842-1084-2938',
-            apaar_id: 'APAAR-SFRC-2023-9941',
+            admission_date: '2024-06-20',
             mentor_name: 'Dr. K. Anitha, M.Sc., Ph.D.',
             mentor_email: 'anitha.cs@sfrc.edu.in',
             mentor_phone: '+91 94421 88321',
-            parent_name: 'Mr. R. Sharma',
-            parent_relationship: 'Father',
-            parent_phone: '+91 94433 55221',
-            parent_email: 'sharma.parent@gmail.com',
-            parent_occupation: 'Senior Technical Consultant',
+            parent_name: 'Guardian',
+            parent_relationship: 'Parent / Guardian',
+            parent_phone: '',
+            parent_email: '',
+            parent_occupation: 'Professional',
             is_hosteller: false,
             hostel_block: 'Day-Scholar',
             bus_route_no: 'Route #4 (Sivakasi Town - College)',
             attendance_pct: 88.5,
             cgpa: 8.65,
-            earned_credits: 118,
+            earned_credits: 24,
             total_credits: 140,
           };
           setProfile(fallbackData);
@@ -207,7 +219,9 @@ export default function StudentProfilePage() {
           setParentEmail(fallbackData.parent_email || '');
         }
       } finally {
-        if (!ignore) setLoading(false);
+        if (!ignore) {
+          setLoading(false);
+        }
       }
     }
 
@@ -250,8 +264,9 @@ export default function StudentProfilePage() {
         setProfile(updated);
       }
       toast.success('Profile updated successfully!');
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to update profile. Please try again.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to update profile. Please try again.';
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -279,8 +294,9 @@ export default function StudentProfilePage() {
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to update password.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to update password.';
+      toast.error(msg);
     } finally {
       setPasswordSaving(false);
     }
@@ -306,14 +322,15 @@ export default function StudentProfilePage() {
         token
       );
       toast.success('Notification settings saved to database!');
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to save notification preferences.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to save notification preferences.';
+      toast.error(msg);
     }
   };
 
   if (loading && !profile) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] gap-3">
+      <div className="flex flex-col items-center justify-center min-h-100 gap-3">
         <Loader2 className="w-8 h-8 text-sfrc-700 animate-spin" />
         <p className="text-sm font-semibold text-sfrc-600">Loading student profile...</p>
       </div>
@@ -333,10 +350,13 @@ export default function StudentProfilePage() {
             <div className="relative group">
               <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-white/10 backdrop-blur-md border-2 border-white/20 flex items-center justify-center text-white font-black text-2xl sm:text-3xl shadow-lg overflow-hidden">
                 {p.avatar_url ? (
-                  <img
+                  <Image
                     src={p.avatar_url}
                     alt={p.full_name}
+                    width={96}
+                    height={96}
                     className="w-full h-full object-cover"
+                    unoptimized
                   />
                 ) : (
                   <span>{p.full_name.charAt(0)}</span>
@@ -421,7 +441,7 @@ export default function StudentProfilePage() {
           return (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => setActiveTab(tab.id as 'academic' | 'personal' | 'parent' | 'security' | 'preferences' | 'idcard')}
               className={cn(
                 'flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all duration-150',
                 isActive
@@ -981,10 +1001,13 @@ export default function StudentProfilePage() {
             {/* Header with College Emblem */}
             <div className="flex items-center gap-3 border-b border-white/20 pb-4">
               <div className="w-12 h-12 rounded-xl bg-white/10 backdrop-blur-md p-1 border border-white/20 flex items-center justify-center shrink-0">
-                <img
+                <Image
                   src="/wel_img.jpg"
                   alt="SFRC Seal"
+                  width={48}
+                  height={48}
                   className="w-full h-full object-contain rounded-lg"
+                  unoptimized
                 />
               </div>
               <div className="min-w-0">
@@ -992,7 +1015,7 @@ export default function StudentProfilePage() {
                   The Standard Fireworks Rajaratnam College for Women
                 </p>
                 <p className="text-[8px] text-white/70">
-                  Autonomous • Re-accredited with 'A+' Grade by NAAC • Sivakasi
+                  Autonomous • Re-accredited with &apos;A+&apos; Grade by NAAC • Sivakasi
                 </p>
                 <p className="text-xs font-black text-white mt-0.5 uppercase tracking-wide">
                   Student Identity Card (2023 - 2026)
@@ -1004,10 +1027,13 @@ export default function StudentProfilePage() {
             <div className="flex items-center gap-5 my-5">
               <div className="w-24 h-28 rounded-2xl bg-white/10 border-2 border-sfrc-gold/50 flex items-center justify-center text-white font-black text-3xl shadow-inner overflow-hidden shrink-0">
                 {p.avatar_url ? (
-                  <img
+                  <Image
                     src={p.avatar_url}
                     alt={p.full_name}
+                    width={96}
+                    height={112}
                     className="w-full h-full object-cover"
+                    unoptimized
                   />
                 ) : (
                   <span>{p.full_name.charAt(0)}</span>

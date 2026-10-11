@@ -123,22 +123,15 @@ export default function LandingPage() {
             The Standard Fireworks Rajaratnam College for Women, Sivakasi
           </p>
 
-          {/* CTA buttons */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          {/* CTA button */}
+          <div className="flex items-center justify-center">
             <Link
-              id="hero-student-portal"
-              href="/login?role=student"
-              className="group inline-flex items-center gap-2 px-8 py-3.5 rounded-xl font-bold text-sfrc-800 bg-white hover:bg-sfrc-100 transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5 text-sm"
+              id="hero-sign-in"
+              href="/login"
+              className="group inline-flex items-center gap-2.5 px-9 py-3.5 rounded-xl font-bold text-sfrc-900 bg-white hover:bg-sfrc-100 transition-all duration-200 shadow-xl hover:shadow-2xl hover:-translate-y-0.5 text-base"
             >
-              Student Portal
+              <span>Sign In</span>
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </Link>
-            <Link
-              id="hero-admin-login"
-              href="/login?role=admin"
-              className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl font-bold text-white border-2 border-white/60 hover:border-white hover:bg-white/10 transition-all duration-200 text-sm"
-            >
-              Admin Login
             </Link>
           </div>
 

@@ -1,28 +1,20 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Building2,
-  Calendar,
   Clock,
   MapPin,
-  Users,
   CheckCircle2,
-  AlertTriangle,
   PlusCircle,
   Wrench,
   Search,
-  Filter,
-  Monitor,
-  Zap,
-  Activity,
-  ArrowRight,
   X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import AskPragyaBanner from '@/components/shared/AskPragyaBanner';
 import { createClient } from '@/lib/supabase/client';
-import { apiGet, apiPost } from '@/lib/api-client';
+import { apiPost } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 
 interface FacilityItem {
@@ -107,7 +99,7 @@ const DEFAULT_FACILITIES: FacilityItem[] = [
 ];
 
 export default function AdminFacilitiesPage() {
-  const [facilities, setFacilities] = useState<FacilityItem[]>(DEFAULT_FACILITIES);
+  const [facilities] = useState<FacilityItem[]>(DEFAULT_FACILITIES);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [isBookModalOpen, setIsBookModalOpen] = useState(false);
@@ -310,7 +302,7 @@ export default function AdminFacilitiesPage() {
                 <div className="h-6 w-px bg-sfrc-200" />
                 <div>
                   <p className="text-[11px] text-sfrc-500 font-semibold">In-charge</p>
-                  <p className="font-bold text-sfrc-900 truncate max-w-[140px]">{fac.incharge_faculty}</p>
+                  <p className="font-bold text-sfrc-900 truncate max-w-35">{fac.incharge_faculty}</p>
                 </div>
               </div>
 

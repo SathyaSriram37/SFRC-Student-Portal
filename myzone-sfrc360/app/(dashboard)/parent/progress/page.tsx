@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
-import { Users, Mail, Phone, Building2, UserCheck, ArrowLeft, Home, CheckCircle2 } from 'lucide-react';
+import { Users, Mail, Phone, Building2, UserCheck, ArrowLeft, Home, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
 import AppShell from '@/components/layout/AppShell';
 import AskPragyaBanner from '@/components/shared/AskPragyaBanner';
 import { createClient } from '@/lib/supabase/client';
@@ -16,6 +16,8 @@ interface WardItem {
   current_semester: number;
   programme_name?: string;
   department_name?: string;
+  section?: string;
+  batch?: string;
   avatar_url?: string;
   relation: string;
 }
@@ -49,49 +51,94 @@ export default function MyWardPage() {
   const [wards, setWards] = useState<WardItem[]>([]);
   const [selectedWardId, setSelectedWardId] = useState<string | null>(null);
   const [summary, setSummary] = useState<WardSummaryData | null>(null);
-    const supabase = useMemo(() => createClient(), []);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingSummary, setIsLoadingSummary] = useState(false);
+  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
     let ignore = false;
     (async () => {
+      setIsLoading(true);
       try {
         const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token;
 
         const wardList = await apiGet<WardItem[]>('/api/v1/parents/me/wards', token).catch(() => []);
-        if (!ignore) {
-          setWards(wardList);
-        }
+        if (ignore) return;
+        setWards(wardList || []);
 
-        const targetId = selectedWardId || (wardList.length > 0 ? wardList[0].student_id : null);
+        const targetId = selectedWardId || (wardList && wardList.length > 0 ? wardList[0].student_id : null);
         if (targetId) {
-          if (!ignore) setSelectedWardId(targetId);
-          const data = await apiGet<WardSummaryData>(`/api/v1/parents/me/wards/${targetId}/summary`, token);
+          setSelectedWardId(targetId);
+          setIsLoadingSummary(true);
+          const data = await apiGet<WardSummaryData>(`/api/v1/parents/me/wards/${encodeURIComponent(targetId)}/summary`, token);
           if (!ignore) setSummary(data);
         }
       } catch (err) {
         console.error(err);
+      } finally {
+        if (!ignore) {
+          setIsLoading(false);
+          setIsLoadingSummary(false);
+        }
       }
     })();
 
     return () => {
       ignore = true;
     };
-  }, [selectedWardId, supabase]);
+  }, [supabase]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleWardChange = async (wardId: string) => {
+    if (wardId === selectedWardId) return;
     setSelectedWardId(wardId);
+    setSummary(null);
+    setIsLoadingSummary(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
-      const data = await apiGet<WardSummaryData>(`/api/v1/parents/me/wards/${wardId}/summary`, token);
+      const data = await apiGet<WardSummaryData>(`/api/v1/parents/me/wards/${encodeURIComponent(wardId)}/summary`, token);
       setSummary(data);
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsLoadingSummary(false);
     }
   };
 
-  const ward = summary?.ward || wards[0];
+  if (isLoading) {
+    return (
+      <AppShell role="parent" userName="Parent">
+        <div className="min-h-[60vh] flex flex-col items-center justify-center gap-3">
+          <Loader2 className="w-8 h-8 animate-spin text-sfrc-700" />
+          <p className="text-xs font-semibold text-sfrc-600">Loading student profile…</p>
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (wards.length === 0) {
+    return (
+      <AppShell role="parent" userName="Parent">
+        <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto space-y-6">
+          <div className="bg-white rounded-3xl border border-sfrc-200 p-8 sm:p-12 text-center shadow-xs">
+            <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center mx-auto text-amber-800 mb-4">
+              <Users className="w-8 h-8" />
+            </div>
+            <h1 className="text-xl sm:text-2xl font-black text-sfrc-900 tracking-tight">
+              No Linked Students
+            </h1>
+            <p className="text-sm text-sfrc-600 mt-2 max-w-lg mx-auto">
+              No students are linked to your parent account yet. Please contact the college administrator.
+            </p>
+          </div>
+          <AskPragyaBanner />
+        </div>
+      </AppShell>
+    );
+  }
+
+  const ward = summary?.ward || wards.find((w) => w.student_id === selectedWardId) || wards[0];
 
   return (
     <AppShell role="parent" userName="Parent">
@@ -121,15 +168,16 @@ export default function MyWardPage() {
               {wards.map((w) => (
                 <button
                   key={w.student_id}
+                  type="button"
                   onClick={() => handleWardChange(w.student_id)}
                   className={cn(
-                    'px-3 py-1.5 rounded-xl text-xs font-bold transition-all',
+                    'px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer',
                     selectedWardId === w.student_id
-                      ? 'bg-sfrc-700 text-white'
+                      ? 'bg-sfrc-700 text-white shadow-xs'
                       : 'text-sfrc-700 hover:bg-sfrc-100'
                   )}
                 >
-                  {w.full_name}
+                  {w.full_name} ({w.register_number})
                 </button>
               ))}
             </div>
@@ -137,123 +185,136 @@ export default function MyWardPage() {
         </div>
 
         {/* Profile Card */}
-        <div className="bg-white rounded-3xl border border-sfrc-200 p-6 sm:p-8 shadow-xs">
-          <div className="flex flex-col md:flex-row md:items-center gap-6">
-            <div className="w-24 h-24 rounded-3xl bg-linear-to-br from-sfrc-700 to-sfrc-900 flex items-center justify-center text-white text-3xl font-black shadow-md ring-4 ring-sfrc-100 shrink-0">
-              {ward?.avatar_url ? (
-                <img src={ward.avatar_url} alt={ward.full_name} className="w-full h-full object-cover rounded-3xl" />
-              ) : (
-                ward?.full_name?.slice(0, 2).toUpperCase() || 'WD'
-              )}
-            </div>
-
-            <div className="space-y-1.5 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="px-2.5 py-0.5 rounded-md bg-sfrc-100 text-sfrc-800 text-xs font-bold uppercase tracking-wider">
-                  {ward?.relation || 'Ward'}
-                </span>
-                <span className="px-2.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold">
-                  Active Enrolled Student
-                </span>
+        {isLoadingSummary ? (
+          <div className="bg-white rounded-3xl border border-sfrc-200 p-12 flex flex-col items-center justify-center gap-2">
+            <Loader2 className="w-6 h-6 animate-spin text-sfrc-700" />
+            <p className="text-xs text-sfrc-500">Loading ward details…</p>
+          </div>
+        ) : (
+          <div className="bg-white rounded-3xl border border-sfrc-200 p-6 sm:p-8 shadow-xs">
+            <div className="flex flex-col md:flex-row md:items-center gap-6">
+              <div className="w-20 h-20 rounded-2xl bg-linear-to-br from-sfrc-700 to-sfrc-900 flex items-center justify-center text-white text-2xl font-black shadow-md shrink-0">
+                {ward?.avatar_url ? (
+                  <img src={ward.avatar_url} alt={ward.full_name} className="w-full h-full object-cover rounded-2xl" />
+                ) : (
+                  ward?.full_name?.slice(0, 2).toUpperCase() || 'WD'
+                )}
               </div>
-              <h2 className="text-2xl font-black text-sfrc-900">{ward?.full_name}</h2>
-              <p className="text-sm text-sfrc-600 font-medium">
-                {ward?.programme_name} • {ward?.department_name}
-              </p>
+
+              <div className="space-y-1.5 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-md bg-sfrc-100 text-sfrc-800 text-xs font-bold">
+                    {ward?.relation || 'Ward'}
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded-md bg-sfrc-surface border border-sfrc-200 text-sfrc-700 font-mono text-xs font-bold">
+                    {ward?.register_number}
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded-md bg-emerald-50 text-emerald-800 text-xs font-bold flex items-center gap-1 border border-emerald-200">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Enrolled & Active
+                  </span>
+                </div>
+                <h2 className="text-2xl font-black text-sfrc-900 tracking-tight">{ward?.full_name}</h2>
+                <p className="text-xs sm:text-sm text-sfrc-600">
+                  {ward?.programme_name} • {ward?.department_name}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8 pt-8 border-t border-sfrc-200 text-xs">
+              <div>
+                <p className="text-sfrc-500 uppercase tracking-wider font-semibold text-[10px]">Current Semester</p>
+                <p className="font-bold text-sfrc-900 mt-0.5">Semester {ward?.current_semester || 1}</p>
+              </div>
+              <div>
+                <p className="text-sfrc-500 uppercase tracking-wider font-semibold text-[10px]">Section / Batch</p>
+                <p className="font-bold text-sfrc-900 mt-0.5">
+                  {ward?.section ? `Sec ${ward.section}` : 'General'} {ward?.batch ? `(${ward.batch})` : ''}
+                </p>
+              </div>
+              <div>
+                <p className="text-sfrc-500 uppercase tracking-wider font-semibold text-[10px]">Academic CGPA</p>
+                <p className="font-bold text-sfrc-900 mt-0.5 font-mono">
+                  {summary?.cgpa && summary.cgpa > 0 ? `${summary.cgpa.toFixed(2)} / 10.0` : 'Pending'}
+                </p>
+              </div>
+              <div>
+                <p className="text-sfrc-500 uppercase tracking-wider font-semibold text-[10px]">Overall Attendance</p>
+                <p className="font-bold text-sfrc-900 mt-0.5 font-mono">
+                  {summary?.attendance_pct !== undefined && summary.attendance_pct > 0
+                    ? `${summary.attendance_pct.toFixed(1)}%`
+                    : 'N/A'}
+                </p>
+              </div>
             </div>
           </div>
+        )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6 pt-6 border-t border-sfrc-100">
-            <div className="p-3.5 rounded-2xl bg-sfrc-surface border border-sfrc-200/60">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-sfrc-500">Register Number</p>
-              <p className="text-sm font-black text-sfrc-900 font-mono mt-0.5">{ward?.register_number}</p>
-            </div>
-            <div className="p-3.5 rounded-2xl bg-sfrc-surface border border-sfrc-200/60">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-sfrc-500">Current Semester</p>
-              <p className="text-sm font-black text-sfrc-900 mt-0.5">Semester {ward?.current_semester}</p>
-            </div>
-            <div className="p-3.5 rounded-2xl bg-sfrc-surface border border-sfrc-200/60">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-sfrc-500">Overall Attendance</p>
-              <p className="text-sm font-black text-emerald-700 mt-0.5">{summary?.attendance_pct ?? 90}%</p>
-            </div>
-            <div className="p-3.5 rounded-2xl bg-sfrc-surface border border-sfrc-200/60">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-sfrc-500">Cumulative CGPA</p>
-              <p className="text-sm font-black text-sfrc-900 mt-0.5">{summary?.cgpa ?? 8.75} / 10.0</p>
-            </div>
-          </div>
-        </div>
-
-        {/* 2-Col Mentorship & Hostel Details */}
+        {/* 2-Col Grid: Mentor + Hostel */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Mentor Info */}
           <div className="bg-white rounded-3xl border border-sfrc-200 p-6 shadow-xs">
-            <div className="flex items-center gap-2 mb-4">
-              <UserCheck className="w-5 h-5 text-sfrc-700" />
-              <h2 className="text-base font-black text-sfrc-900">Faculty Mentor (Official Contact)</h2>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-sfrc-surface border border-sfrc-200">
-              <p className="text-sm font-black text-sfrc-900">{summary?.mentor?.mentor_name || 'Dr. K. Anitha'}</p>
-              <p className="text-xs text-sfrc-600 mt-0.5">
-                {summary?.mentor?.designation || 'Associate Professor'} • {summary?.mentor?.department_name || 'Computer Science'}
-              </p>
-
-              <div className="mt-4 space-y-2 text-xs text-sfrc-700 font-medium">
-                <div className="flex items-center gap-2">
-                  <Mail className="w-4 h-4 text-sfrc-500" />
-                  <span>{summary?.mentor?.email || 'anitha.k@sfrc.ac.in'}</span>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-sfrc-700 flex items-center gap-2 mb-3">
+              <UserCheck className="w-4 h-4" /> Academic Mentor
+            </h3>
+            {summary?.mentor ? (
+              <>
+                <p className="text-base font-black text-sfrc-900">{summary.mentor.mentor_name}</p>
+                <p className="text-xs text-sfrc-600 mb-4">
+                  {summary.mentor.designation || 'Faculty'} • {summary.mentor.department_name || 'Department'}
+                </p>
+                <div className="space-y-2 text-xs text-sfrc-700">
+                  {summary.mentor.email && (
+                    <div className="flex items-center gap-2">
+                      <Mail className="w-3.5 h-3.5 text-sfrc-500" />
+                      <span>{summary.mentor.email}</span>
+                    </div>
+                  )}
+                  {summary.mentor.phone && (
+                    <div className="flex items-center gap-2">
+                      <Phone className="w-3.5 h-3.5 text-sfrc-500" />
+                      <span>{summary.mentor.phone}</span>
+                    </div>
+                  )}
+                  {summary.mentor.office_room && (
+                    <div className="flex items-center gap-2">
+                      <Building2 className="w-3.5 h-3.5 text-sfrc-500" />
+                      <span>{summary.mentor.office_room}</span>
+                    </div>
+                  )}
                 </div>
-                <div className="flex items-center gap-2">
-                  <Phone className="w-4 h-4 text-sfrc-500" />
-                  <span>{summary?.mentor?.phone || '04562-220389'}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Building2 className="w-4 h-4 text-sfrc-500" />
-                  <span>{summary?.mentor?.office_room || 'Staff Room 2 (Science Block)'}</span>
-                </div>
-              </div>
-            </div>
-            <p className="text-[11px] text-sfrc-500 mt-3">
-              Parents can contact the faculty mentor during office hours (2:00 PM – 4:00 PM) on working days.
-            </p>
+              </>
+            ) : (
+              <p className="text-xs text-sfrc-500 py-4">No mentor assigned for this ward yet.</p>
+            )}
           </div>
 
-          {/* Residence & Hostel */}
           <div className="bg-white rounded-3xl border border-sfrc-200 p-6 shadow-xs">
-            <div className="flex items-center gap-2 mb-4">
-              <Home className="w-5 h-5 text-sfrc-700" />
-              <h2 className="text-base font-black text-sfrc-900">Residence & Hostel Allocation</h2>
-            </div>
-
+            <h3 className="text-xs font-bold uppercase tracking-wider text-sfrc-700 flex items-center gap-2 mb-3">
+              <Home className="w-4 h-4" /> Residential Details
+            </h3>
             {summary?.hostel?.is_hosteller ? (
-              <div className="p-4 rounded-2xl bg-sfrc-surface border border-sfrc-200">
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 mb-2">
-                  <CheckCircle2 className="w-3 h-3" /> Campus Hostel Resident
-                </span>
-                <p className="text-sm font-black text-sfrc-900">{summary.hostel.hostel_name}</p>
-                <p className="text-xs text-sfrc-600 mt-0.5">Room Number: <strong className="text-sfrc-900 font-mono">{summary.hostel.room_number}</strong></p>
-
-                <div className="mt-4 space-y-1.5 text-xs text-sfrc-700">
-                  <p>Warden: <strong className="text-sfrc-900">{summary.hostel.warden_name}</strong></p>
-                  <div className="flex items-center gap-2">
-                    <Phone className="w-4 h-4 text-sfrc-500" />
+              <>
+                <p className="text-base font-black text-sfrc-900">{summary.hostel.hostel_name}</p>
+                <p className="text-xs text-sfrc-600 mb-4">
+                  Room: <span className="font-mono font-bold text-sfrc-900">{summary.hostel.room_number || 'Allocated'}</span>
+                </p>
+                {summary.hostel.warden_name && (
+                  <p className="text-xs text-sfrc-700">Warden: <strong className="text-sfrc-900">{summary.hostel.warden_name}</strong></p>
+                )}
+                {summary.hostel.warden_contact && (
+                  <div className="flex items-center gap-2 text-xs text-sfrc-700 mt-1">
+                    <Phone className="w-3.5 h-3.5 text-sfrc-500" />
                     <span>{summary.hostel.warden_contact}</span>
                   </div>
-                </div>
-              </div>
+                )}
+              </>
             ) : (
-              <div className="p-4 rounded-2xl bg-sfrc-surface border border-sfrc-200">
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded bg-sfrc-100 text-sfrc-800 mb-2">
-                  Day Scholar
-                </span>
-                <p className="text-xs text-sfrc-600 leading-relaxed">
-                  Ward is registered as a day scholar commuting daily to the college campus.
+              <div>
+                <p className="text-sm font-bold text-sfrc-900">Day Scholar</p>
+                <p className="text-xs text-sfrc-600 mt-1">
+                  Ward is not registered in the campus hostel facilities.
                 </p>
               </div>
             )}
-            <p className="text-[11px] text-sfrc-500 mt-3">
-              Outstation weekend leave permissions must be pre-authorized by parents via the portal.
-            </p>
           </div>
         </div>
 

@@ -1,17 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   BarChart3,
   TrendingUp,
   Download,
   GraduationCap,
-  Award,
-  ChevronRight,
-  BookOpen,
-  Calendar,
   Filter,
-  CheckCircle2,
   FileSpreadsheet,
 } from 'lucide-react';
 import {
@@ -64,27 +59,31 @@ export default function StudentMarksPage() {
 
   const supabase = useMemo(() => createClient(), []);
 
-  const loadMarks = useCallback(async (sem: number) => {
-    setIsLoading(true);
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      const res = await apiGet<MarksData>(`/api/v1/students/me/marks?semester=${sem}`, token);
-      if (res) {
-        setData(res);
-      }
-    } catch (err) {
-      console.error('Failed to load marks:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [supabase]);
-
   useEffect(() => {
-    loadMarks(selectedSemester);
-  }, [selectedSemester, loadMarks]);
+    let ignore = false;
+    async function fetchMarks() {
+      setIsLoading(true);
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        const res = await apiGet<MarksData>(`/api/v1/students/me/marks?semester=${selectedSemester}`, token);
+        if (!ignore && res) {
+          setData(res);
+        }
+      } catch (err) {
+        console.error('Failed to load marks:', err);
+      } finally {
+        if (!ignore) setIsLoading(false);
+      }
+    }
+
+    fetchMarks();
+    return () => {
+      ignore = true;
+    };
+  }, [selectedSemester, supabase]);
 
   const handleDownloadMarksheet = () => {
     setDownloading(true);
@@ -141,7 +140,7 @@ export default function StudentMarksPage() {
             <CardDescription className="text-xs font-medium">Cumulative CGPA</CardDescription>
             <CardTitle className="text-3xl font-extrabold text-sfrc-800 dark:text-sfrc-300 flex items-center gap-2">
               {data?.current_cgpa?.toFixed(2) ?? '8.65'}
-              <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-300 text-xs">
+              <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-300 text-xs">
                 First Class with Distinction
               </Badge>
             </CardTitle>
@@ -333,7 +332,7 @@ export default function StudentMarksPage() {
                         {row.total ?? '-'}
                       </td>
                       <td className="py-3 px-4 text-center">
-                        <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-300 text-xs font-bold">
+                        <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-300 text-xs font-bold">
                           {row.grade ?? 'O'}
                         </Badge>
                       </td>

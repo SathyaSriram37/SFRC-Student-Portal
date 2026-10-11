@@ -79,11 +79,11 @@ const QUICK_LINKS = [
 const INITIAL_DASHBOARD_DATA: StudentDashboardData = {
   profile: {
     student_id: 'std-current',
-    full_name: 'Priya Sharma',
-    register_number: '23UCA042',
-    current_semester: 6,
-    programme_name: 'B.Sc Computer Science',
-    department_name: 'Department of Computer Science',
+    full_name: 'Student',
+    register_number: '—',
+    current_semester: 1,
+    programme_name: 'Academic Department',
+    department_name: 'SFRC Student Portal',
   },
   attendance_pct: 88.5,
   cgpa: 8.65,
@@ -181,12 +181,15 @@ export default function StudentDashboardPage() {
         } = await supabase.auth.getSession();
         const token = session?.access_token;
 
-        if (session?.user?.user_metadata?.full_name) {
+        if (session?.user) {
+          const metaName = session.user.user_metadata?.full_name || session.user.email?.split('@')[0].replace('.', ' ').toUpperCase();
+          const metaReg = session.user.user_metadata?.register_number || '';
           setData((prev) => ({
             ...prev,
             profile: {
               ...prev.profile,
-              full_name: session.user.user_metadata.full_name,
+              full_name: metaName || prev.profile.full_name,
+              register_number: metaReg || prev.profile.register_number,
             },
           }));
         }

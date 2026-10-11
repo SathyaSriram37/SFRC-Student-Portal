@@ -3,6 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { usePathname } from 'next/navigation';
 import {
   MapPin,
   Phone,
@@ -19,6 +20,9 @@ import {
 } from 'lucide-react';
 
 export default function Footer() {
+  const pathname = usePathname() || '';
+  const isParent = pathname.startsWith('/parent');
+
   return (
     <footer className="w-full bg-sfrc-950 text-sfrc-100 border-t-2 border-sfrc-700/70 text-xs mt-auto">
       {/* Top Gold Accent Strip */}
@@ -71,37 +75,55 @@ export default function Footer() {
             </h4>
             <ul className="space-y-2 text-[11px]">
               <li>
-                <Link href="/student/academics" className="text-sfrc-100/85 hover:text-sfrc-gold transition-colors flex items-center gap-1.5">
+                <Link
+                  href={isParent ? '/parent/performance' : '/student/academics'}
+                  className="text-sfrc-100/85 hover:text-sfrc-gold transition-colors flex items-center gap-1.5"
+                >
                   <GraduationCap className="w-3 h-3 text-sfrc-gold/70" />
                   Academic Regulations & CIA Portal
                 </Link>
               </li>
               <li>
-                <Link href="/student/exams" className="text-sfrc-100/85 hover:text-sfrc-gold transition-colors flex items-center gap-1.5">
+                <Link
+                  href={isParent ? '/parent/exams' : '/student/exams'}
+                  className="text-sfrc-100/85 hover:text-sfrc-gold transition-colors flex items-center gap-1.5"
+                >
                   <BookOpen className="w-3 h-3 text-sfrc-gold/70" />
                   Controller of Examinations (COE)
                 </Link>
               </li>
               <li>
-                <Link href="/student/library" className="text-sfrc-100/85 hover:text-sfrc-gold transition-colors flex items-center gap-1.5">
+                <Link
+                  href={isParent ? '/parent/progress' : '/student/library'}
+                  className="text-sfrc-100/85 hover:text-sfrc-gold transition-colors flex items-center gap-1.5"
+                >
                   <BookOpen className="w-3 h-3 text-sfrc-gold/70" />
                   OPAC Digital Library & E-Resources
                 </Link>
               </li>
               <li>
-                <Link href="/student/campus-care" className="text-sfrc-100/85 hover:text-sfrc-gold transition-colors flex items-center gap-1.5">
+                <Link
+                  href={isParent ? '/parent/notices' : '/student/campus-care'}
+                  className="text-sfrc-100/85 hover:text-sfrc-gold transition-colors flex items-center gap-1.5"
+                >
                   <ShieldCheck className="w-3 h-3 text-sfrc-gold/70" />
                   CivicFix Campus Care & Grievance
                 </Link>
               </li>
               <li>
-                <Link href="/student/facilities/transport" className="text-sfrc-100/85 hover:text-sfrc-gold transition-colors flex items-center gap-1.5">
+                <Link
+                  href={isParent ? '/parent/transport' : '/student/facilities/transport'}
+                  className="text-sfrc-100/85 hover:text-sfrc-gold transition-colors flex items-center gap-1.5"
+                >
                   <MapPin className="w-3 h-3 text-sfrc-gold/70" />
                   College Bus Routes & Pass Details
                 </Link>
               </li>
               <li>
-                <Link href="/student/help" className="text-sfrc-100/85 hover:text-sfrc-gold transition-colors flex items-center gap-1.5">
+                <Link
+                  href={isParent ? '/parent/dashboard' : '/student/help'}
+                  className="text-sfrc-100/85 hover:text-sfrc-gold transition-colors flex items-center gap-1.5"
+                >
                   <HeartHandshake className="w-3 h-3 text-sfrc-gold/70" />
                   Anti-Ragging & Women Cell Helpline
                 </Link>

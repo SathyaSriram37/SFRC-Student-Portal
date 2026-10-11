@@ -1,26 +1,21 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Calendar,
-  Clock,
   MapPin,
   Users,
   PlusCircle,
   CheckCircle2,
-  AlertCircle,
   Search,
   Download,
-  Filter,
   Award,
-  Sparkles,
-  ExternalLink,
   X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import AskPragyaBanner from '@/components/shared/AskPragyaBanner';
 import { createClient } from '@/lib/supabase/client';
-import { apiGet, apiPost } from '@/lib/api-client';
+import { apiPost } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 
 interface EventAdminItem {
@@ -126,6 +121,20 @@ export default function AdminEventsPage() {
       const token = session?.access_token;
 
       await apiPost('/api/v1/admin/events', eventForm, token);
+      const newEv: EventAdminItem = {
+        id: `ev-${Date.now()}`,
+        title: eventForm.title,
+        category: eventForm.category,
+        event_date: `${eventForm.start_date} to ${eventForm.end_date}`,
+        event_time: eventForm.time,
+        venue: eventForm.venue,
+        organizer_dept: eventForm.department,
+        registered_count: 0,
+        max_capacity: eventForm.max_capacity,
+        status: 'Approved',
+        chief_guest: eventForm.speaker_details || undefined,
+      };
+      setEvents((prev) => [newEv, ...prev]);
       toast.success(`Event "${eventForm.title}" published and saved to database!`);
       setIsCreateEventOpen(false);
       setEventForm({

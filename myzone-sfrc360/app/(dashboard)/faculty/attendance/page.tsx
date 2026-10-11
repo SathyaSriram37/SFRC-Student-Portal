@@ -64,28 +64,7 @@ export default function FacultyAttendanceEntryPage() {
       } catch (err) {
         console.error('Failed to load faculty courses:', err);
         if (!ignore) {
-          const fallbackCourses: FacultyCourse[] = [
-            {
-              id: 'c-1',
-              code: '22UCSC61',
-              title: 'Cloud Architecture & DevOps',
-              programme_name: 'B.Sc Computer Science',
-              semester: 6,
-              department_name: 'Computer Science',
-              total_students: 42,
-            },
-            {
-              id: 'c-2',
-              code: '22PCSC21',
-              title: 'Advanced Machine Learning',
-              programme_name: 'M.Sc Computer Science',
-              semester: 2,
-              department_name: 'Computer Science',
-              total_students: 28,
-            },
-          ];
-          setCourses(fallbackCourses);
-          setSelectedCourseId('c-1');
+          setCourses([]);
         }
       } finally {
         if (!ignore) {
@@ -111,32 +90,20 @@ export default function FacultyAttendanceEntryPage() {
         `/api/v1/faculty/courses/${selectedCourseId}/students?date_str=${selectedDate}&session_str=${selectedSession}`,
         token
       );
-      setRoster(students);
+      setRoster(students || []);
 
       // Initialize status map
       const initialMap: Record<string, AttendanceStatus> = {};
-      students.forEach((s) => {
+      (students || []).forEach((s) => {
         initialMap[s.student_id] = (s.last_status as AttendanceStatus) || 'present';
       });
       setAttendanceMap(initialMap);
-      toast.info(`Loaded ${students.length} students for attendance marking.`);
+      toast.info(`Loaded ${(students || []).length} students for attendance marking.`);
     } catch (err) {
       console.error('Failed to fetch student roster:', err);
-      // Fallback demo students
-      const demoStudents: StudentRosterItem[] = [
-        { student_id: 's-1', register_number: '22UCA001', full_name: 'Abinaya R', current_semester: 6, attendance_pct: 92.0 },
-        { student_id: 's-2', register_number: '22UCA002', full_name: 'Bhavani M', current_semester: 6, attendance_pct: 88.5 },
-        { student_id: 's-3', register_number: '22UCA003', full_name: 'Deepika K', current_semester: 6, attendance_pct: 74.0 },
-        { student_id: 's-4', register_number: '22UCA004', full_name: 'Divya S', current_semester: 6, attendance_pct: 95.5 },
-        { student_id: 's-5', register_number: '22UCA005', full_name: 'Gayathri P', current_semester: 6, attendance_pct: 68.2 },
-        { student_id: 's-6', register_number: '22UCA006', full_name: 'Harini V', current_semester: 6, attendance_pct: 91.0 },
-      ];
-      setRoster(demoStudents);
-      const initialMap: Record<string, AttendanceStatus> = {};
-      demoStudents.forEach((s) => {
-        initialMap[s.student_id] = 'present';
-      });
-      setAttendanceMap(initialMap);
+      toast.error('Failed to fetch student roster from database.');
+      setRoster([]);
+      setAttendanceMap({});
     } finally {
       setIsLoadingRoster(false);
     }

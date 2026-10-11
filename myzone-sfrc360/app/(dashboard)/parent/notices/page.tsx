@@ -19,37 +19,28 @@ interface ParentNotice {
 
 export default function ParentNoticesPage() {
   const [notices, setNotices] = useState<ParentNotice[]>([]);
-    const supabase = useMemo(() => createClient(), []);
+  const [isLoading, setIsLoading] = useState(true);
+  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
     let ignore = false;
     (async () => {
+      setIsLoading(true);
       try {
         const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token;
         const data = await apiGet<ParentNotice[]>('/api/v1/parents/me/notices', token);
         if (!ignore) {
-          setNotices(data);
+          setNotices(data || []);
         }
       } catch (err) {
-        console.error(err);
+        console.error('Failed to retrieve announcements:', err);
         if (!ignore) {
-          setNotices([
-            {
-              id: 'n-1',
-              title: 'Parent Teachers Association Meeting - Odd Semester 2026',
-              content: 'The PTA General Body Meeting is scheduled for 15th October 2026 in the Multipurpose Auditorium. All parents are cordially invited to interact with faculty mentors.',
-              priority: 'high',
-              publish_from: '2026-09-28T09:00:00',
-            },
-            {
-              id: 'n-2',
-              title: 'Autonomous End-Semester Examination Schedule & Fee Notice',
-              content: 'Examination application forms for November 2026 sessions are now open. Ensure minimum 75% attendance criteria for regular hall ticket issuance.',
-              priority: 'normal',
-              publish_from: '2026-09-20T10:00:00',
-            },
-          ]);
+          setNotices([]);
+        }
+      } finally {
+        if (!ignore) {
+          setIsLoading(false);
         }
       }
     })();

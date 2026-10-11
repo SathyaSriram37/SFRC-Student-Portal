@@ -187,7 +187,7 @@ export default function Header() {
         {/* ── LEFT — Portal Identity ────────────────────────────────────────── */}
         <Link
           href="/"
-          className="flex items-center gap-2.5 min-w-[140px] md:min-w-[180px] shrink-0 group"
+          className="flex items-center gap-2.5 min-w-35 md:min-w-45 shrink-0 group"
           aria-label="MyZone SFRC 360 Home"
         >
           <div className="relative w-10 h-10 shrink-0 rounded-full overflow-hidden ring-2 ring-sfrc-accent/60 group-hover:ring-sfrc-accent transition-all duration-200 shadow-xs bg-white p-0.5">
@@ -212,7 +212,7 @@ export default function Header() {
 
         {/* ── CENTER — Official College Identity Banner (logo1.png) ────────── */}
         <div className="hidden sm:flex flex-1 justify-center items-center px-2 min-w-0">
-          <div className="relative h-14 md:h-16 w-full max-w-[580px] lg:max-w-[640px] flex items-center justify-center">
+          <div className="relative h-14 md:h-16 w-full max-w-145 lg:max-w-160 flex items-center justify-center">
             <Image
               src="/logo1.png"
               alt="The Standard Fireworks Rajaratnam College for Women (Autonomous), Sivakasi"
@@ -226,7 +226,7 @@ export default function Header() {
         </div>
 
         {/* ── RIGHT — Global Search + Notification Bell + Nav slot / App badge ── */}
-        <div className="flex items-center justify-end gap-2.5 min-w-[140px] md:min-w-[200px] shrink-0">
+        <div className="flex items-center justify-end gap-2.5 min-w-35 md:min-w-50 shrink-0">
           {/* Global 360 Search Button (Cmd+K / Ctrl+K) */}
           <button
             type="button"
@@ -252,7 +252,7 @@ export default function Header() {
               >
                 <Bell className="w-4 h-4" />
                 {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-600 text-white text-[10px] font-extrabold rounded-full flex items-center justify-center border-2 border-white dark:border-card animate-pulse shadow-xs">
+                  <span className="absolute -top-1 -right-1 min-w-4.5 h-4.5 px-1 bg-red-600 text-white text-[10px] font-extrabold rounded-full flex items-center justify-center border-2 border-white dark:border-card animate-pulse shadow-xs">
                     {unreadCount > 99 ? '99+' : unreadCount}
                   </span>
                 )}
@@ -266,7 +266,7 @@ export default function Header() {
                     <div className="flex items-center gap-2">
                       <h3 className="text-xs font-bold text-foreground">Notifications</h3>
                       {unreadCount > 0 && (
-                        <span className="px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300 text-[10px] font-bold">
+                        <span className="px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400 text-[10px] font-bold">
                           {unreadCount} new
                         </span>
                       )}
@@ -338,9 +338,9 @@ export default function Header() {
             </div>
           )}
 
-          {isLanding ? (
+          {isLanding && (
             <Link
-              href="/login?role=student"
+              href="/login"
               className={cn(
                 'hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold',
                 'bg-sfrc-700 text-white hover:bg-sfrc-800 active:scale-95',
@@ -349,21 +349,23 @@ export default function Header() {
             >
               Sign In
             </Link>
-          ) : null}
+          )}
 
-          <Link
-            href="/student/profile"
-            className={cn(
-              'flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-sfrc-200 transition-colors cursor-pointer',
-              'bg-sfrc-100 dark:bg-muted border border-sfrc-200 dark:border-border'
-            )}
-            title="My Profile & Settings"
-          >
-            <div className="w-2 h-2 rounded-full bg-sfrc-accent animate-pulse" />
-            <span className="text-xs font-bold text-sfrc-700 dark:text-sfrc-300 tracking-tight whitespace-nowrap">
-              My Profile
-            </span>
-          </Link>
+          {pathname?.startsWith('/student') && (
+            <Link
+              href="/student/profile"
+              className={cn(
+                'flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-sfrc-200 transition-colors cursor-pointer',
+                'bg-sfrc-100 dark:bg-muted border border-sfrc-200 dark:border-border'
+              )}
+              title="My Profile & Settings"
+            >
+              <div className="w-2 h-2 rounded-full bg-sfrc-accent animate-pulse" />
+              <span className="text-xs font-bold text-sfrc-700 dark:text-sfrc-300 tracking-tight whitespace-nowrap">
+                My Profile
+              </span>
+            </Link>
+          )}
         </div>
       </div>
 

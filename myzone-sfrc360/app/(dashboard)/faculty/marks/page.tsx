@@ -69,16 +69,10 @@ export default function FacultyMarksEntryPage() {
             setSemester(courseList[0].semester);
           }
         }
-      } catch (err) {
+      } catch (err: unknown) {
         console.error('Failed to load faculty courses for marks:', err);
-        if (!ignore) {
-          const fallbackCourses: FacultyCourse[] = [
-            { id: 'c-1', code: '22UCSC61', title: 'Cloud Architecture & DevOps', semester: 6, total_students: 42 },
-            { id: 'c-2', code: '22PCSC21', title: 'Advanced Machine Learning', semester: 2, total_students: 28 },
-          ];
-          setCourses(fallbackCourses);
-          setSelectedCourseId('c-1');
-        }
+        const msg = err instanceof Error ? err.message : 'Failed to load courses.';
+        toast.error(msg);
       }
     })();
 
@@ -107,23 +101,17 @@ export default function FacultyMarksEntryPage() {
         initialMap[s.student_id] = '';
       });
       setMarksMap(initialMap);
-      toast.info(`Loaded ${students.length} students for ${selectedAssessment.id} marks entry.`);
-    } catch (err) {
+      if (students.length > 0) {
+        toast.info(`Loaded ${students.length} students for ${selectedAssessment.id} marks entry.`);
+      } else {
+        toast.info('No students enrolled in this course.');
+      }
+    } catch (err: unknown) {
       console.error('Failed to load roster for marks:', err);
-      const demoStudents: StudentRosterItem[] = [
-        { student_id: 's-1', register_number: '22UCA001', full_name: 'Abinaya R', current_semester: 6 },
-        { student_id: 's-2', register_number: '22UCA002', full_name: 'Bhavani M', current_semester: 6 },
-        { student_id: 's-3', register_number: '22UCA003', full_name: 'Deepika K', current_semester: 6 },
-        { student_id: 's-4', register_number: '22UCA004', full_name: 'Divya S', current_semester: 6 },
-        { student_id: 's-5', register_number: '22UCA005', full_name: 'Gayathri P', current_semester: 6 },
-        { student_id: 's-6', register_number: '22UCA006', full_name: 'Harini V', current_semester: 6 },
-      ];
-      setRoster(demoStudents);
-      const initialMap: Record<string, string> = {};
-      demoStudents.forEach((s) => {
-        initialMap[s.student_id] = '';
-      });
-      setMarksMap(initialMap);
+      const msg = err instanceof Error ? err.message : 'Failed to load students.';
+      toast.error(msg);
+      setRoster([]);
+      setMarksMap({});
     } finally {
       setIsLoadingRoster(false);
     }

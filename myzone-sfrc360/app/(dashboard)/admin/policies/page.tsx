@@ -101,6 +101,7 @@ export default function AdminPoliciesPage() {
   }, [supabase]);
 
   const loadAdminData = useCallback(async () => {
+    setIsLoading(true);
     try {
       const token = await getAuthToken();
       const [polRes, grvRes] = await Promise.allSettled([
@@ -122,13 +123,7 @@ export default function AdminPoliciesPage() {
   }, [getAuthToken]);
 
   useEffect(() => {
-    let ignore = false;
-    (async () => {
-      await loadAdminData();
-    })();
-    return () => {
-      ignore = true;
-    };
+    loadAdminData();
   }, [loadAdminData]);
 
   // Handle Create or Update Policy
@@ -279,7 +274,7 @@ export default function AdminPoliciesPage() {
   return (
     <div className="space-y-6 pb-16">
       {/* Header Banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-sfrc-950 to-slate-900 p-6 sm:p-8 text-white shadow-xl">
+      <div className="relative overflow-hidden rounded-2xl bg-linear-to-br from-slate-900 via-sfrc-950 to-slate-900 p-6 sm:p-8 text-white shadow-xl">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sfrc-400/20 text-sfrc-200 text-xs font-semibold tracking-wide border border-sfrc-400/30">
@@ -386,7 +381,20 @@ export default function AdminPoliciesPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
-                  {filteredPolicies.map((p) => {
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={7} className="p-8 text-center text-muted-foreground font-medium">
+                        Loading institutional policies...
+                      </td>
+                    </tr>
+                  ) : filteredPolicies.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="p-8 text-center text-muted-foreground font-medium">
+                        No policies found matching your search.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredPolicies.map((p) => {
                     const ackCount = p.total_acknowledgements ?? 0;
                     const eligibleCount = p.total_eligible_users ?? 160;
                     const ackPct = Math.round((ackCount / eligibleCount) * 100);
@@ -409,11 +417,11 @@ export default function AdminPoliciesPage() {
                         </td>
                         <td className="p-3.5">
                           {p.status === 'published' ? (
-                            <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-300 text-[11px] font-semibold">
+                            <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-300 text-[11px] font-semibold">
                               Published
                             </Badge>
                           ) : (
-                            <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-300 text-[11px] font-semibold">
+                            <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-300 text-[11px] font-semibold">
                               Draft
                             </Badge>
                           )}
@@ -464,7 +472,7 @@ export default function AdminPoliciesPage() {
                         </td>
                       </tr>
                     );
-                  })}
+                  }))}
                 </tbody>
               </table>
             </div>
@@ -544,7 +552,7 @@ export default function AdminPoliciesPage() {
                             {g.description}
                           </div>
                           {g.admin_response_notes && (
-                            <div className="text-[11px] text-blue-700 dark:text-blue-300 mt-1 font-medium flex items-center gap-1">
+                            <div className="text-[11px] text-blue-700 dark:text-blue-400 mt-1 font-medium flex items-center gap-1">
                               <MessageSquare className="w-3 h-3 shrink-0" />
                               <span>Response: {g.admin_response_notes}</span>
                             </div>
@@ -569,10 +577,10 @@ export default function AdminPoliciesPage() {
                           <Badge
                             className={`text-[11px] font-semibold ${
                               g.status === 'Resolved'
-                                ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-300'
+                                ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-300'
                                 : g.status === 'Under Review'
-                                ? 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-300'
-                                : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-300'
+                                ? 'bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-300'
+                                : 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-300'
                             }`}
                           >
                             {g.status}
@@ -687,7 +695,7 @@ export default function AdminPoliciesPage() {
                 value={formDescription}
                 onChange={(e) => setFormDescription(e.target.value)}
                 placeholder="Brief summary displayed on policy cards..."
-                className="text-xs min-h-[60px]"
+                className="text-xs min-h-15"
               />
             </div>
 
@@ -697,7 +705,7 @@ export default function AdminPoliciesPage() {
                 value={formContent}
                 onChange={(e) => setFormContent(e.target.value)}
                 placeholder="Full official statutory policy content..."
-                className="text-xs min-h-[120px] font-mono"
+                className="text-xs min-h-30 font-mono"
               />
             </div>
 
@@ -796,7 +804,7 @@ export default function AdminPoliciesPage() {
                     value={adminResponseNotes}
                     onChange={(e) => setAdminResponseNotes(e.target.value)}
                     placeholder="Enter formal response or committee resolution remarks..."
-                    className="text-xs min-h-[100px]"
+                    className="text-xs min-h-25"
                     required
                   />
                 </div>

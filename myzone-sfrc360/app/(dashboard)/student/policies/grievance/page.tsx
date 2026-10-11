@@ -78,6 +78,7 @@ export default function StudentGrievancePage() {
   }, [supabase]);
 
   const loadMyGrievances = useCallback(async () => {
+    setIsLoading(true);
     try {
       const token = await getAuthToken();
       const res = await apiGet<{ grievances: GrievanceItem[]; total: number }>(
@@ -95,13 +96,7 @@ export default function StudentGrievancePage() {
   }, [getAuthToken]);
 
   useEffect(() => {
-    let ignore = false;
-    (async () => {
-      await loadMyGrievances();
-    })();
-    return () => {
-      ignore = true;
-    };
+    loadMyGrievances();
   }, [loadMyGrievances]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -156,28 +151,28 @@ export default function StudentGrievancePage() {
     switch (status.toLowerCase()) {
       case 'received':
         return (
-          <Badge variant="outline" className="bg-amber-50 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300 text-xs">
+          <Badge variant="outline" className="bg-amber-50 text-amber-800 dark:bg-amber-950/50 dark:text-amber-400 border-amber-300 text-xs">
             <Clock className="w-3 h-3 mr-1" />
             Received
           </Badge>
         );
       case 'under review':
         return (
-          <Badge variant="outline" className="bg-blue-50 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border-blue-300 text-xs">
+          <Badge variant="outline" className="bg-blue-50 text-blue-800 dark:bg-blue-950/50 dark:text-blue-400 border-blue-300 text-xs">
             <MessageSquare className="w-3 h-3 mr-1" />
             Under Review
           </Badge>
         );
       case 'resolved':
         return (
-          <Badge variant="outline" className="bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300 text-xs">
+          <Badge variant="outline" className="bg-emerald-50 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-400 border-emerald-300 text-xs">
             <CheckCircle2 className="w-3 h-3 mr-1" />
             Resolved
           </Badge>
         );
       case 'closed':
         return (
-          <Badge variant="outline" className="bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-300 text-xs">
+          <Badge variant="outline" className="bg-slate-100 text-slate-700 dark:bg-slate-900 dark:text-slate-200 border-slate-300 text-xs">
             Closed
           </Badge>
         );
@@ -247,7 +242,7 @@ export default function StudentGrievancePage() {
               </div>
 
               {formError && (
-                <div className="p-3.5 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-xs font-semibold flex items-center gap-2">
+                <div className="p-3.5 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-xs font-semibold flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   <span>{formError}</span>
                 </div>
@@ -305,7 +300,7 @@ export default function StudentGrievancePage() {
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="Please explain the situation in detail, including dates, locations, departments involved, and your requested resolution..."
-                    className="bg-card min-h-[140px] text-xs leading-relaxed"
+                    className="bg-card min-h-35 text-xs leading-relaxed"
                     required
                   />
                 </div>
@@ -344,7 +339,7 @@ export default function StudentGrievancePage() {
 
           {/* Info Side Panel */}
           <div className="space-y-4">
-            <Card className="p-5 border-border space-y-3 bg-gradient-to-br from-card to-muted/30">
+            <Card className="p-5 border-border space-y-3 bg-linear-to-br from-card to-muted/30">
               <div className="flex items-center gap-2 text-sfrc-800 dark:text-sfrc-300 font-bold text-sm">
                 <Lock className="w-4 h-4" />
                 <span>Statutory Confidentiality</span>
@@ -373,7 +368,7 @@ export default function StudentGrievancePage() {
               <p className="text-xs text-muted-foreground">
                 For immediate anti-ragging assistance or physical emergency on campus, contact the 24/7 Helpline:
               </p>
-              <div className="p-2.5 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-xs font-bold">
+              <div className="p-2.5 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-400 text-xs font-bold">
                 SFRC Anti-Ragging Helpline: 04562-220389
               </div>
             </Card>
@@ -441,7 +436,7 @@ export default function StudentGrievancePage() {
                         <MessageSquare className="w-3.5 h-3.5" />
                         <span>Administrative Resolution / Response</span>
                       </div>
-                      <p className="text-xs text-blue-800 dark:text-blue-300 leading-relaxed">
+                      <p className="text-xs text-blue-800 dark:text-blue-400 leading-relaxed">
                         {g.admin_response_notes}
                       </p>
                     </div>

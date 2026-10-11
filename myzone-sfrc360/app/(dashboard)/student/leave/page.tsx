@@ -7,10 +7,7 @@ import {
   Send,
   CheckCircle2,
   XCircle,
-  FileText,
-  AlertCircle,
   PlusCircle,
-  Filter,
   UserCheck,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -36,6 +33,18 @@ interface LeaveApplication {
   applied_at: string;
 }
 
+interface BackendLeaveRecord {
+  id: string;
+  leave_type?: string;
+  from_date: string;
+  to_date: string;
+  total_days?: number | string;
+  reason: string;
+  status?: string;
+  approval_remarks?: string;
+  created_at: string;
+}
+
 export default function StudentLeavePage() {
   const [activeTab, setActiveTab] = useState<'apply' | 'history'>('apply');
   const [leaveType, setLeaveType] = useState<string>('OD');
@@ -56,12 +65,12 @@ export default function StudentLeavePage() {
         data: { session },
       } = await supabase.auth.getSession();
       const token = session?.access_token;
-      const res = await apiGet<any[]>('/api/v1/students/me/leave', token);
+      const res = await apiGet<BackendLeaveRecord[]>('/api/v1/students/me/leave', token);
       if (Array.isArray(res)) {
         setLeaveHistory(
-          res.map((r: any) => ({
+          res.map((r: BackendLeaveRecord) => ({
             id: r.id,
-            leave_type: (r.leave_type || 'OD') as any,
+            leave_type: (r.leave_type === 'Medical' || r.leave_type === 'Casual' || r.leave_type === 'Sports') ? r.leave_type : 'OD',
             from_date: r.from_date,
             to_date: r.to_date,
             days_count: Number(r.total_days) || 1,
@@ -128,28 +137,28 @@ export default function StudentLeavePage() {
     switch (status) {
       case 'hod_approved':
         return (
-          <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-300 text-xs">
+          <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-300 text-xs">
             <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
             Approved & Attendance Credited
           </Badge>
         );
       case 'mentor_approved':
         return (
-          <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-300 text-xs">
+          <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-300 text-xs">
             <UserCheck className="w-3.5 h-3.5 mr-1" />
             Mentor Approved (Pending HOD)
           </Badge>
         );
       case 'rejected':
         return (
-          <Badge className="bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-300 text-xs">
+          <Badge className="bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-300 text-xs">
             <XCircle className="w-3.5 h-3.5 mr-1" />
             Rejected
           </Badge>
         );
       default:
         return (
-          <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-300 text-xs">
+          <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-300 text-xs">
             <Clock className="w-3.5 h-3.5 mr-1" />
             Pending Mentor Review
           </Badge>

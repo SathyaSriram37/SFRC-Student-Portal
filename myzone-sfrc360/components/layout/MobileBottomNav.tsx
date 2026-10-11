@@ -74,7 +74,7 @@ export default function MobileBottomNav({ role }: MobileBottomNavProps) {
                 <div className="w-8 h-8 rounded-full bg-linear-to-tr from-sfrc-800 to-sfrc-700 flex items-center justify-center text-sfrc-gold shadow-sm mb-0.5">
                   <Sparkles className="w-4 h-4 animate-pulse" />
                 </div>
-                <span className="truncate max-w-[64px] font-bold text-sfrc-800">
+                <span className="truncate max-w-16 font-bold text-sfrc-800">
                   {item.label}
                 </span>
               </button>
@@ -100,7 +100,7 @@ export default function MobileBottomNav({ role }: MobileBottomNavProps) {
               >
                 <Icon className="w-4 h-4" />
               </div>
-              <span className="truncate max-w-[60px] text-center leading-tight">
+              <span className="truncate max-w-15 text-center leading-tight">
                 {item.label}
               </span>
             </Link>
