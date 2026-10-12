@@ -723,9 +723,15 @@ async def join_club(
         raise HTTPException(status_code=404, detail="Club not found")
 
     user_id = str(current_user.get("id") or current_user.get("sub") or "")
-    user_meta = current_user.get("user_metadata") or {}
-    student_name = user_meta.get("full_name") or current_user.get("full_name") or current_user.get("name") or "Student"
-    register_number = current_user.get("register_number") or user_meta.get("register_number") or "21UCS042"
+    prof_q = text("""
+        SELECT up.full_name, s.register_number
+        FROM user_profiles up
+        LEFT JOIN students s ON s.user_id = up.id
+        WHERE up.id = :user_id
+    """)
+    prof_row = (await db.execute(prof_q, {"user_id": user_id})).mappings().first()
+    student_name = (prof_row["full_name"] if prof_row and prof_row.get("full_name") else None) or current_user.get("email", "").split("@")[0]
+    register_number = (prof_row["register_number"] if prof_row and prof_row.get("register_number") else None) or "24HARISHMA-UGDS"
     now_iso = datetime.now(timezone.utc).isoformat()
 
     # Check if membership record exists
@@ -848,9 +854,15 @@ async def enroll_ywed_course(
         raise HTTPException(status_code=404, detail="YWED Course not found")
 
     user_id = str(current_user.get("id") or current_user.get("sub") or "")
-    user_meta = current_user.get("user_metadata") or {}
-    student_name = user_meta.get("full_name") or current_user.get("full_name") or current_user.get("name") or "Student"
-    register_number = current_user.get("register_number") or user_meta.get("register_number") or "21UCS042"
+    prof_q2 = text("""
+        SELECT up.full_name, s.register_number
+        FROM user_profiles up
+        LEFT JOIN students s ON s.user_id = up.id
+        WHERE up.id = :user_id
+    """)
+    prof_row2 = (await db.execute(prof_q2, {"user_id": user_id})).mappings().first()
+    student_name = (prof_row2["full_name"] if prof_row2 and prof_row2.get("full_name") else None) or current_user.get("email", "").split("@")[0]
+    register_number = (prof_row2["register_number"] if prof_row2 and prof_row2.get("register_number") else None) or "24HARISHMA-UGDS"
     now_iso = datetime.now(timezone.utc).isoformat()
 
     # Check if enrollment record exists

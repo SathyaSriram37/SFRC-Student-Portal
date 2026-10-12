@@ -7,19 +7,17 @@ import {
   Users,
   Search,
   PlusCircle,
-  Clock,
-  CheckCircle2,
-  AlertTriangle,
   Download,
   Bookmark,
-  DollarSign,
   Globe,
-  ArrowRight,
-  TrendingUp,
+  Loader2,
+  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import AskPragyaBanner from '@/components/shared/AskPragyaBanner';
 import { cn } from '@/lib/utils';
+import { createClient } from '@/lib/supabase/client';
+import { apiGet, apiPost } from '@/lib/api-client';
 
 interface BookItem {
   id: string;
@@ -29,83 +27,96 @@ interface BookItem {
   department: string;
   total_copies: number;
   available_copies: number;
-  shelf_location: string;
-  call_number: string;
+  shelf_location?: string;
+  call_number?: string;
 }
 
-const DEFAULT_BOOKS: BookItem[] = [
-  {
-    id: 'bk-1',
-    accession_no: 'SFRC-LIB-44912',
-    title: 'Cloud Computing: Principles and Paradigms',
-    author: 'Rajkumar Buyya, Christian Vecchiola',
-    department: 'Computer Science',
-    total_copies: 8,
-    available_copies: 5,
-    shelf_location: 'Stack 4 - Shelf B',
-    call_number: '004.6782 BUY',
-  },
-  {
-    id: 'bk-2',
-    accession_no: 'SFRC-LIB-42810',
-    title: 'Advanced Corporate Accounting & Auditing Standards',
-    author: 'Dr. S.N. Maheshwari, Dr. S.K. Maheshwari',
-    department: 'Commerce',
-    total_copies: 12,
-    available_copies: 7,
-    shelf_location: 'Stack 2 - Shelf D',
-    call_number: '657.95 MAH',
-  },
-  {
-    id: 'bk-3',
-    accession_no: 'SFRC-LIB-39182',
-    title: 'Introduction to Solid State Physics (8th Edition)',
-    author: 'Charles Kittel',
-    department: 'Physics',
-    total_copies: 6,
-    available_copies: 3,
-    shelf_location: 'Stack 5 - Shelf A',
-    call_number: '530.41 KIT',
-  },
-  {
-    id: 'bk-4',
-    accession_no: 'SFRC-LIB-46102',
-    title: 'Artificial Intelligence: A Modern Approach (4th Edition)',
-    author: 'Stuart Russell, Peter Norvig',
-    department: 'Computer Science',
-    total_copies: 10,
-    available_copies: 4,
-    shelf_location: 'Stack 4 - Shelf C',
-    call_number: '006.3 RUS',
-  },
-  {
-    id: 'bk-5',
-    accession_no: 'SFRC-LIB-38291',
-    title: 'Real and Complex Analysis (International Edition)',
-    author: 'Walter Rudin',
-    department: 'Mathematics',
-    total_copies: 8,
-    available_copies: 6,
-    shelf_location: 'Stack 3 - Shelf A',
-    call_number: '515 RUD',
-  },
-];
-
 export default function AdminLibraryPage() {
-  const [books, setBooks] = useState<BookItem[]>(DEFAULT_BOOKS);
+  const [books, setBooks] = useState<BookItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [deptFilter, setDeptFilter] = useState('ALL');
+
+  // Add Book Modal State
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formData, setFormData] = useState({
+    title: '',
+    author: '',
+    isbn: '',
+    accession_no: '',
+    department: 'Computer Science',
+    category: 'Computer Science',
+    copies: 5,
+  });
+
+  const supabase = createClient();
+
+  const getAuthToken = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token;
+  };
+
+  const loadBooks = async () => {
+    try {
+      setLoading(true);
+      const token = await getAuthToken();
+      const res = await apiGet<BookItem[]>('/api/v1/admin/library/books', token);
+      setBooks(res || []);
+    } catch (err) {
+      console.error('Failed to load library books from database:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadBooks();
+  }, []);
+
+  const handleAddBook = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.title || !formData.author || !formData.accession_no) {
+      toast.error('Please fill in title, author, and accession number.');
+      return;
+    }
+    try {
+      setIsSubmitting(true);
+      const token = await getAuthToken();
+      await apiPost('/api/v1/admin/library/books', formData, token);
+      toast.success(`Book "${formData.title}" accessioned successfully!`);
+      setShowAddModal(false);
+      setFormData({
+        title: '',
+        author: '',
+        isbn: '',
+        accession_no: '',
+        department: 'Computer Science',
+        category: 'Computer Science',
+        copies: 5,
+      });
+      await loadBooks();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to add book');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const filtered = useMemo(() => {
     return books.filter((b) => {
       const matchDept = deptFilter === 'ALL' || b.department === deptFilter;
       const matchSearch =
-        b.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        b.author.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        b.accession_no.toLowerCase().includes(searchTerm.toLowerCase());
+        (b.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (b.author || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (b.accession_no || '').toLowerCase().includes(searchTerm.toLowerCase());
       return matchDept && matchSearch;
     });
   }, [books, deptFilter, searchTerm]);
+
+  const totalCopies = useMemo(() => {
+    return books.reduce((acc, b) => acc + (b.total_copies || 0), 0);
+  }, [books]);
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-8 max-w-7xl mx-auto">
@@ -133,7 +144,7 @@ export default function AdminLibraryPage() {
             <span>Export Catalog</span>
           </button>
           <button
-            onClick={() => toast.info('New Book Accession modal opened.')}
+            onClick={() => setShowAddModal(true)}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-sfrc-700 text-white text-xs font-bold hover:bg-sfrc-800 transition-colors shadow-sm cursor-pointer"
           >
             <PlusCircle className="w-4 h-4" />
@@ -146,20 +157,20 @@ export default function AdminLibraryPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white p-5 rounded-3xl border border-sfrc-200 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-sfrc-500 uppercase tracking-wider">Total Volumes</span>
+            <span className="text-xs font-bold text-sfrc-500 uppercase tracking-wider">Total Catalog Titles</span>
             <BookOpen className="w-4 h-4 text-sfrc-700" />
           </div>
-          <p className="text-2xl font-black text-sfrc-900 mt-2 font-mono">54,280</p>
-          <p className="text-xs text-sfrc-600 mt-0.5">Automated Barcode Catalog</p>
+          <p className="text-2xl font-black text-sfrc-900 mt-2 font-mono">{books.length}</p>
+          <p className="text-xs text-sfrc-600 mt-0.5">Live Database Records</p>
         </div>
 
         <div className="bg-white p-5 rounded-3xl border border-sfrc-200 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-sfrc-500 uppercase tracking-wider">Books on Loan</span>
+            <span className="text-xs font-bold text-sfrc-500 uppercase tracking-wider">Total Physical Copies</span>
             <Bookmark className="w-4 h-4 text-blue-600" />
           </div>
-          <p className="text-2xl font-black text-blue-700 mt-2 font-mono">1,142</p>
-          <p className="text-xs text-sfrc-600 mt-0.5">Active Student Borrowers</p>
+          <p className="text-2xl font-black text-blue-700 mt-2 font-mono">{totalCopies}</p>
+          <p className="text-xs text-sfrc-600 mt-0.5">Circulation Holdings</p>
         </div>
 
         <div className="bg-white p-5 rounded-3xl border border-sfrc-200 shadow-xs">
@@ -237,42 +248,174 @@ export default function AdminLibraryPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-sfrc-100 font-medium text-sfrc-900">
-              {filtered.map((b) => (
-                <tr key={b.id} className="hover:bg-sfrc-50/70 transition-colors">
-                  <td className="px-5 py-3 font-mono font-bold text-sfrc-700">{b.accession_no}</td>
-                  <td className="px-5 py-3">
-                    <p className="font-bold text-sfrc-950">{b.title}</p>
-                    <p className="text-[11px] text-sfrc-500 font-mono">Call No: {b.call_number}</p>
-                  </td>
-                  <td className="px-5 py-3 text-sfrc-700">{b.author}</td>
-                  <td className="px-5 py-3">{b.department}</td>
-                  <td className="px-5 py-3 font-medium text-sfrc-800">{b.shelf_location}</td>
-                  <td className="px-5 py-3">
-                    <span
-                      className={cn(
-                        'px-2.5 py-0.5 rounded-full font-bold text-[11px] inline-flex items-center gap-1',
-                        b.available_copies > 0
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : 'bg-rose-100 text-rose-800'
-                      )}
-                    >
-                      {b.available_copies} / {b.total_copies} Available
-                    </span>
-                  </td>
-                  <td className="px-5 py-3">
-                    <button
-                      onClick={() => toast.success(`Issue slip prepared for ${b.accession_no}`)}
-                      className="px-2.5 py-1 rounded-lg bg-sfrc-100 hover:bg-sfrc-200 text-sfrc-800 font-bold text-[11px] transition-colors"
-                    >
-                      Issue Book
-                    </button>
+              {loading ? (
+                <tr>
+                  <td colSpan={7} className="py-12 text-center text-sfrc-500">
+                    <Loader2 className="w-6 h-6 animate-spin mx-auto text-sfrc-700 mb-2" />
+                    Querying catalog from central database…
                   </td>
                 </tr>
-              ))}
+              ) : filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-12 text-center text-sfrc-500 font-medium">
+                    No books found matching the search criteria.
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((b) => (
+                  <tr key={b.id} className="hover:bg-sfrc-50/70 transition-colors">
+                    <td className="px-5 py-3 font-mono font-bold text-sfrc-700">{b.accession_no}</td>
+                    <td className="px-5 py-3">
+                      <p className="font-bold text-sfrc-950">{b.title}</p>
+                      {b.call_number && (
+                        <p className="text-[11px] text-sfrc-500 font-mono">Call No: {b.call_number}</p>
+                      )}
+                    </td>
+                    <td className="px-5 py-3 text-sfrc-700">{b.author}</td>
+                    <td className="px-5 py-3">{b.department}</td>
+                    <td className="px-5 py-3 font-medium text-sfrc-800">{b.shelf_location || 'Central Stacks'}</td>
+                    <td className="px-5 py-3">
+                      <span
+                        className={cn(
+                          'px-2.5 py-0.5 rounded-full font-bold text-[11px] inline-flex items-center gap-1',
+                          b.available_copies > 0
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-rose-100 text-rose-800'
+                        )}
+                      >
+                        {b.available_copies ?? b.total_copies} / {b.total_copies} Available
+                      </span>
+                    </td>
+                    <td className="px-5 py-3">
+                      <button
+                        onClick={() => toast.success(`Issue slip prepared for ${b.accession_no}`)}
+                        className="px-2.5 py-1 rounded-lg bg-sfrc-100 hover:bg-sfrc-200 text-sfrc-800 font-bold text-[11px] transition-colors"
+                      >
+                        Issue Book
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
       </div>
+
+      {/* ── Add New Book Modal ────────────────────────────────────────────── */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-sfrc-200">
+            <div className="flex items-center justify-between border-b border-sfrc-100 pb-4 mb-4">
+              <div>
+                <h3 className="text-lg font-black text-sfrc-900">Add New Book to OPAC</h3>
+                <p className="text-xs text-sfrc-500">Accession physical textbook into central library database</p>
+              </div>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="p-1 rounded-lg hover:bg-sfrc-100 text-sfrc-500 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddBook} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-sfrc-700 uppercase mb-1">Book Title *</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  placeholder="e.g. Modern Operating Systems"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-sfrc-200 text-xs font-medium focus:ring-2 focus:ring-sfrc-500 focus:outline-hidden"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-sfrc-700 uppercase mb-1">Author(s) *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.author}
+                    onChange={(e) => setFormData({ ...formData, author: e.target.value })}
+                    placeholder="Andrew S. Tanenbaum"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-sfrc-200 text-xs font-medium focus:ring-2 focus:ring-sfrc-500 focus:outline-hidden"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-sfrc-700 uppercase mb-1">Accession No *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.accession_no}
+                    onChange={(e) => setFormData({ ...formData, accession_no: e.target.value })}
+                    placeholder="SFRC-LIB-55001"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-sfrc-200 text-xs font-medium focus:ring-2 focus:ring-sfrc-500 focus:outline-hidden font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-sfrc-700 uppercase mb-1">Department</label>
+                  <select
+                    value={formData.department}
+                    onChange={(e) => setFormData({ ...formData, department: e.target.value, category: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-sfrc-200 text-xs font-medium focus:ring-2 focus:ring-sfrc-500 focus:outline-hidden"
+                  >
+                    <option value="Computer Science">Computer Science</option>
+                    <option value="Commerce">Commerce</option>
+                    <option value="Physics">Physics</option>
+                    <option value="Mathematics">Mathematics</option>
+                    <option value="English">English</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-sfrc-700 uppercase mb-1">Total Copies</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={formData.copies}
+                    onChange={(e) => setFormData({ ...formData, copies: parseInt(e.target.value) || 1 })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-sfrc-200 text-xs font-medium focus:ring-2 focus:ring-sfrc-500 focus:outline-hidden"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-sfrc-700 uppercase mb-1">ISBN / Barcode</label>
+                <input
+                  type="text"
+                  value={formData.isbn}
+                  onChange={(e) => setFormData({ ...formData, isbn: e.target.value })}
+                  placeholder="978-0133591620"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-sfrc-200 text-xs font-medium focus:ring-2 focus:ring-sfrc-500 focus:outline-hidden font-mono"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-sfrc-100">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="px-4 py-2.5 rounded-xl border border-sfrc-200 text-xs font-bold text-sfrc-700 hover:bg-sfrc-100 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-sfrc-700 hover:bg-sfrc-800 text-white text-xs font-bold transition-colors shadow-sm disabled:opacity-50"
+                >
+                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <PlusCircle className="w-4 h-4" />}
+                  <span>Accession Book</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* ── Bottom Pragya AI Assistant ────────────────────────────────────── */}
       <AskPragyaBanner />

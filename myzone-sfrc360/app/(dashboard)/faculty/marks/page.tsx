@@ -46,8 +46,9 @@ export default function FacultyMarksEntryPage() {
 
   const [roster, setRoster] = useState<StudentRosterItem[]>([]);
   const [marksMap, setMarksMap] = useState<Record<string, string>>({});
-    const [isLoadingRoster, setIsLoadingRoster] = useState(false);
+  const [isLoadingRoster, setIsLoadingRoster] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [userName, setUserName] = useState<string>('Faculty');
   const supabase = useMemo(() => createClient(), []);
 
   const selectedAssessment = useMemo(() => {
@@ -60,6 +61,9 @@ export default function FacultyMarksEntryPage() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token;
+        if (session?.user?.user_metadata?.full_name) {
+          setUserName(session.user.user_metadata.full_name);
+        }
 
         const courseList = await apiGet<FacultyCourse[]>('/api/v1/faculty/me/courses', token);
         if (!ignore) {
@@ -174,7 +178,7 @@ export default function FacultyMarksEntryPage() {
   };
 
   return (
-    <AppShell role="faculty" userName="Faculty">
+    <AppShell role="faculty" userName={userName}>
       <div className="p-4 sm:p-6 lg:p-8 space-y-8 max-w-7xl mx-auto">
         {/* Header */}
         <div className="bg-white p-6 rounded-3xl border border-sfrc-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">

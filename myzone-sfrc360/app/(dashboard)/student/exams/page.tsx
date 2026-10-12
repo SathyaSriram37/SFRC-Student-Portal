@@ -10,10 +10,13 @@ import {
   CheckCircle2,
   ShieldCheck,
   QrCode,
+  Printer,
+  FileText,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { createClient } from '@/lib/supabase/client';
 import { apiGet } from '@/lib/api-client';
 
@@ -35,6 +38,7 @@ export default function StudentExamsPage() {
   const [exams, setExams] = useState<ExamScheduleItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [downloadingHallTicket, setDownloadingHallTicket] = useState<boolean>(false);
+  const [hallTicketOpen, setHallTicketOpen] = useState<boolean>(false);
 
   const supabase = useMemo(() => createClient(), []);
 
@@ -74,11 +78,7 @@ export default function StudentExamsPage() {
       alert('Hall Ticket download is restricted due to attendance shortage in one or more subjects (<75%). Please contact the Controller of Examinations.');
       return;
     }
-    setDownloadingHallTicket(true);
-    setTimeout(() => {
-      setDownloadingHallTicket(false);
-      alert('Official End-Semester Hall Ticket with Verification QR Code downloaded successfully.');
-    }, 1500);
+    setHallTicketOpen(true);
   };
 
   return (
@@ -264,6 +264,99 @@ export default function StudentExamsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Official Digital Hall Ticket Modal */}
+      <Dialog open={hallTicketOpen} onOpenChange={setHallTicketOpen}>
+        <DialogContent className="max-w-2xl p-0 overflow-hidden border-sfrc-200">
+          <div className="bg-sfrc-900 text-white p-6 border-b border-sfrc-800">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-xs uppercase tracking-widest text-amber-300 font-semibold">Autonomous End-Semester Examination</div>
+                <h3 className="text-lg font-bold">The Standard Fireworks Rajaratnam College for Women</h3>
+                <p className="text-xs text-slate-300">Office of the Controller of Examinations (COE), Sivakasi</p>
+              </div>
+              <ShieldCheck className="w-9 h-9 text-emerald-400" />
+            </div>
+          </div>
+
+          <div className="p-6 space-y-4 text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-3 bg-muted/40 rounded-xl border">
+              <div>
+                <span className="text-muted-foreground block text-[10px]">Student Scholar:</span>
+                <strong className="text-foreground text-xs">24Harishma-Ugds</strong>
+              </div>
+              <div>
+                <span className="text-muted-foreground block text-[10px]">Register Number:</span>
+                <strong className="font-mono text-xs text-foreground">24HARISHMA-UGDS</strong>
+              </div>
+              <div>
+                <span className="text-muted-foreground block text-[10px]">Degree & Branch:</span>
+                <strong className="text-xs text-foreground">B.Sc Computer Science (DS)</strong>
+              </div>
+              <div>
+                <span className="text-muted-foreground block text-[10px]">Current Semester:</span>
+                <strong className="text-xs text-foreground">Semester 4 (Autonomous)</strong>
+              </div>
+              <div>
+                <span className="text-muted-foreground block text-[10px]">Examination Centre:</span>
+                <strong className="text-xs text-foreground">SFRC Main Campus</strong>
+              </div>
+              <div>
+                <span className="text-muted-foreground block text-[10px]">Eligibility Status:</span>
+                <span className="inline-flex items-center text-emerald-600 font-bold">
+                  <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Approved
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <h4 className="font-bold text-xs uppercase tracking-wider text-muted-foreground mb-2">Registered Examination Papers</h4>
+              <div className="border rounded-lg overflow-hidden">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-muted text-[10px] uppercase text-muted-foreground">
+                    <tr>
+                      <th className="py-2 px-3">Date</th>
+                      <th className="py-2 px-3">Session</th>
+                      <th className="py-2 px-3">Paper Code</th>
+                      <th className="py-2 px-3">Course Title</th>
+                      <th className="py-2 px-3">Hall</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {exams.map((ex) => (
+                      <tr key={ex.id}>
+                        <td className="py-2 px-3 font-mono">{ex.date}</td>
+                        <td className="py-2 px-3">{ex.session}</td>
+                        <td className="py-2 px-3 font-mono font-bold text-sfrc-700">{ex.course_code}</td>
+                        <td className="py-2 px-3">{ex.course_title}</td>
+                        <td className="py-2 px-3 font-medium">{ex.venue}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-dashed flex items-center justify-between">
+              <div className="space-y-0.5">
+                <div className="font-semibold text-foreground">Digital Hall Ticket Verifiable Token:</div>
+                <div className="font-mono text-[10px] text-muted-foreground">COE-HT-2026-SFRC-24HARISHMA-UGDS-VALIDATED</div>
+                <div className="text-[10px] text-emerald-600 font-medium">Valid for all scheduled dates with student college ID badge.</div>
+              </div>
+              <QrCode className="w-10 h-10 text-sfrc-800 dark:text-sfrc-300" />
+            </div>
+          </div>
+
+          <DialogFooter className="p-4 bg-muted/20 border-t flex sm:justify-between items-center">
+            <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-1.5 text-xs">
+              <Printer className="w-3.5 h-3.5" /> Print Hall Ticket
+            </Button>
+            <Button size="sm" onClick={() => setHallTicketOpen(false)} className="text-xs">
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

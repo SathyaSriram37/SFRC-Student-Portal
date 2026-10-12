@@ -239,43 +239,41 @@ async def get_policies(
     cat: Optional[str] = Query(None, description="Filter by category"),
     audience: Optional[str] = Query(None, description="Filter by audience"),
     current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
-    Get published policies filtered by role and optional category.
+    Get published policies filtered by role and optional category from database.
     Users only see published policies suitable for their audience.
     """
     user_role = current_user.get("role", "student")
-    user_id = current_user.get("id")
+    user_id = str(current_user.get("id") or current_user.get("sub") or "")
 
-    user_acks = {
-        ack["policy_id"]: ack["acknowledged_at"]
-        for ack in DB_POLICY_ACKS
-        if ack.get("user_id") == user_id
-    }
+    ack_q = text("SELECT policy_id, acknowledged_at FROM policy_acknowledgements WHERE user_id = :user_id")
+    ack_rows = (await db.execute(ack_q, {"user_id": user_id})).mappings().all()
+    user_acks = {str(r["policy_id"]): str(r["acknowledged_at"]) for r in ack_rows}
+
+    pol_q = text("SELECT * FROM policies ORDER BY created_at ASC")
+    rows = (await db.execute(pol_q)).mappings().all()
 
     filtered: List[Dict[str, Any]] = []
-    for p in DB_POLICIES:
-        # Non-admins only see published policies
-        if user_role != "admin" and p["status"] != "published":
+    for r in rows:
+        p = dict(r)
+        if user_role != "admin" and p.get("status") != "published":
+            continue
+        if user_role != "admin" and p.get("audience") != "all" and p.get("audience") != user_role:
+            continue
+        if cat and cat != "all" and str(p.get("category", "")).lower() != cat.lower():
+            continue
+        if audience and audience != "all" and str(p.get("audience", "")).lower() != audience.lower():
             continue
 
-        # Audience check: 'all' matches everyone, otherwise match user's role
-        if user_role != "admin" and p["audience"] != "all" and p["audience"] != user_role:
-            continue
-
-        if cat and cat != "all" and p["category"].lower() != cat.lower():
-            continue
-
-        if audience and audience != "all" and p["audience"].lower() != audience.lower():
-            continue
-
-        ack_time = user_acks.get(p["id"])
-        item = {
+        ack_time = user_acks.get(str(p["id"]))
+        filtered.append({
             **p,
+            "requires_acknowledgement": bool(p.get("requires_acknowledgement")),
             "is_acknowledged": ack_time is not None,
             "acknowledged_at": ack_time,
-        }
-        filtered.append(item)
+        })
 
     return {
         "policies": filtered,
@@ -284,33 +282,36 @@ async def get_policies(
 
 
 @router.get("/policies/me/pending", response_model=Dict[str, Any], tags=["Policies & Compliance"])
-async def get_pending_policies(current_user: dict = Depends(get_current_user)):
+async def get_pending_policies(
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
     """
     Get policies requiring acknowledgement that the current user has not yet acknowledged.
     """
     user_role = current_user.get("role", "student")
-    user_id = current_user.get("id")
+    user_id = str(current_user.get("id") or current_user.get("sub") or "")
 
-    user_acked_policy_ids = {
-        ack["policy_id"]
-        for ack in DB_POLICY_ACKS
-        if ack.get("user_id") == user_id
-    }
+    q = text("""
+        SELECT p.* FROM policies p
+        WHERE p.status = 'published' AND p.requires_acknowledgement = 1
+        AND p.id NOT IN (
+            SELECT policy_id FROM policy_acknowledgements WHERE user_id = :user_id
+        )
+    """)
+    rows = (await db.execute(q, {"user_id": user_id})).mappings().all()
 
     pending: List[Dict[str, Any]] = []
-    for p in DB_POLICIES:
-        if p["status"] != "published":
-            continue
-        if not p.get("requires_acknowledgement", False):
-            continue
+    for r in rows:
+        p = dict(r)
         if user_role != "admin" and p["audience"] != "all" and p["audience"] != user_role:
             continue
-        if p["id"] not in user_acked_policy_ids:
-            pending.append({
-                **p,
-                "is_acknowledged": False,
-                "acknowledged_at": None,
-            })
+        pending.append({
+            **p,
+            "requires_acknowledgement": True,
+            "is_acknowledged": False,
+            "acknowledged_at": None,
+        })
 
     return {
         "pending_policies": pending,
@@ -322,30 +323,31 @@ async def get_pending_policies(current_user: dict = Depends(get_current_user)):
 async def get_policy_detail(
     id: str,
     current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
-    Get detailed policy information by ID.
-    Draft policies return 404 for non-admin users.
+    Get detailed policy information by ID from database.
     """
     user_role = current_user.get("role", "student")
-    user_id = current_user.get("id")
+    user_id = str(current_user.get("id") or current_user.get("sub") or "")
 
-    policy = next((p for p in DB_POLICIES if p["id"] == id), None)
-    if not policy:
+    q = text("SELECT * FROM policies WHERE id = :id")
+    row = (await db.execute(q, {"id": id})).mappings().first()
+    if not row:
         raise HTTPException(status_code=404, detail="Policy document not found")
 
+    policy = dict(row)
     if user_role != "admin" and policy["status"] != "published":
         raise HTTPException(status_code=403, detail="Policy is currently under review / draft status")
 
-    user_ack = next(
-        (ack for ack in DB_POLICY_ACKS if ack["policy_id"] == id and ack.get("user_id") == user_id),
-        None,
-    )
+    ack_q = text("SELECT acknowledged_at FROM policy_acknowledgements WHERE policy_id = :pid AND user_id = :uid")
+    ack_row = (await db.execute(ack_q, {"pid": id, "uid": user_id})).mappings().first()
 
     return {
         **policy,
-        "is_acknowledged": user_ack is not None,
-        "acknowledged_at": user_ack.get("acknowledged_at") if user_ack else None,
+        "requires_acknowledgement": bool(policy.get("requires_acknowledgement")),
+        "is_acknowledged": ack_row is not None,
+        "acknowledged_at": str(ack_row["acknowledged_at"]) if ack_row else None,
     }
 
 
@@ -353,50 +355,54 @@ async def get_policy_detail(
 async def acknowledge_policy(
     id: str,
     current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
-    Acknowledge a published policy. Stores student identity, timestamp, and policy version.
+    Acknowledge a published policy directly in the database.
     """
-    policy = next((p for p in DB_POLICIES if p["id"] == id), None)
-    if not policy:
+    q = text("SELECT * FROM policies WHERE id = :id")
+    row = (await db.execute(q, {"id": id})).mappings().first()
+    if not row:
         raise HTTPException(status_code=404, detail="Policy not found")
 
+    policy = dict(row)
     user_role = current_user.get("role", "student")
     if user_role != "admin" and policy["status"] != "published":
         raise HTTPException(status_code=400, detail="Cannot acknowledge an unpublished/draft policy")
 
-    user_id = current_user.get("id")
-    user_name = current_user.get("user_metadata", {}).get("full_name") or current_user.get("email") or "Student"
+    user_id = str(current_user.get("id") or current_user.get("sub") or "")
     now_iso = datetime.now(timezone.utc).isoformat()
+    ack_id = str(uuid.uuid4())
 
-    # Check if already acknowledged
-    existing_ack = next(
-        (ack for ack in DB_POLICY_ACKS if ack["policy_id"] == id and ack.get("user_id") == user_id),
-        None,
+    insert_ack = text("""
+        INSERT INTO policy_acknowledgements (id, user_id, policy_id, version, acknowledged_at)
+        VALUES (:id, :user_id, :policy_id, :version, :now_iso)
+        ON CONFLICT(user_id, policy_id, version) DO UPDATE SET acknowledged_at = :now_iso
+    """)
+    await db.execute(insert_ack, {
+        "id": ack_id,
+        "user_id": user_id,
+        "policy_id": id,
+        "version": policy["version"],
+        "now_iso": now_iso,
+    })
+    await db.commit()
+
+    await log_audit_event(
+        db=db,
+        user_id=user_id,
+        action="policy:acknowledge",
+        resource_type="policy_acknowledgements",
+        resource_id=id,
+        details={"version": policy["version"], "title": policy["title"]},
     )
-
-    if existing_ack:
-        existing_ack["acknowledged_at"] = now_iso
-        existing_ack["version"] = policy["version"]
-        ack_record = existing_ack
-    else:
-        ack_record = {
-            "id": f"ack-{uuid.uuid4().hex[:8]}",
-            "policy_id": id,
-            "user_id": user_id,
-            "user_name": user_name,
-            "version": policy["version"],
-            "acknowledged_at": now_iso,
-            "ip_address": "127.0.0.1",
-        }
-        DB_POLICY_ACKS.append(ack_record)
 
     return {
         "acknowledged": True,
         "policy_id": id,
         "policy_title": policy["title"],
         "version": policy["version"],
-        "acknowledged_at": ack_record["acknowledged_at"],
+        "acknowledged_at": now_iso,
         "message": f"Successfully recorded acknowledgement for '{policy['title']}' v{policy['version']}.",
     }
 

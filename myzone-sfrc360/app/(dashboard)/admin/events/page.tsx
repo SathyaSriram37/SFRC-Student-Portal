@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Calendar,
   MapPin,
@@ -15,7 +15,7 @@ import {
 import { toast } from 'sonner';
 import AskPragyaBanner from '@/components/shared/AskPragyaBanner';
 import { createClient } from '@/lib/supabase/client';
-import { apiPost } from '@/lib/api-client';
+import { apiGet, apiPost } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 
 interface EventAdminItem {
@@ -93,6 +93,7 @@ export default function AdminEventsPage() {
   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [isCreateEventOpen, setIsCreateEventOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const [eventForm, setEventForm] = useState({
     title: '',
@@ -109,6 +110,38 @@ export default function AdminEventsPage() {
 
   const supabase = useMemo(() => createClient(), []);
 
+  const loadEvents = async () => {
+    try {
+      setLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const res = await apiGet<any[]>('/api/v1/admin/events', token);
+      if (res && res.length > 0) {
+        setEvents(res.map((r: any) => ({
+          id: r.id,
+          title: r.title,
+          category: r.category || 'Symposium',
+          event_date: r.start_date ? `${r.start_date} to ${r.end_date || r.start_date}` : 'Upcoming',
+          event_time: r.time || '09:30 AM - 04:30 PM',
+          venue: r.venue || 'Campus Auditorium',
+          organizer_dept: r.department || 'Academic Department',
+          registered_count: r.registered_count || 0,
+          max_capacity: r.max_capacity || 250,
+          status: 'Approved',
+          chief_guest: r.speaker_details,
+        })));
+      }
+    } catch (err) {
+      console.error('Failed to load events from database:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadEvents();
+  }, []);
+
   const handleCreateEvent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!eventForm.title || !eventForm.venue) {
@@ -121,20 +154,6 @@ export default function AdminEventsPage() {
       const token = session?.access_token;
 
       await apiPost('/api/v1/admin/events', eventForm, token);
-      const newEv: EventAdminItem = {
-        id: `ev-${Date.now()}`,
-        title: eventForm.title,
-        category: eventForm.category,
-        event_date: `${eventForm.start_date} to ${eventForm.end_date}`,
-        event_time: eventForm.time,
-        venue: eventForm.venue,
-        organizer_dept: eventForm.department,
-        registered_count: 0,
-        max_capacity: eventForm.max_capacity,
-        status: 'Approved',
-        chief_guest: eventForm.speaker_details || undefined,
-      };
-      setEvents((prev) => [newEv, ...prev]);
       toast.success(`Event "${eventForm.title}" published and saved to database!`);
       setIsCreateEventOpen(false);
       setEventForm({
@@ -149,6 +168,7 @@ export default function AdminEventsPage() {
         max_capacity: 250,
         speaker_details: '',
       });
+      await loadEvents();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Failed to create event in database.');
     } finally {

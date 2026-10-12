@@ -27,6 +27,7 @@ from app.api.v1.endpoints import (
     notifications,
     transport,
     sports,
+    fees,
     integrations,
     search,
 )
@@ -37,6 +38,7 @@ api_router.include_router(auth.router,          prefix="/auth",          tags=["
 api_router.include_router(admin.router,         prefix="/admin",         tags=["Admin"])
 api_router.include_router(users.router,         prefix="/users",         tags=["Users"])
 api_router.include_router(students.router,      prefix="/students",      tags=["Students"])
+api_router.include_router(fees.router,          prefix="/fees",          tags=["Student Fees"])
 api_router.include_router(faculty.router,       prefix="/faculty",       tags=["Faculty"])
 api_router.include_router(parents.router,       prefix="/parents",       tags=["Parents"])
 api_router.include_router(mentoring.router,     prefix="/mentoring",     tags=["Mentoring"])

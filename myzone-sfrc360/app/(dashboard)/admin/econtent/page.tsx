@@ -113,21 +113,19 @@ export default function AdminEContentPage() {
   };
 
   // Filtered items
-  const filteredItems = useMemo(() => {
-    return items.filter((it) => {
-      if (statusFilter !== 'all' && it.status !== statusFilter) return false;
-      if (deptFilter !== 'all' && it.department_code !== deptFilter) return false;
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        return (
-          it.title.toLowerCase().includes(q) ||
-          it.course_code.toLowerCase().includes(q) ||
-          it.faculty_name.toLowerCase().includes(q)
-        );
-      }
-      return true;
-    });
-  }, [items, statusFilter, deptFilter, searchQuery]);
+  const filteredItems = items.filter((it) => {
+    if (statusFilter !== 'all' && it.status !== statusFilter) return false;
+    if (deptFilter !== 'all' && it.department_code !== deptFilter) return false;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      return (
+        it.title.toLowerCase().includes(q) ||
+        it.course_code.toLowerCase().includes(q) ||
+        it.faculty_name.toLowerCase().includes(q)
+      );
+    }
+    return true;
+  });
 
   return (
     <div className="min-h-screen bg-sfrc-surface pb-16">

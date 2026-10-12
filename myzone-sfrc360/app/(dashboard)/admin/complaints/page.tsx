@@ -31,6 +31,7 @@ import {
   Area,
 } from 'recharts';
 import { apiGet, apiPost } from '@/lib/api-client';
+import { createClient } from '@/lib/supabase/client';
 
 interface SlaStatus {
   status: 'ok' | 'warning' | 'overdue' | 'resolved_in_sla' | 'resolved_breached';
@@ -140,20 +141,28 @@ export default function AdminCampusCarePage() {
   const [escalateReason, setEscalateReason] = useState('');
   const [isEscalating, setIsEscalating] = useState(false);
 
+  const supabase = createClient();
+
+  const getAuthToken = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token;
+  };
+
   const loadData = async () => {
     try {
+      const token = await getAuthToken();
       const [compRes, statsRes, analyticsRes] = await Promise.all([
-        apiGet<{ complaints: Complaint[]; total: number }>('/api/v1/complaints').catch(() => ({ complaints: [], total: 0 })),
-        apiGet<DashboardStats>('/api/v1/complaints/admin/campus-care/dashboard').catch(() => null),
-        apiGet<AnalyticsData>('/api/v1/complaints/admin/campus-care/analytics').catch(() => null),
+        apiGet<{ complaints: Complaint[]; total: number }>('/api/v1/complaints', token).catch(() => ({ complaints: [], total: 0 })),
+        apiGet<DashboardStats>('/api/v1/complaints/admin/campus-care/dashboard', token).catch(() => null),
+        apiGet<AnalyticsData>('/api/v1/complaints/admin/campus-care/analytics', token).catch(() => null),
       ]);
 
       if (compRes && compRes.complaints) {
         // Sort by SLA Urgency: OVERDUE first -> WARNING -> OK -> Resolved
         const urgencyScore = (c: Complaint) => {
-          if (c.sla_status.status === 'overdue') return 4;
-          if (c.sla_status.status === 'warning') return 3;
-          if (c.sla_status.status === 'ok') return 2;
+          if (c.sla_status?.status === 'overdue') return 4;
+          if (c.sla_status?.status === 'warning') return 3;
+          if (c.sla_status?.status === 'ok') return 2;
           return 1;
         };
 
@@ -179,12 +188,13 @@ export default function AdminCampusCarePage() {
     if (!selectedTicket || !assigneeId) return;
     try {
       setIsAssigning(true);
+      const token = await getAuthToken();
       const tech = TECHNICIANS.find((t) => t.id === assigneeId);
       await apiPost(`/api/v1/complaints/${selectedTicket.id}/assign`, {
         assigned_to: assigneeId,
         assigned_department: tech?.dept || 'Campus Operations',
         notes: assignNotes || `Assigned to ${tech?.name || 'Staff'} for immediate resolution.`,
-      });
+      }, token);
       alert('Technician assigned successfully!');
       setSelectedTicket(null);
       setAssigneeId('');
@@ -202,10 +212,11 @@ export default function AdminCampusCarePage() {
     if (!selectedTicket) return;
     try {
       setIsUpdatingStatus(true);
+      const token = await getAuthToken();
       await apiPost(`/api/v1/complaints/${selectedTicket.id}/update`, {
         status: updateStatusVal,
         notes: updateNotes || `Status transitioned to ${updateStatusVal}`,
-      });
+      }, token);
       alert('Status updated successfully!');
       setSelectedTicket(null);
       setUpdateNotes('');
@@ -222,10 +233,11 @@ export default function AdminCampusCarePage() {
     if (!selectedTicket || !escalateReason.trim()) return;
     try {
       setIsEscalating(true);
+      const token = await getAuthToken();
       await apiPost(`/api/v1/complaints/${selectedTicket.id}/escalate`, {
         reason: escalateReason,
         escalated_to: 'Dean of Campus Operations',
-      });
+      }, token);
       alert('Ticket escalated to Executive Administrator!');
       setEscalateModalOpen(false);
       setSelectedTicket(null);
@@ -243,9 +255,10 @@ export default function AdminCampusCarePage() {
     if (!selectedTicket || !resolutionNotes.trim()) return;
     try {
       setIsResolving(true);
+      const token = await getAuthToken();
       await apiPost(`/api/v1/complaints/${selectedTicket.id}/resolve`, {
         resolution_notes: resolutionNotes,
-      });
+      }, token);
       alert('Ticket marked as Resolved! Notification sent to student.');
       setResolveModalOpen(false);
       setSelectedTicket(null);

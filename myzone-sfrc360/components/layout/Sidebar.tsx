@@ -162,22 +162,22 @@ export default function Sidebar({ role, userName, onClose }: SidebarProps) {
   };
 
   return (
-    <aside className="flex flex-col h-full w-64 bg-sfrc-surface border-r border-sfrc-200">
+    <aside className="flex flex-col h-full w-64 bg-sfrc-surface dark:bg-sidebar border-r border-sfrc-200 dark:border-sidebar-border">
       {/* Role Profile Header */}
       <Link
         href={role === 'student' ? '/student/profile' : `/${role}/dashboard`}
         onClick={onClose}
-        className="flex items-center gap-3 p-4 border-b border-sfrc-200 hover:bg-sfrc-100/60 transition-colors group cursor-pointer"
+        className="flex items-center gap-3 p-4 border-b border-sfrc-200 dark:border-sidebar-border hover:bg-sfrc-100/60 dark:hover:bg-muted/40 transition-colors group cursor-pointer"
         title="View Profile & Settings"
       >
-        <div className="w-10 h-10 rounded-xl bg-sfrc-100 group-hover:bg-sfrc-200 flex items-center justify-center shrink-0 shadow-inner transition-colors">
-          <RoleIcon className="w-5 h-5 text-sfrc-700" />
+        <div className="w-10 h-10 rounded-xl bg-sfrc-100 dark:bg-muted group-hover:bg-sfrc-200 dark:group-hover:bg-muted/80 flex items-center justify-center shrink-0 shadow-inner transition-colors">
+          <RoleIcon className="w-5 h-5 text-sfrc-700 dark:text-primary" />
         </div>
         <div className="min-w-0">
-          <p className="text-[11px] text-sfrc-600 font-bold uppercase tracking-wider flex items-center gap-1">
+          <p className="text-[11px] text-sfrc-600 dark:text-muted-foreground font-bold uppercase tracking-wider flex items-center gap-1">
             <span>{role} Portal</span>
           </p>
-          <p className="text-sm font-bold text-sfrc-900 truncate group-hover:text-sfrc-700 transition-colors">
+          <p className="text-sm font-bold text-sfrc-900 dark:text-foreground truncate group-hover:text-sfrc-700 dark:group-hover:text-primary transition-colors">
             {userName}
           </p>
         </div>
@@ -219,11 +219,11 @@ export default function Sidebar({ role, userName, onClose }: SidebarProps) {
               className={cn(
                 'flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium transition-all duration-150',
                 active
-                  ? 'bg-sfrc-700 text-white shadow-sm font-bold'
-                  : 'text-sfrc-800 hover:bg-sfrc-100/80 hover:text-sfrc-950'
+                  ? 'bg-sfrc-700 dark:bg-primary text-white dark:text-primary-foreground shadow-sm font-bold'
+                  : 'text-sfrc-800 dark:text-sidebar-foreground hover:bg-sfrc-100/80 dark:hover:bg-muted/60 hover:text-sfrc-950 dark:hover:text-foreground'
               )}
             >
-              <Icon className={cn('w-4 h-4 shrink-0', active ? 'text-sfrc-gold' : 'text-sfrc-600')} />
+              <Icon className={cn('w-4 h-4 shrink-0', active ? 'text-sfrc-gold dark:text-primary-foreground' : 'text-sfrc-600 dark:text-muted-foreground')} />
               <span className="truncate">{item.label}</span>
               {active && <ChevronRight className="w-3.5 h-3.5 ml-auto opacity-70" />}
             </Link>
@@ -232,10 +232,10 @@ export default function Sidebar({ role, userName, onClose }: SidebarProps) {
       </nav>
 
       {/* Sidebar Sign Out Footer */}
-      <div className="p-3 border-t border-sfrc-200 bg-sfrc-100/40">
+      <div className="p-3 border-t border-sfrc-200 dark:border-sidebar-border bg-sfrc-100/40 dark:bg-muted/20">
         <button
           onClick={handleSignOut}
-          className="flex items-center gap-3 w-full px-3 py-2 rounded-xl text-xs font-semibold text-sfrc-700 hover:bg-red-50 hover:text-red-600 transition-all duration-150 cursor-pointer"
+          className="flex items-center gap-3 w-full px-3 py-2 rounded-xl text-xs font-semibold text-sfrc-700 dark:text-muted-foreground hover:bg-red-50 dark:hover:bg-red-950/40 hover:text-red-600 dark:hover:text-red-400 transition-all duration-150 cursor-pointer"
         >
           <LogOut className="w-4 h-4 shrink-0" />
           <span>Sign Out</span>

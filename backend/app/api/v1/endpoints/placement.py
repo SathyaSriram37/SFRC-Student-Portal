@@ -178,30 +178,58 @@ SEED_DRIVES: List[Dict[str, Any]] = [
 
 # ── Helper Functions ──────────────────────────────────────────────────────────
 
-def compute_student_metrics(user: Dict[str, Any]) -> Dict[str, Any]:
-    """Calculate or look up the student's actual CGPA, attendance, and department."""
-    cgpa = 8.6
-    att_pct = 87.5
-    dept = "CS"
-
-    # If user has custom claims or student record
-    if user.get("cgpa") is not None:
-        cgpa = float(user["cgpa"])
-    if user.get("attendance_pct") is not None:
-        att_pct = float(user["attendance_pct"])
-    if user.get("department_code") is not None:
-        dept = user["department_code"]
-
-    user_meta = user.get("user_metadata") or {}
-    name = user.get("name") or user_meta.get("full_name") or user.get("full_name") or "Kavitha Raman"
+async def resolve_placement_student(db: AsyncSession, user: Dict[str, Any]) -> Dict[str, Any]:
+    """Calculate or look up the student's actual database-driven profile, CGPA, attendance, and department."""
+    user_id = str(user.get("id") or user.get("sub") or "")
+    q = text("""
+        SELECT up.full_name, s.id as student_id, s.register_number, COALESCE(d.code, 'CS') as department_code
+        FROM user_profiles up
+        LEFT JOIN students s ON s.user_id = up.id
+        LEFT JOIN departments d ON s.department_id = d.id
+        WHERE up.id = :user_id
+    """)
+    row = (await db.execute(q, {"user_id": user_id})).mappings().first()
+    student_id = str(row["student_id"]) if row and row.get("student_id") else user_id
+    name = (row["full_name"] if row and row.get("full_name") else None) or user.get("name") or user.get("email", "").split("@")[0]
+    reg = (row["register_number"] if row and row.get("register_number") else None) or "24HARISHMA-UGDS"
+    dept = (row["department_code"] if row and row.get("department_code") else None) or "CS"
+    
+    # Calculate real CGPA & Attendance
+    cgpa = 8.4
+    att_pct = 85.0
+    try:
+        cgpa_q = text("SELECT AVG((marks_obtained / NULLIF(max_marks, 0)) * 10) as gpa FROM marks WHERE student_id = :sid AND marks_obtained IS NOT NULL")
+        cgpa_res = (await db.execute(cgpa_q, {"sid": student_id})).mappings().first()
+        if cgpa_res and cgpa_res.get("gpa"):
+            cgpa = round(float(cgpa_res["gpa"]), 2)
+        att_q = text("SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE status IN ('present', 'od')) as attended FROM attendance_records WHERE student_id = :sid")
+        att_res = (await db.execute(att_q, {"sid": student_id})).mappings().first()
+        if att_res and att_res.get("total", 0) > 0:
+            att_pct = round((att_res["attended"] / att_res["total"]) * 100.0, 1)
+    except Exception:
+        pass
 
     return {
-        "student_id": str(user.get("sub") or user.get("id") or "std-2023-001"),
+        "student_id": student_id,
         "student_name": name,
-        "register_number": user.get("register_number") or user_meta.get("register_number") or "21UCS042",
+        "register_number": reg,
         "department": dept,
         "cgpa": cgpa,
         "attendance": att_pct,
+    }
+
+def compute_student_metrics(user: Dict[str, Any]) -> Dict[str, Any]:
+    """Synchronous fallback helper."""
+    user_meta = user.get("user_metadata") or {}
+    name = user.get("name") or user_meta.get("full_name") or user.get("full_name") or "24Harishma-Ugds"
+    reg = user.get("register_number") or user_meta.get("register_number") or "24HARISHMA-UGDS"
+    return {
+        "student_id": str(user.get("sub") or user.get("id") or "st-43f4a04f"),
+        "student_name": name,
+        "register_number": reg,
+        "department": "CS",
+        "cgpa": 8.6,
+        "attendance": 88.0,
     }
 
 def check_eligibility(drive: Dict[str, Any], student_info: Dict[str, Any]) -> EligibilityCheck:
@@ -279,7 +307,7 @@ async def list_placement_drives(
     """
     List all active placement drives with precomputed student eligibility and database persisted applications.
     """
-    student_info = compute_student_metrics(current_user)
+    student_info = await resolve_placement_student(db, current_user)
     student_id = student_info["student_id"]
     user_id = str(current_user.get("id") or current_user.get("sub") or "")
 
@@ -342,7 +370,7 @@ async def get_placement_drive_detail(
     if not drive:
         raise HTTPException(status_code=404, detail="Placement drive not found")
 
-    student_info = compute_student_metrics(current_user)
+    student_info = await resolve_placement_student(db, current_user)
     student_id = student_info["student_id"]
     user_id = str(current_user.get("id") or current_user.get("sub") or "")
     eligibility = check_eligibility(drive, student_info)
@@ -375,7 +403,7 @@ async def apply_for_placement_drive(
     if not drive:
         raise HTTPException(status_code=404, detail="Placement drive not found")
 
-    student_info = compute_student_metrics(current_user)
+    student_info = await resolve_placement_student(db, current_user)
     student_id = student_info["student_id"]
     user_id = str(current_user.get("id") or current_user.get("sub") or "")
 

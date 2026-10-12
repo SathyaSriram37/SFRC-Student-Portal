@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Home, User, Phone, Mail, Clock, Send, CheckCircle2, XCircle, Utensils, FileText, ShieldCheck, Check } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { apiGet, apiPost } from '@/lib/api-client';
+import { createClient } from '@/lib/supabase/client';
 
 interface WardenContact {
   name: string;
@@ -66,11 +67,23 @@ export default function StudentHostelPage() {
   const [leaveSuccessModal, setLeaveSuccessModal] = useState(false);
   const [submittedLeaveNumber, setSubmittedLeaveNumber] = useState('');
 
+  const supabase = useMemo(() => createClient(), []);
+
+  const getAuthToken = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      return session?.access_token;
+    } catch {
+      return undefined;
+    }
+  };
+
   const loadHostelData = async () => {
     try {
+      const token = await getAuthToken();
       const [allocData, reqsData] = await Promise.all([
-        apiGet<HostelAllocation>('/api/v1/hostel/me/allocation'),
-        apiGet<LeaveRequestItem[]>('/api/v1/hostel/me/leave-requests'),
+        apiGet<HostelAllocation>('/api/v1/hostel/me/allocation', token),
+        apiGet<LeaveRequestItem[]>('/api/v1/hostel/me/leave-requests', token),
       ]);
 
       if (allocData) setAllocation(allocData);
@@ -84,9 +97,10 @@ export default function StudentHostelPage() {
     let ignore = false;
     (async () => {
       try {
+        const token = await getAuthToken();
         const [allocData, reqsData] = await Promise.all([
-          apiGet<HostelAllocation>('/api/v1/hostel/me/allocation'),
-          apiGet<LeaveRequestItem[]>('/api/v1/hostel/me/leave-requests'),
+          apiGet<HostelAllocation>('/api/v1/hostel/me/allocation', token),
+          apiGet<LeaveRequestItem[]>('/api/v1/hostel/me/leave-requests', token),
         ]);
 
         if (!ignore) {
@@ -111,6 +125,7 @@ export default function StudentHostelPage() {
 
     try {
       setIsSubmittingLeave(true);
+      const token = await getAuthToken();
       const res = await apiPost<LeaveRequestItem>('/api/v1/hostel/leave-requests', {
         from_date: fromDate,
         to_date: toDate,
@@ -118,7 +133,7 @@ export default function StudentHostelPage() {
         destination,
         emergency_contact: emergencyContact,
         mode_of_travel: modeOfTravel,
-      });
+      }, token);
 
       setSubmittedLeaveNumber(res.request_number || 'HLV-2026-0050');
       setLeaveSuccessModal(true);

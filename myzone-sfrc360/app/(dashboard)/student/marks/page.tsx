@@ -53,7 +53,7 @@ interface MarksData {
 
 export default function StudentMarksPage() {
   const [data, setData] = useState<MarksData | null>(null);
-  const [selectedSemester, setSelectedSemester] = useState<number>(6);
+  const [selectedSemester, setSelectedSemester] = useState<number>(4);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [downloading, setDownloading] = useState<boolean>(false);
 

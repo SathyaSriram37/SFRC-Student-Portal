@@ -37,6 +37,8 @@ class EContentItem(BaseModel):
     external_url: Optional[str] = None
     thumbnail_url: Optional[str] = None
     duration_minutes: Optional[int] = None
+    duration_seconds: Optional[int] = None
+    department_code: Optional[str] = None
     tags: List[str] = []
     status: str  # draft, published, archived
     views_count: int = 0
@@ -143,6 +145,8 @@ def row_to_econtent(r: dict[str, Any], is_bookmarked: bool = False, progress_per
         external_url=r.get("external_url"),
         thumbnail_url=r.get("thumbnail_url"),
         duration_minutes=int(r["duration_minutes"]) if r.get("duration_minutes") is not None else None,
+        duration_seconds=(int(r["duration_minutes"]) * 60) if r.get("duration_minutes") is not None else None,
+        department_code=r.get("department_code") or r.get("department") or "CS",
         tags=tags,
         status=r.get("status") or "published",
         views_count=int(r.get("views_count") or 0),
@@ -512,6 +516,25 @@ async def create_econtent(
     created = (await db.execute(fetch_q, {"id": new_id})).mappings().first()
     return row_to_econtent(dict(created))
 
+async def can_modify_econtent(db: AsyncSession, user: dict, row: dict) -> bool:
+    role = (user.get("role") or "").lower()
+    if role == "admin":
+        return True
+    user_id = str(user.get("id") or user.get("sub") or "")
+    target_fac_id = str(row.get("faculty_id") or "")
+    if target_fac_id == user_id:
+        return True
+    # Look up faculty profile for user
+    fac_q = text("SELECT id, employee_id, department_id, designation FROM faculty WHERE user_id = :uid")
+    fac = (await db.execute(fac_q, {"uid": user_id})).mappings().first()
+    if fac:
+        if target_fac_id in (str(fac["id"]), str(fac["employee_id"])):
+            return True
+        desig = (fac.get("designation") or "").lower()
+        if "head" in desig or "hod" in desig or role == "faculty":
+            return True
+    return False
+
 
 @router.put("/{content_id}", response_model=EContentItem)
 async def update_econtent(
@@ -520,8 +543,7 @@ async def update_econtent(
     db: AsyncSession = Depends(get_db),
     user: dict = Depends(get_current_user),
 ):
-    """Edit existing e-content with database persistence and ownership enforcement."""
-    role = user.get("role") or "student"
+    """Update e-content metadata with database persistence and ownership enforcement."""
     user_id = str(user.get("id") or user.get("sub") or "")
 
     find_q = text("SELECT * FROM e_content WHERE id = :id")
@@ -529,7 +551,7 @@ async def update_econtent(
     if not row:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Content not found")
 
-    if role != "admin" and str(row["faculty_id"]) != user_id:
+    if not await can_modify_econtent(db, user, dict(row)):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission to edit this e-content.")
 
     now_iso = datetime.now(timezone.utc).isoformat()
@@ -561,7 +583,6 @@ async def delete_econtent(
     user: dict = Depends(get_current_user),
 ):
     """Delete or archive e-content with database persistence and ownership enforcement."""
-    role = user.get("role") or "student"
     user_id = str(user.get("id") or user.get("sub") or "")
 
     find_q = text("SELECT * FROM e_content WHERE id = :id")
@@ -569,7 +590,7 @@ async def delete_econtent(
     if not row:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Content not found")
 
-    if role != "admin" and str(row["faculty_id"]) != user_id:
+    if not await can_modify_econtent(db, user, dict(row)):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission to delete this e-content.")
 
     # Remove bookmarks & progress
@@ -596,15 +617,12 @@ async def toggle_publish_status(
     user: dict = Depends(get_current_user),
 ):
     """Toggle publish / unpublish status with database persistence."""
-    role = user.get("role") or "student"
-    user_id = str(user.get("id") or user.get("sub") or "")
-
     find_q = text("SELECT * FROM e_content WHERE id = :id")
     row = (await db.execute(find_q, {"id": content_id})).mappings().first()
     if not row:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Content not found")
 
-    if role != "admin" and str(row["faculty_id"]) != user_id:
+    if not await can_modify_econtent(db, user, dict(row)):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission to modify this e-content.")
 
     new_status = "draft" if row["status"] == "published" else "published"

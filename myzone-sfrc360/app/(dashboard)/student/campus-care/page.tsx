@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect,  Suspense } from 'react';
+import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { LifeBuoy, PlusCircle, Clock, CheckCircle2, AlertTriangle, AlertCircle, Sparkles, Building2, MapPin, ChevronRight, ChevronLeft, Search, Filter, Star, ArrowUpRight, RefreshCw, Camera, Layers, Zap, Info } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
 import { apiGet, apiPost } from '@/lib/api-client';
+import { createClient } from '@/lib/supabase/client';
 
 interface Facility {
   id: string;
@@ -147,12 +148,24 @@ function CampusCareContent() {
   const [feedbackComments, setFeedbackComments] = useState('');
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
 
+  const supabase = useMemo(() => createClient(), []);
+
+  const getAuthToken = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      return session?.access_token;
+    } catch {
+      return undefined;
+    }
+  };
+
   // Load facilities & initial complaints
   const loadData = async () => {
     try {
+      const token = await getAuthToken();
       const [facData, compData] = await Promise.all([
-        apiGet<Facility[]>('/api/v1/facilities').catch(() => []),
-        apiGet<{ complaints: Complaint[]; total: number }>('/api/v1/complaints').catch(() => ({ complaints: [], total: 0 })),
+        apiGet<Facility[]>('/api/v1/facilities', token).catch(() => []),
+        apiGet<{ complaints: Complaint[]; total: number }>('/api/v1/complaints', token).catch(() => ({ complaints: [], total: 0 })),
       ]);
 
       if (facData && Array.isArray(facData)) {
@@ -172,9 +185,10 @@ function CampusCareContent() {
     let ignore = false;
     (async () => {
       try {
+        const token = await getAuthToken();
         const [facData, compData] = await Promise.all([
-          apiGet<Facility[]>('/api/v1/facilities').catch(() => []),
-          apiGet<{ complaints: Complaint[]; total: number }>('/api/v1/complaints').catch(() => ({ complaints: [], total: 0 })),
+          apiGet<Facility[]>('/api/v1/facilities', token).catch(() => []),
+          apiGet<{ complaints: Complaint[]; total: number }>('/api/v1/complaints', token).catch(() => ({ complaints: [], total: 0 })),
         ]);
 
         if (!ignore) {
@@ -280,12 +294,13 @@ function CampusCareContent() {
         image_urls: ['https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=600&q=80'],
       };
 
+      const token = await getAuthToken();
       const res = await apiPost<{
         complaint_number: string;
         complaint: Complaint;
         ai_result: AiClassification;
         possible_duplicates: DuplicateMatch[];
-      }>('/api/v1/complaints', payload);
+      }>('/api/v1/complaints', payload, token);
 
       if (res && res.possible_duplicates && res.possible_duplicates.length > 0 && !bypassDuplicates) {
         setDetectedDuplicates(res.possible_duplicates);
@@ -312,10 +327,11 @@ function CampusCareContent() {
     if (!selectedComplaint) return;
     try {
       setFeedbackSubmitting(true);
+      const token = await getAuthToken();
       await apiPost(`/api/v1/complaints/${selectedComplaint.id}/feedback`, {
         rating: feedbackRating,
         comments: feedbackComments,
-      });
+      }, token);
       setFeedbackModalOpen(false);
       setSelectedComplaint(null);
       setFeedbackRating(5);

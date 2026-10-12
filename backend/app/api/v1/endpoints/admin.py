@@ -70,6 +70,21 @@ class AuditLogItem(BaseModel):
     created_at: Optional[str] = None
 
 
+def _parse_audit_details(val: Any) -> dict[str, Any]:
+    if isinstance(val, dict):
+        return val
+    if isinstance(val, str) and val.strip():
+        try:
+            import json
+            parsed = json.loads(val)
+            if isinstance(parsed, dict):
+                return parsed
+        except Exception:
+            pass
+    return {}
+
+
+
 class AdminDashboardResponse(BaseModel):
     student_count: int
     faculty_count: int
@@ -501,7 +516,7 @@ async def get_admin_dashboard(
             action=str(r.get("action", "SYSTEM_EVENT")),
             resource_type=r.get("resource_type"),
             resource_id=r.get("resource_id"),
-            details=r.get("details") if isinstance(r.get("details"), dict) else {},
+            details=_parse_audit_details(r.get("details")),
             ip_address=r.get("ip_address"),
             created_at=r.get("created_at"),
         )
@@ -830,6 +845,22 @@ async def create_user(
 
     # 2. Insert Profile and Role Records into Database
     try:
+        resolved_dept_id = None
+        if body.department_id:
+            dept_match = (await db.execute(
+                text("SELECT id FROM departments WHERE id = :d OR code = :d OR name = :d OR LOWER(name) = LOWER(:d)"),
+                {"d": body.department_id}
+            )).mappings().first()
+            resolved_dept_id = str(dept_match["id"]) if dept_match else body.department_id
+
+        resolved_prog_id = None
+        if body.programme_id:
+            prog_match = (await db.execute(
+                text("SELECT id FROM programmes WHERE id = :p OR code = :p OR name = :p OR LOWER(name) = LOWER(:p)"),
+                {"p": body.programme_id}
+            )).mappings().first()
+            resolved_prog_id = str(prog_match["id"]) if prog_match else body.programme_id
+
         insert_profile_sql = text("""
             INSERT INTO user_profiles (
                 id, email, role, full_name, phone, department_id, is_active, created_at, updated_at
@@ -843,7 +874,7 @@ async def create_user(
             "role": body.role,
             "full_name": body.full_name,
             "phone": body.phone,
-            "department_id": body.department_id if body.department_id else None,
+            "department_id": resolved_dept_id,
         })
 
         if body.role == "student":
@@ -865,8 +896,8 @@ async def create_user(
                 "user_id": new_user_id,
                 "reg_no": reg_no,
                 "sem": body.current_semester or 1,
-                "dept_id": body.department_id if body.department_id else None,
-                "prog_id": body.programme_id if body.programme_id else None,
+                "dept_id": resolved_dept_id,
+                "prog_id": resolved_prog_id,
                 "section": body.section or "A",
                 "batch": body.batch or "2026-2029",
                 "dob": body.date_of_birth,
@@ -889,7 +920,7 @@ async def create_user(
                 "user_id": new_user_id,
                 "emp_id": emp_id,
                 "designation": body.designation or "Assistant Professor",
-                "dept_id": body.department_id if body.department_id else None,
+                "dept_id": resolved_dept_id,
             })
         elif body.role == "parent":
             # Collect and validate all linked ward IDs
@@ -1828,7 +1859,7 @@ async def list_audit_logs(
     params: dict[str, Any] = {"limit": limit, "offset": offset}
 
     if action:
-        conditions.append("action ILIKE :action")
+        conditions.append("action LIKE :action")
         params["action"] = f"%{action}%"
 
     if from_date:
@@ -1840,7 +1871,7 @@ async def list_audit_logs(
         params["to_date"] = to_date
 
     if q:
-        conditions.append("(action ILIKE :q OR resource_type ILIKE :q OR user_id ILIKE :q)")
+        conditions.append("(action LIKE :q OR resource_type LIKE :q OR user_id LIKE :q)")
         params["q"] = f"%{q}%"
 
     where_clause = " AND ".join(conditions)
@@ -1864,7 +1895,7 @@ async def list_audit_logs(
             action=row["action"],
             resource_type=row["resource_type"],
             resource_id=row["resource_id"],
-            details=row["details"] if isinstance(row["details"], dict) else {},
+            details=_parse_audit_details(row["details"]),
             ip_address=row["ip_address"],
             created_at=row["created_at"],
         )
@@ -1892,6 +1923,17 @@ async def admin_update_placement_application_status(
         notes=body.get("notes"),
     )
     return await update_application_status(id=id, body=status_update, current_user=current_user)
+
+
+@router.get("/departments")
+async def list_admin_departments(
+    db: AsyncSession = Depends(get_db),
+    admin_user: dict = Depends(require_admin_user),
+):
+    """Retrieve all academic departments from database."""
+    q = text("SELECT id, name, code FROM departments ORDER BY name ASC")
+    rows = (await db.execute(q)).mappings().all()
+    return [{"id": str(r["id"]), "name": r["name"], "code": r["code"]} for r in rows]
 
 
 # ── Academics CRUD Endpoints ────────────────────────────────────────────────
@@ -2249,4 +2291,119 @@ async def create_admin_club_activity(
     admin_id = admin_user.get("id") or admin_user.get("sub")
     await log_audit_event(user_id=admin_id, action="ADMIN_CREATE_CLUB_ACTIVITY", resource_type="student_clubs", resource_id=act_id, details=body.model_dump(), session=db)
     return {"status": "success", "message": f"Activity '{body.activity_name}' recorded.", "id": act_id}
+
+
+# ── Database GET endpoints for Admin entities ───────────────────────────────
+
+@router.get("/library/books")
+async def list_admin_books(
+    q: Optional[str] = Query(None),
+    department: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db),
+    admin_user: dict = Depends(require_admin_user),
+):
+    """Retrieve cataloged books directly from library_books database table."""
+    conditions = ["1=1"]
+    params: dict[str, Any] = {}
+    if q:
+        conditions.append("(title LIKE :q OR author LIKE :q OR accession_no LIKE :q)")
+        params["q"] = f"%{q}%"
+    if department and department.upper() != "ALL":
+        conditions.append("department = :department")
+        params["department"] = department
+    where_sql = " AND ".join(conditions)
+    rows = (await db.execute(text(f"SELECT * FROM library_books WHERE {where_sql} ORDER BY created_at DESC"), params)).mappings().all()
+    return [dict(r) for r in rows]
+
+
+@router.get("/hostel/outpasses")
+async def list_admin_outpasses(
+    status: Optional[str] = Query(None),
+    q: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db),
+    admin_user: dict = Depends(require_admin_user),
+):
+    """Retrieve student hostel outpasses with warden approval statuses."""
+    conditions = ["1=1"]
+    params: dict[str, Any] = {}
+    if status and status.lower() != "all":
+        conditions.append("LOWER(warden_approval_status) = :status")
+        params["status"] = status.lower()
+    if q:
+        conditions.append("(student_name LIKE :q OR register_number LIKE :q)")
+        params["q"] = f"%{q}%"
+    where_sql = " AND ".join(conditions)
+    rows = (await db.execute(text(f"SELECT * FROM outpasses WHERE {where_sql} ORDER BY created_at DESC"), params)).mappings().all()
+    return [dict(r) for r in rows]
+
+
+@router.get("/placements/drives")
+async def list_admin_placement_drives(
+    db: AsyncSession = Depends(get_db),
+    admin_user: dict = Depends(require_admin_user),
+):
+    """Retrieve campus recruitment drives from placement_drives table."""
+    rows = (await db.execute(text("SELECT * FROM placement_drives ORDER BY drive_date DESC"))).mappings().all()
+    result = []
+    for r in rows:
+        d = dict(r)
+        if isinstance(d.get("eligible_programmes"), str):
+            try:
+                import json
+                d["eligible_programmes"] = json.loads(d["eligible_programmes"])
+            except Exception:
+                d["eligible_programmes"] = [d["eligible_programmes"]]
+        result.append(d)
+    return result
+
+
+@router.get("/iedc/projects")
+async def list_admin_iedc_projects(
+    db: AsyncSession = Depends(get_db),
+    admin_user: dict = Depends(require_admin_user),
+):
+    """Retrieve all incubated startup projects from iedc_projects table."""
+    rows = (await db.execute(text("SELECT * FROM iedc_projects ORDER BY created_at DESC"))).mappings().all()
+    return [dict(r) for r in rows]
+
+
+@router.get("/infrastructure/assets")
+async def list_admin_ict_assets(
+    db: AsyncSession = Depends(get_db),
+    admin_user: dict = Depends(require_admin_user),
+):
+    """Retrieve ICT computing and lab hardware from ict_assets table."""
+    rows = (await db.execute(text("SELECT * FROM ict_assets ORDER BY created_at DESC"))).mappings().all()
+    return [dict(r) for r in rows]
+
+
+@router.get("/life/activities")
+async def list_admin_club_activities(
+    db: AsyncSession = Depends(get_db),
+    admin_user: dict = Depends(require_admin_user),
+):
+    """Retrieve NSS, NCC, and fine arts activities from student_clubs table."""
+    rows = (await db.execute(text("SELECT * FROM student_clubs ORDER BY activity_date DESC"))).mappings().all()
+    return [dict(r) for r in rows]
+
+
+@router.get("/facilities/bookings")
+async def list_admin_facility_bookings(
+    db: AsyncSession = Depends(get_db),
+    admin_user: dict = Depends(require_admin_user),
+):
+    """Retrieve campus venue reservations from facility_bookings table."""
+    rows = (await db.execute(text("SELECT * FROM facility_bookings ORDER BY booking_date DESC"))).mappings().all()
+    return [dict(r) for r in rows]
+
+
+@router.get("/events")
+async def list_admin_events(
+    db: AsyncSession = Depends(get_db),
+    admin_user: dict = Depends(require_admin_user),
+):
+    """Retrieve institutional events and symposiums from events table."""
+    rows = (await db.execute(text("SELECT * FROM events ORDER BY start_date DESC"))).mappings().all()
+    return [dict(r) for r in rows]
+
 

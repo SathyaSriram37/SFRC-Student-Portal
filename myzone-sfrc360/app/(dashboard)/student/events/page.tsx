@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Calendar, Clock, MapPin, Search, Sparkles, CheckCircle2, Building2, RefreshCw, ChevronRight, Check } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
 import { apiGet, apiPost, apiDelete } from '@/lib/api-client';
+import { createClient } from '@/lib/supabase/client';
 
 interface EventDetail {
   id: string;
@@ -51,9 +52,21 @@ export default function StudentEventsPage() {
   const [successModalOpen, setSuccessModalOpen] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
 
+  const supabase = useMemo(() => createClient(), []);
+
+  const getAuthToken = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      return session?.access_token;
+    } catch {
+      return undefined;
+    }
+  };
+
   const loadEvents = async () => {
     try {
-      const res = await apiGet<{ events: EventDetail[]; total: number }>('/api/v1/events');
+      const token = await getAuthToken();
+      const res = await apiGet<{ events: EventDetail[]; total: number }>('/api/v1/events', token);
       if (res && res.events) {
         setEvents(res.events);
       }
@@ -68,7 +81,8 @@ export default function StudentEventsPage() {
     let ignore = false;
     (async () => {
       try {
-        const res = await apiGet<{ events: EventDetail[]; total: number }>('/api/v1/events');
+        const token = await getAuthToken();
+        const res = await apiGet<{ events: EventDetail[]; total: number }>('/api/v1/events', token);
         if (!ignore && res && res.events) {
           setEvents(res.events);
         }
@@ -89,9 +103,11 @@ export default function StudentEventsPage() {
   const handleRegister = async (event: EventDetail) => {
     try {
       setRegisteringId(event.id);
+      const token = await getAuthToken();
       const res = await apiPost<{ status: string; message: string; registration_id: string }>(
         `/api/v1/events/${event.id}/register`,
-        {}
+        {},
+        token
       );
 
       // Optimistic update
@@ -120,7 +136,8 @@ export default function StudentEventsPage() {
     if (!confirm('Are you sure you want to cancel your event registration?')) return;
     try {
       setRegisteringId(event.id);
-      await apiDelete(`/api/v1/events/${event.id}/register`);
+      const token = await getAuthToken();
+      await apiDelete(`/api/v1/events/${event.id}/register`, token);
 
       setEvents((prev) =>
         prev.map((e) =>

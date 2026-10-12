@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-
+import AppShell from '@/components/layout/AppShell';
 import { FlaskConical, BookOpen, PlusCircle, Search, ExternalLink, BarChart3 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Card, CardTitle, CardDescription } from '@/components/ui/card';
@@ -28,11 +28,13 @@ interface ResearchSummary {
   completed_projects: number;
   total_grants_sanctioned_inr: number;
   total_publications: number;
+  total_research_scholars?: number;
   department_summary: { department: string; projects: number; grant_amount: number; publications: number }[];
   faculty_leaderboard: { faculty_name: string; department: string; papers: number; top_indexing: string }[];
 }
 
 export default function FacultyResearchPage() {
+  const [userName, setUserName] = useState('Faculty');
   const [activeTab, setActiveTab] = useState<'projects' | 'publications' | 'analytics'>('projects');
   const [projects, setProjects] = useState<ResearchProject[]>([]);
   const [publications, setPublications] = useState<ResearchPublication[]>([]);
@@ -107,12 +109,21 @@ export default function FacultyResearchPage() {
   useEffect(() => {
     let ignore = false;
     (async () => {
-      await loadResearchData();
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const metaName = session?.user?.user_metadata?.full_name;
+        if (!ignore && metaName) setUserName(metaName);
+      } catch (err) {
+        console.error('Failed to get session user name:', err);
+      }
+      if (!ignore) {
+        await loadResearchData();
+      }
     })();
     return () => {
       ignore = true;
     };
-  }, [loadResearchData]);
+  }, [loadResearchData, supabase]);
 
   // Submit Project Handler
   const handleCreateProject = async () => {
@@ -206,10 +217,10 @@ export default function FacultyResearchPage() {
   }, [projects, deptFilter, searchQuery]);
 
   return (
-    <div className="min-h-screen bg-sfrc-surface pb-16">
-      {/* Header Banner */}
-      <div className="bg-white border-b border-sfrc-200 py-8 px-6 sm:px-10 shadow-2xs">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <AppShell role="faculty" userName={userName}>
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
+        {/* Header Banner */}
+        <div className="bg-white border border-sfrc-200 rounded-3xl p-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 text-xs font-bold text-sfrc-700 uppercase tracking-wider mb-1">
               <FlaskConical className="w-3.5 h-3.5 text-sfrc-700" />
@@ -241,15 +252,13 @@ export default function FacultyResearchPage() {
             </Button>
           </div>
         </div>
-      </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-8 mt-6 space-y-6">
         {/* KPI Counter Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <Card className="rounded-3xl border-sfrc-200 bg-white p-5 shadow-2xs">
             <p className="text-xs font-bold text-sfrc-600 uppercase">Total Grants Sanctioned</p>
             <p className="text-2xl font-black text-emerald-700 mt-1">
-              ₹{((summaryData?.total_grants_sanctioned_inr || 5100000) / 100000).toFixed(2)} Lakhs
+              ₹{(((summaryData?.total_grants_sanctioned_inr ?? 0)) / 100000).toFixed(2)} Lakhs
             </p>
             <p className="text-[11px] text-emerald-600 mt-0.5">Govt & institutional seed</p>
           </Card>
@@ -257,7 +266,7 @@ export default function FacultyResearchPage() {
           <Card className="rounded-3xl border-sfrc-200 bg-white p-5 shadow-2xs">
             <p className="text-xs font-bold text-sfrc-600 uppercase">Active Research Projects</p>
             <p className="text-2xl font-black text-sfrc-900 mt-1">
-              {summaryData?.ongoing_projects || 3}
+              {summaryData?.ongoing_projects ?? 0}
             </p>
             <p className="text-[11px] text-sfrc-500 mt-0.5">Major & Minor schemes</p>
           </Card>
@@ -272,7 +281,9 @@ export default function FacultyResearchPage() {
 
           <Card className="rounded-3xl border-sfrc-200 bg-white p-5 shadow-2xs">
             <p className="text-xs font-bold text-sfrc-600 uppercase">Research Scholars</p>
-            <p className="text-2xl font-black text-amber-700 mt-1">42</p>
+            <p className="text-2xl font-black text-amber-700 mt-1">
+              {summaryData?.total_research_scholars ?? 0}
+            </p>
             <p className="text-[11px] text-sfrc-500 mt-0.5">Ph.D & PG Investigators</p>
           </Card>
         </div>
@@ -752,6 +763,6 @@ export default function FacultyResearchPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </AppShell>
   );
 }

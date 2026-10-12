@@ -464,9 +464,15 @@ async def toggle_join_team(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sports team not found.")
 
     user_id = str(user.get("id") or user.get("sub") or "")
-    user_meta = user.get("user_metadata") or {}
-    student_name = user_meta.get("full_name") or user.get("full_name") or user.get("name") or "Student"
-    register_number = user.get("register_number") or user_meta.get("register_number") or "21UCS042"
+    prof_q = text("""
+        SELECT up.full_name, s.register_number
+        FROM user_profiles up
+        LEFT JOIN students s ON s.user_id = up.id
+        WHERE up.id = :user_id
+    """)
+    prof_row = (await db.execute(prof_q, {"user_id": user_id})).mappings().first()
+    student_name = (prof_row["full_name"] if prof_row and prof_row.get("full_name") else None) or user.get("email", "").split("@")[0]
+    register_number = (prof_row["register_number"] if prof_row and prof_row.get("register_number") else None) or "24HARISHMA-UGDS"
     now_iso = datetime.now(timezone.utc).isoformat()
 
     # Check if membership record exists

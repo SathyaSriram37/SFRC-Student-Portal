@@ -760,6 +760,59 @@ CREATE TABLE IF NOT EXISTS pragya_knowledge_base (
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS assignments (
+    id VARCHAR(100) PRIMARY KEY,
+    course_id VARCHAR(100) NOT NULL,
+    faculty_id VARCHAR(100),
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    due_date VARCHAR(100),
+    max_marks REAL DEFAULT 20.0,
+    created_at VARCHAR(100) DEFAULT CURRENT_TIMESTAMP,
+    updated_at VARCHAR(100) DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS student_fees (
+    id VARCHAR(100) PRIMARY KEY,
+    student_id VARCHAR(100) NOT NULL,
+    user_id VARCHAR(100),
+    category VARCHAR(255) NOT NULL,
+    semester VARCHAR(100) NOT NULL,
+    amount REAL NOT NULL,
+    due_date VARCHAR(100) NOT NULL,
+    status VARCHAR(50) DEFAULT 'paid',
+    receipt_number VARCHAR(100),
+    paid_date VARCHAR(100),
+    transaction_ref VARCHAR(100),
+    created_at VARCHAR(100) DEFAULT CURRENT_TIMESTAMP,
+    updated_at VARCHAR(100) DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS policies (
+    id VARCHAR(100) PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    category VARCHAR(100) NOT NULL,
+    version VARCHAR(50) DEFAULT '1.0',
+    audience VARCHAR(50) DEFAULT 'all',
+    requires_acknowledgement BOOLEAN DEFAULT 0,
+    effective_date VARCHAR(100) DEFAULT '2026-06-01',
+    description TEXT NOT NULL,
+    content TEXT NOT NULL,
+    document_url TEXT,
+    status VARCHAR(50) DEFAULT 'published',
+    created_at VARCHAR(100) DEFAULT CURRENT_TIMESTAMP,
+    updated_at VARCHAR(100) DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS policy_acknowledgements (
+    id VARCHAR(100) PRIMARY KEY,
+    user_id VARCHAR(100) NOT NULL,
+    policy_id VARCHAR(100) NOT NULL,
+    version VARCHAR(50) DEFAULT '1.0',
+    acknowledged_at VARCHAR(100) DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, policy_id, version)
+);
 """
 
 

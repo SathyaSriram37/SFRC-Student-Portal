@@ -99,39 +99,56 @@
   --sidebar-ring:         oklch(0.62 0.1 55);
 }
 
-/* ── Dark Theme ────────────────────────────────────────────────────────── */
+/* ── Dark Theme — SFRC Brand (Deep Maroon-Ebony + Warm Amber) ──────────── */
 .dark {
-  --background:           oklch(0.12 0.04 35);
-  --foreground:           oklch(0.93 0.03 75);
-  --card:                 oklch(0.17 0.05 38);
-  --card-foreground:      oklch(0.93 0.03 75);
-  --popover:              oklch(0.17 0.05 38);
-  --popover-foreground:   oklch(0.93 0.03 75);
-  --primary:              oklch(0.72 0.08 65);
-  --primary-foreground:   oklch(0.18 0.06 35);
-  --secondary:            oklch(0.22 0.05 40);
-  --secondary-foreground: oklch(0.93 0.03 75);
-  --muted:                oklch(0.22 0.05 40);
-  --muted-foreground:     oklch(0.65 0.06 55);
-  --accent:               oklch(0.62 0.1 55);
-  --accent-foreground:    oklch(0.98 0.005 85);
-  --destructive:          oklch(0.704 0.191 22.216);
-  --border:               oklch(1 0 0 / 12%);
-  --input:                oklch(1 0 0 / 15%);
-  --ring:                 oklch(0.62 0.1 55);
-  --chart-1:              oklch(0.72 0.08 65);
-  --chart-2:              oklch(0.62 0.1 55);
-  --chart-3:              oklch(0.50 0.09 50);
-  --chart-4:              oklch(0.40 0.08 45);
-  --chart-5:              oklch(0.30 0.07 40);
-  --sidebar:              oklch(0.17 0.05 38);
-  --sidebar-foreground:   oklch(0.93 0.03 75);
-  --sidebar-primary:      oklch(0.72 0.08 65);
-  --sidebar-primary-foreground: oklch(0.18 0.06 35);
-  --sidebar-accent:       oklch(0.22 0.05 40);
-  --sidebar-accent-foreground: oklch(0.93 0.03 75);
-  --sidebar-border:       oklch(1 0 0 / 12%);
-  --sidebar-ring:         oklch(0.62 0.1 55);
+  /* Base surfaces — deep warm-ebony with a subtle maroon undertone */
+  --background:           oklch(0.115 0.025 30);    /* #0F0A06 deep maroon-black */
+  --foreground:           oklch(0.92 0.025 72);     /* warm off-white */
+  --card:                 oklch(0.16 0.028 32);     /* slightly lifted surface */
+  --card-foreground:      oklch(0.92 0.025 72);
+  --popover:              oklch(0.18 0.03 32);
+  --popover-foreground:   oklch(0.92 0.025 72);
+
+  /* Primary — warm gold (sfrc-gold) for dark theme accents */
+  --primary:              oklch(0.74 0.10 68);      /* ~#D4A052 sfrc-gold */
+  --primary-foreground:   oklch(0.13 0.03 30);
+
+  /* Secondary — muted warm brown */
+  --secondary:            oklch(0.22 0.03 35);
+  --secondary-foreground: oklch(0.85 0.02 70);
+
+  /* Muted surfaces */
+  --muted:                oklch(0.20 0.025 33);
+  --muted-foreground:     oklch(0.60 0.05 55);
+
+  /* Accent — sfrc-accent amber */
+  --accent:               oklch(0.64 0.11 58);      /* ~#B87830 sfrc-accent */
+  --accent-foreground:    oklch(0.13 0.03 30);
+
+  /* Destructive */
+  --destructive:          oklch(0.65 0.21 22);
+
+  /* Borders — subtle warm amber glow */
+  --border:               oklch(0.30 0.04 45 / 0.6);
+  --input:                oklch(0.25 0.03 38 / 0.8);
+  --ring:                 oklch(0.64 0.11 58);
+
+  /* Charts */
+  --chart-1:              oklch(0.74 0.10 68);
+  --chart-2:              oklch(0.64 0.11 58);
+  --chart-3:              oklch(0.52 0.09 50);
+  --chart-4:              oklch(0.38 0.07 42);
+  --chart-5:              oklch(0.28 0.05 36);
+
+  /* Sidebar — slightly darker than card, warm maroon tint */
+  --sidebar:              oklch(0.14 0.026 30);
+  --sidebar-foreground:   oklch(0.92 0.025 72);
+  --sidebar-primary:      oklch(0.74 0.10 68);
+  --sidebar-primary-foreground: oklch(0.13 0.03 30);
+  --sidebar-accent:       oklch(0.22 0.03 35);
+  --sidebar-accent-foreground: oklch(0.85 0.02 70);
+  --sidebar-border:       oklch(0.26 0.035 38 / 0.5);
+  --sidebar-ring:         oklch(0.64 0.11 58);
 }
 
 /* ── Base Layer ────────────────────────────────────────────────────────── */
@@ -163,7 +180,116 @@
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
   }
+  .dark .sfrc-glass {
+    background: rgba(20, 10, 5, 0.82);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  /* No-scrollbar helper */
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+  /* ── Universal Dark Theme Adaptation for all Modules & Pages ──────────── */
+  /* Ensures all 87+ dashboard pages seamlessly adapt to Dark Mode without bright white flashes */
+  .dark .bg-white:not([class*="bg-white/"]):not([class*="dark:bg-"]) {
+    background-color: var(--card) !important;
+  }
+  .dark .bg-sfrc-surface:not([class*="dark:bg-"]) {
+    background-color: var(--card) !important;
+  }
+  .dark .bg-sfrc-bg:not([class*="dark:bg-"]) {
+    background-color: var(--background) !important;
+  }
+  .dark .bg-sfrc-100:not([class*="dark:bg-"]) {
+    background-color: var(--muted) !important;
+  }
+  .dark .bg-gray-50:not([class*="dark:bg-"]),
+  .dark .bg-gray-100:not([class*="dark:bg-"]) {
+    background-color: var(--muted) !important;
+  }
+
+  /* Borders */
+  .dark .border-sfrc-200:not([class*="dark:border-"]),
+  .dark .border-sfrc-100:not([class*="dark:border-"]),
+  .dark .border-gray-200:not([class*="dark:border-"]),
+  .dark .border-gray-100:not([class*="dark:border-"]),
+  .dark .border-gray-300:not([class*="dark:border-"]) {
+    border-color: var(--border) !important;
+  }
+  .dark .divide-sfrc-200 > :not([hidden]) ~ :not([hidden]),
+  .dark .divide-sfrc-100 > :not([hidden]) ~ :not([hidden]),
+  .dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]),
+  .dark .divide-gray-100 > :not([hidden]) ~ :not([hidden]) {
+    border-color: var(--border) !important;
+  }
+
+  /* Hover States in Dark Mode */
+  .dark .hover\:bg-sfrc-surface:hover,
+  .dark .hover\:bg-white:hover,
+  .dark .hover\:bg-gray-50:hover,
+  .dark .hover\:bg-gray-100:hover,
+  .dark .hover\:bg-sfrc-100:hover {
+    background-color: oklch(0.22 0.03 35) !important;
+  }
+  .dark tr:hover {
+    background-color: oklch(0.22 0.03 35) !important;
+  }
+
+  /* Typography */
+  .dark .text-sfrc-950:not([class*="dark:text-"]),
+  .dark .text-sfrc-900:not([class*="dark:text-"]),
+  .dark .text-sfrc-800:not([class*="dark:text-"]),
+  .dark .text-gray-900:not([class*="dark:text-"]),
+  .dark .text-gray-800:not([class*="dark:text-"]) {
+    color: var(--foreground) !important;
+  }
+  .dark .text-sfrc-700:not([class*="dark:text-"]),
+  .dark .text-sfrc-600:not([class*="dark:text-"]),
+  .dark .text-sfrc-500:not([class*="dark:text-"]),
+  .dark .text-sfrc-400:not([class*="dark:text-"]),
+  .dark .text-gray-700:not([class*="dark:text-"]),
+  .dark .text-gray-600:not([class*="dark:text-"]),
+  .dark .text-gray-500:not([class*="dark:text-"]),
+  .dark .text-gray-400:not([class*="dark:text-"]) {
+    color: var(--muted-foreground) !important;
+  }
+
+  /* Inputs, selects, and textareas */
+  .dark input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]),
+  .dark select,
+  .dark textarea {
+    background-color: var(--card) !important;
+    color: var(--foreground) !important;
+    border-color: var(--border) !important;
+  }
+  .dark input::placeholder,
+  .dark textarea::placeholder {
+    color: var(--muted-foreground) !important;
+  }
+
+  /* Status Badges in Dark Mode */
+  .dark .bg-emerald-50, .dark .bg-green-50, .dark .bg-emerald-100, .dark .bg-green-100 {
+    background-color: oklch(0.24 0.08 145 / 0.45) !important;
+    color: oklch(0.85 0.12 145) !important;
+  }
+  .dark .bg-red-50, .dark .bg-rose-50, .dark .bg-red-100, .dark .bg-rose-100 {
+    background-color: oklch(0.24 0.1 25 / 0.45) !important;
+    color: oklch(0.85 0.12 25) !important;
+  }
+  .dark .bg-blue-50, .dark .bg-sky-50, .dark .bg-blue-100, .dark .bg-sky-100 {
+    background-color: oklch(0.24 0.08 240 / 0.45) !important;
+    color: oklch(0.85 0.12 240) !important;
+  }
+  .dark .bg-amber-50, .dark .bg-yellow-50, .dark .bg-amber-100, .dark .bg-yellow-100 {
+    background-color: oklch(0.24 0.08 85 / 0.45) !important;
+    color: oklch(0.88 0.12 85) !important;
+  }
+  .dark .bg-purple-50, .dark .bg-violet-50, .dark .bg-purple-100 {
+    background-color: oklch(0.24 0.08 300 / 0.45) !important;
+    color: oklch(0.85 0.12 300) !important;
+  }
 }
+
 
 /* ── Pragya AI Chat UI — SFRC Brand Color System & Right-Aligned Mascot ── */
 
@@ -510,6 +636,52 @@
   background: linear-gradient(135deg, #643212 0%, #9B5523 100%);
   transform: translateY(-1px);
 }
+
+/* Pragya AI Dark Theme Styling */
+.dark .chat-container {
+  background: oklch(0.14 0.026 30 / 0.98);
+  border-color: var(--border);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.65);
+}
+.dark #chat-box {
+  background:
+    radial-gradient(circle at top right, rgba(212, 160, 82, 0.06), transparent 32%),
+    var(--background);
+}
+.dark .bot {
+  background: var(--card);
+  color: var(--foreground);
+  border-color: var(--border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+.dark .bot a {
+  color: var(--primary);
+  text-decoration-color: var(--accent);
+}
+.dark .quick-buttons button {
+  background: var(--card);
+  border-color: var(--border);
+  color: var(--foreground);
+}
+.dark .quick-buttons button:hover {
+  background: linear-gradient(135deg, #7B4019 0%, #B87830 100%);
+  border-color: #B87830;
+  color: #ffffff;
+}
+.dark .input-area {
+  background: var(--card);
+  border-top-color: var(--border);
+}
+.dark .input-area input {
+  background: var(--background);
+  color: var(--foreground);
+  border-color: var(--border);
+}
+.dark .input-area input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(212, 160, 82, 0.2);
+}
+
 /* Pragya Mascot - Flipped to Face & Point RIGHT towards Chat Box */
 .pragya-blink {
   position: relative;

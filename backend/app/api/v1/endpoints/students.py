@@ -271,10 +271,23 @@ async def get_student_record_by_user_id(db: AsyncSession, user_id: str) -> Optio
             s.current_semester,
             s.programme_id,
             s.department_id,
+            s.permanent_address,
+            s.blood_group,
+            s.emergency_contact,
+            s.preferences as student_preferences,
+            s.roll_number,
+            s.section,
+            s.batch_year,
+            s.admission_date,
+            s.abc_id,
+            s.apaar_id,
+            s.dob,
             p.name as programme_name,
             d.name as department_name,
             up.full_name,
-            up.avatar_url
+            up.avatar_url,
+            up.phone,
+            up.email
         FROM students s
         JOIN user_profiles up ON s.user_id = up.id
         LEFT JOIN programmes p ON s.programme_id = p.id
@@ -293,6 +306,7 @@ async def get_student_detailed_profile(
     user: dict[str, Any] = Depends(require_capability("attendance:view")),
 ):
     """Retrieve full database-driven student profile details including academic, contact, and mentor info."""
+    import json
     user_id = user.get("id") or user.get("sub")
     student_row = await get_student_record_by_user_id(db, user_id)
 
@@ -321,15 +335,37 @@ async def get_student_detailed_profile(
     register_number = (
         (student_row.get("register_number") if student_row else None) 
         or user_meta.get("register_number") 
-        or "21UQ003"
+        or "24HARISHMA-UGDS"
     )
     dept_name = (student_row.get("department_name") if student_row else None) or (prof_row.get("department_name") if prof_row else "Computer Science")
     prog_name = (student_row.get("programme_name") if student_row else None) or "B.Sc Computer Science"
     sem = (student_row.get("current_semester") if student_row else None) or 1
     st_id = str((student_row.get("student_id") if student_row else None) or user_id)
 
+    # Parse student rich preferences
+    custom_prefs = {}
+    if student_row and student_row.get("student_preferences"):
+        try:
+            sp = student_row["student_preferences"]
+            custom_prefs = json.loads(sp) if isinstance(sp, str) else (sp or {})
+        except Exception:
+            custom_prefs = {}
+
+    phone_number = (
+        (prof_row.get("phone") if prof_row and prof_row.get("phone") else None)
+        or (student_row.get("phone") if student_row and student_row.get("phone") else None)
+        or ""
+    )
+    perm_addr = (student_row.get("permanent_address") if student_row else None) or custom_prefs.get("permanent_address") or ""
+    res_addr = custom_prefs.get("residential_address") or perm_addr
+    blood_grp = (student_row.get("blood_group") if student_row else None) or custom_prefs.get("blood_group") or "O+"
+    bio_text = custom_prefs.get("bio") or f"Student at SFRC, Register Number: {register_number}."
+    linkedin = custom_prefs.get("linkedin_url") or ""
+    github = custom_prefs.get("github_url") or ""
+    parent_ph = (student_row.get("emergency_contact") if student_row else None) or custom_prefs.get("parent_phone") or ""
+
     # Attendance & CGPA calculation
-    att_pct = 88.5
+    att_pct = 85.0
     if student_row:
         try:
             att_q = text("SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE status IN ('present', 'od')) as attended FROM attendance_records WHERE student_id = :sid")
@@ -339,7 +375,7 @@ async def get_student_detailed_profile(
         except Exception:
             pass
 
-    cgpa = 8.65
+    cgpa = 8.4
     if student_row:
         try:
             cgpa_q = text("SELECT AVG((marks_obtained / NULLIF(max_marks, 0)) * 10) as gpa FROM marks WHERE student_id = :sid AND marks_obtained IS NOT NULL")
@@ -349,39 +385,46 @@ async def get_student_detailed_profile(
         except Exception:
             pass
 
+    roll_no = (student_row.get("roll_number") if student_row and student_row.get("roll_number") else None) or f"CS-{register_number[-3:]}"
+    batch = (student_row.get("batch_year") if student_row and student_row.get("batch_year") else None) or "2024 - 2027"
+    section = (student_row.get("section") if student_row and student_row.get("section") else None) or "A"
+    adm_date = str(student_row.get("admission_date") if student_row and student_row.get("admission_date") else "2024-06-20")
+    abc_val = (student_row.get("abc_id") if student_row and student_row.get("abc_id") else None) or f"ABC-{register_number[-4:]}-2938"
+    apaar_val = (student_row.get("apaar_id") if student_row and student_row.get("apaar_id") else None) or f"APAAR-SFRC-{register_number[-4:]}"
+
     return StudentDetailedProfileResponse(
         student_id=st_id,
         user_id=str(user_id),
         full_name=full_name,
         register_number=register_number,
-        roll_number=f"CS-{register_number[-3:]}",
+        roll_number=roll_no,
         avatar_url=student_row.get("avatar_url") if student_row else (prof_row.get("avatar_url") if prof_row else None),
         email=email,
-        phone_number=prof_row.get("phone") if prof_row and prof_row.get("phone") else "+91 98432 10842",
+        phone_number=phone_number,
         personal_email=email,
         gender="Female",
-        dob="2005-08-14",
-        blood_group="B+",
-        permanent_address="Sivakasi, Tamil Nadu",
-        residential_address="Sivakasi, Tamil Nadu",
-        bio=f"Student at Standard Fireworks Rajaratnam College for Women, Sivakasi. Register Number: {register_number}.",
-        linkedin_url="https://linkedin.com/in/sfrc-student",
-        github_url="https://github.com/sfrc-student",
+        dob=str(student_row.get("dob") or "2005-08-14") if student_row else "2005-08-14",
+        blood_group=blood_grp,
+        permanent_address=perm_addr,
+        residential_address=res_addr,
+        bio=bio_text,
+        linkedin_url=linkedin,
+        github_url=github,
         programme_name=prog_name,
         department_name=dept_name,
         current_semester=sem,
-        batch_year="2024 - 2027",
-        section="A",
+        batch_year=batch,
+        section=section,
         shift="Regular (Shift I)",
-        admission_date="2024-06-20",
-        abc_id=f"ABC-{register_number[-4:]}-2938",
-        apaar_id=f"APAAR-SFRC-{register_number[-4:]}",
+        admission_date=adm_date,
+        abc_id=abc_val,
+        apaar_id=apaar_val,
         mentor_name="Dr. K. Anitha, M.Sc., Ph.D.",
         mentor_email="anitha.cs@sfrc.edu.in",
         mentor_phone="+91 94421 88321",
         parent_name=None,
         parent_relationship="Parent / Guardian",
-        parent_phone=None,
+        parent_phone=parent_ph,
         parent_email=None,
         parent_occupation="Professional",
         is_hosteller=False,
@@ -401,23 +444,80 @@ async def update_student_profile(
     user: dict[str, Any] = Depends(require_capability("attendance:view")),
 ):
     """Update editable student personal and contact details with audit record."""
+    import json
     user_id = user.get("id") or user.get("sub")
     
-    # Update user_profiles phone and avatar if provided
+    # 1. Update user_profiles phone and avatar if provided
     update_fields = []
     params: dict[str, Any] = {"user_id": user_id}
 
-    if body.phone_number:
+    if body.phone_number is not None:
         update_fields.append("phone = :phone")
         params["phone"] = body.phone_number
-    if body.avatar_url:
+    if body.avatar_url is not None:
         update_fields.append("avatar_url = :avatar_url")
         params["avatar_url"] = body.avatar_url
 
     if update_fields:
         query_str = f"UPDATE user_profiles SET {', '.join(update_fields)}, updated_at = CURRENT_TIMESTAMP WHERE id = :user_id"
         await db.execute(text(query_str), params)
-        await db.commit()
+
+    # 2. Update students table
+    st_fields = []
+    st_params: dict[str, Any] = {"user_id": user_id}
+
+    if body.permanent_address is not None:
+        st_fields.append("permanent_address = :permanent_address")
+        st_params["permanent_address"] = body.permanent_address
+    if body.blood_group is not None:
+        st_fields.append("blood_group = :blood_group")
+        st_params["blood_group"] = body.blood_group
+    if body.parent_phone is not None:
+        st_fields.append("emergency_contact = :parent_phone")
+        st_params["parent_phone"] = body.parent_phone
+
+    # 3. Handle extended fields (bio, residential address, linkedin, github) in student preferences
+    st_rec = await get_student_record_by_user_id(db, user_id)
+    current_prefs = {}
+    if st_rec and st_rec.get("student_preferences"):
+        try:
+            sp = st_rec["student_preferences"]
+            current_prefs = json.loads(sp) if isinstance(sp, str) else (sp or {})
+        except Exception:
+            current_prefs = {}
+
+    prefs_updated = False
+    if body.bio is not None:
+        current_prefs["bio"] = body.bio
+        prefs_updated = True
+    if body.residential_address is not None:
+        current_prefs["residential_address"] = body.residential_address
+        prefs_updated = True
+    if body.linkedin_url is not None:
+        current_prefs["linkedin_url"] = body.linkedin_url
+        prefs_updated = True
+    if body.github_url is not None:
+        current_prefs["github_url"] = body.github_url
+        prefs_updated = True
+
+    if prefs_updated:
+        st_fields.append("preferences = :preferences")
+        st_params["preferences"] = json.dumps(current_prefs)
+
+    if st_fields:
+        st_query = f"UPDATE students SET {', '.join(st_fields)} WHERE user_id = :user_id"
+        await db.execute(text(st_query), st_params)
+
+    await db.commit()
+
+    await log_audit_event(
+        user_id=user_id,
+        action="student_profile:update",
+        resource_type="students",
+        resource_id=str(user_id),
+        details={"phone": body.phone_number, "address": body.permanent_address, "blood_group": body.blood_group},
+        session=db,
+    )
 
     return await get_student_detailed_profile(db, user)
 
@@ -668,7 +768,7 @@ async def get_student_dashboard(
         events_query = text("""
             SELECT id, title, category, start_date as event_date, time as event_time, venue
             FROM events
-            ORDER BY start_date ASC NULLS LAST
+            ORDER BY CASE WHEN start_date IS NULL THEN 1 ELSE 0 END, start_date ASC
             LIMIT 5
         """)
         event_rows = (await db.execute(events_query)).mappings().all()
@@ -697,7 +797,7 @@ async def get_student_dashboard(
                 JOIN courses c ON a.course_id = c.id
                 JOIN enrollments e ON e.course_id = c.id
                 WHERE e.student_id = :student_id
-                ORDER BY a.due_date ASC NULLS LAST
+                ORDER BY CASE WHEN a.due_date IS NULL THEN 1 ELSE 0 END, a.due_date ASC
                 LIMIT 5
             """)
             task_rows = (await db.execute(tasks_query, {"student_id": student_id})).mappings().all()
@@ -1051,7 +1151,7 @@ async def get_student_assignments(
         LEFT JOIN user_profiles up ON f.user_id = up.id
         LEFT JOIN marks m ON m.course_id = c.id AND m.student_id = :student_id AND m.assessment_type = 'Assignment'
         WHERE e.student_id = :student_id
-        ORDER BY a.due_date ASC NULLS LAST
+        ORDER BY CASE WHEN a.due_date IS NULL THEN 1 ELSE 0 END, a.due_date ASC
     """)
     rows = (await db.execute(query, {"student_id": student_id})).mappings().all()
 

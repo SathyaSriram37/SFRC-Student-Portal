@@ -16,6 +16,8 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { SportsTeamItem, SportsEventItem, SportsAchievementItem } from '@/lib/types';
+import { createClient } from '@/lib/supabase/client';
+import { apiGet, apiPost } from '@/lib/api-client';
 
 export default function AdminSportsPage() {
   const [activeTab, setActiveTab] = useState<'teams' | 'events' | 'achievements'>('teams');
@@ -30,6 +32,7 @@ export default function AdminSportsPage() {
   const [newTeam, setNewTeam] = useState({
     name: '',
     sport: '',
+    category: 'Outdoor',
     coach_name: '',
     description: '',
     venue: 'SFRC Sports Ground',
@@ -39,55 +42,60 @@ export default function AdminSportsPage() {
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
 
-  useEffect(() => {
-    let ignore = false;
-    (async () => {
-      try {
-        const [teamsRes, eventsRes, achRes] = await Promise.all([
-          fetch('http://localhost:8000/api/v1/sports/teams'),
-          fetch('http://localhost:8000/api/v1/sports/events'),
-          fetch('http://localhost:8000/api/v1/sports/achievements')
-        ]);
+  const supabase = createClient();
 
-        if (!ignore && teamsRes.ok) setTeams(await teamsRes.json());
-        if (!ignore && eventsRes.ok) setEvents(await eventsRes.json());
-        if (!ignore && achRes.ok) setAchievements(await achRes.json());
-      } catch (err) {
-        console.error('Failed to load sports data:', err);
-      } finally {
-        if (!ignore) setLoading(false);
-      }
-    })();
-    return () => {
-      ignore = true;
-    };
+  const getAuthToken = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token;
+  };
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const token = await getAuthToken();
+      const [teamsRes, eventsRes, achRes] = await Promise.all([
+        apiGet<SportsTeamItem[]>('/api/v1/sports/teams', token).catch(() => []),
+        apiGet<SportsEventItem[]>('/api/v1/sports/events', token).catch(() => []),
+        apiGet<SportsAchievementItem[]>('/api/v1/sports/achievements', token).catch(() => [])
+      ]);
+
+      setTeams(teamsRes || []);
+      setEvents(eventsRes || []);
+      setAchievements(achRes || []);
+    } catch (err) {
+      console.error('Failed to load sports data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
   }, []);
 
   const handleCreateTeam = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     try {
-      const res = await fetch('http://localhost:8000/api/v1/admin/sports/teams', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newTeam.name,
-          sport: newTeam.sport,
-          coach_name: newTeam.coach_name,
-          description: newTeam.description,
-          venue: newTeam.venue,
-          practice_schedule: newTeam.practice_schedule,
-          captain_name: newTeam.captain_name
-        })
-      });
+      const token = await getAuthToken();
+      const created = await apiPost<SportsTeamItem>('/api/v1/admin/sports/teams', {
+        name: newTeam.name,
+        sport: newTeam.sport,
+        category: newTeam.category || 'Outdoor',
+        coach_name: newTeam.coach_name,
+        description: newTeam.description,
+        venue: newTeam.venue,
+        practice_schedule: newTeam.practice_schedule,
+        captain_name: newTeam.captain_name
+      }, token);
 
-      if (res.ok) {
-        const created = await res.json();
+      if (created) {
         setTeams(prev => [...prev, created]);
         setShowCreateModal(false);
         setNewTeam({
           name: '',
           sport: '',
+          category: 'Outdoor',
           coach_name: '',
           description: '',
           venue: 'SFRC Sports Ground',

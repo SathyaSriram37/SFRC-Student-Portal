@@ -890,11 +890,19 @@ async def request_alumni_mentorship(
     if not alm.get("is_mentor", False):
         raise HTTPException(status_code=400, detail="Selected alumni has not opted in for mentorship.")
 
-    student_id = str(current_user.get("sub") or current_user.get("id") or "std-2023-001")
-    user_meta = current_user.get("user_metadata") or {}
-    student_name = current_user.get("name") or user_meta.get("full_name") or current_user.get("full_name") or "Kavitha Raman"
-    student_dept = current_user.get("department_code") or "CS"
-    student_reg = current_user.get("register_number") or user_meta.get("register_number") or "21UCS042"
+    user_id = str(current_user.get("sub") or current_user.get("id") or "")
+    prof_q = text("""
+        SELECT up.full_name, s.register_number, s.id as student_db_id, COALESCE(d.code, 'CS') as department_code
+        FROM user_profiles up
+        LEFT JOIN students s ON s.user_id = up.id
+        LEFT JOIN departments d ON s.department_id = d.id
+        WHERE up.id = :user_id
+    """)
+    prof_row = (await db.execute(prof_q, {"user_id": user_id})).mappings().first()
+    student_id = str(prof_row["student_db_id"]) if prof_row and prof_row.get("student_db_id") else user_id
+    student_name = (prof_row["full_name"] if prof_row and prof_row.get("full_name") else None) or current_user.get("email", "").split("@")[0]
+    student_dept = (prof_row["department_code"] if prof_row and prof_row.get("department_code") else None) or "CS"
+    student_reg = (prof_row["register_number"] if prof_row and prof_row.get("register_number") else None) or "24HARISHMA-UGDS"
 
     # Check duplicate pending request
     check_q = text("""

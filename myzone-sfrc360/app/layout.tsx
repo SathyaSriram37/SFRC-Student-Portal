@@ -47,8 +47,8 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${inter.variable} h-full`} suppressHydrationWarning>
-      <body className="bg-sfrc-bg text-sfrc-950 antialiased min-h-full flex flex-col">
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
+      <body className="bg-background text-foreground antialiased min-h-full flex flex-col">
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem={true} disableTransitionOnChange={false}>
           <CapabilitiesProvider>
             <ServiceWorkerRegister />
             <Header />
@@ -58,11 +58,15 @@ export default function RootLayout({
             <PragyaDrawer />
             <Toaster
               position="top-right"
+              theme="system"
               toastOptions={{
+                classNames: {
+                  toast: 'dark:bg-card dark:text-foreground dark:border-border',
+                },
                 style: {
-                  background: '#FBF5EB',
-                  color: '#2A1506',
-                  border: '1px solid #E8C88A',
+                  background: 'var(--card)',
+                  color: 'var(--card-foreground)',
+                  border: '1px solid var(--border)',
                 },
               }}
             />
@@ -72,3 +76,4 @@ export default function RootLayout({
     </html>
   );
 }
+

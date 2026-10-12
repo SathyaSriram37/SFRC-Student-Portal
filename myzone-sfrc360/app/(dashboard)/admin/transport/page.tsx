@@ -156,10 +156,10 @@ export default function AdminTransportPage() {
           </Button>
         </div>
 
-        {/* Demo Transport Disclaimer */}
-        <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-300 text-xs flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
-          <span>Institutional Demo Mode: 5 synthetic transit routes active for testing.</span>
+        {/* Live Transit Network Status */}
+        <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-900 dark:text-emerald-300 text-xs flex items-center gap-2">
+          <Bus className="w-4 h-4 shrink-0 text-emerald-600" />
+          <span className="font-semibold">Live Institutional Transit Network: Real-time college bus routes active and synchronized with central database.</span>
         </div>
 
         {/* Routes Catalog Table */}

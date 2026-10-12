@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Building2,
   Clock,
@@ -14,7 +14,7 @@ import {
 import { toast } from 'sonner';
 import AskPragyaBanner from '@/components/shared/AskPragyaBanner';
 import { createClient } from '@/lib/supabase/client';
-import { apiPost } from '@/lib/api-client';
+import { apiGet, apiPost } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 
 interface FacilityItem {
@@ -99,7 +99,8 @@ const DEFAULT_FACILITIES: FacilityItem[] = [
 ];
 
 export default function AdminFacilitiesPage() {
-  const [facilities] = useState<FacilityItem[]>(DEFAULT_FACILITIES);
+  const [facilities, setFacilities] = useState<FacilityItem[]>(DEFAULT_FACILITIES);
+  const [bookings, setBookings] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [isBookModalOpen, setIsBookModalOpen] = useState(false);
@@ -116,6 +117,28 @@ export default function AdminFacilitiesPage() {
   });
 
   const supabase = useMemo(() => createClient(), []);
+
+  const loadBookings = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const res = await apiGet<any[]>('/api/v1/admin/facilities/bookings', token);
+      if (res && res.length > 0) {
+        setBookings(res);
+        const bookedNames = new Set(res.map(b => b.facility_name));
+        setFacilities(prev => prev.map(f => ({
+          ...f,
+          status: bookedNames.has(f.name) ? 'Occupied' : f.status
+        })));
+      }
+    } catch (err) {
+      console.error('Failed to load facility bookings:', err);
+    }
+  };
+
+  useEffect(() => {
+    loadBookings();
+  }, []);
 
   const handleBookSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -140,6 +163,7 @@ export default function AdminFacilitiesPage() {
         department: 'Department of Computer Science',
         expected_attendees: 100,
       });
+      await loadBookings();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Failed to book venue in database.');
     } finally {

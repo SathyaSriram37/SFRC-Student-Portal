@@ -264,7 +264,7 @@ export default function StudentDashboardPage() {
 
           <div className="flex items-center gap-3">
             <Link
-              href="/student/timetable"
+              href="/student/academics?tab=timetable"
               className="px-4 py-2 rounded-xl text-xs font-bold text-sfrc-700 bg-sfrc-100 hover:bg-sfrc-200 transition-colors"
             >
               Full Timetable

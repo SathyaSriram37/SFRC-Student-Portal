@@ -205,11 +205,10 @@ async def create_complaint(
 
     # 2. Duplicate Check in same category / title / facility in last 30 days
     dup_query = text("""
-        SELECT c.id, c.complaint_number, c.title, c.category, c.location, c.status, c.created_at::text
-        FROM public.complaints c
+        SELECT c.id, c.complaint_number, c.title, c.category, c.location, c.status, c.created_at
+        FROM complaints c
         WHERE c.status NOT IN ('resolved', 'closed')
-          AND c.created_at > NOW() - INTERVAL '30 days'
-          AND (c.category = :category OR c.title ILIKE :search_term OR c.facility_id = :facility_id::uuid)
+          AND (c.category = :category OR c.title LIKE :search_term OR c.facility_id = :facility_id)
         LIMIT 5
     """)
     try:
@@ -227,7 +226,7 @@ async def create_complaint(
                 location=r.get("location"),
                 status=r["status"],
                 similarity=0.88,
-                created_at=r["created_at"],
+                created_at=str(r["created_at"]),
             )
             for r in dup_rows
         ]
@@ -235,7 +234,7 @@ async def create_complaint(
         possible_duplicates = []
 
     # 3. Generate Sequential Complaint Number
-    count_sql = text("SELECT COUNT(*) FROM public.complaints")
+    count_sql = text("SELECT COUNT(*) FROM complaints")
     try:
         total_prev = (await db.execute(count_sql)).scalar() or 0
     except Exception:
@@ -246,12 +245,12 @@ async def create_complaint(
 
     # 4. Insert Complaint into DB
     insert_sql = text("""
-        INSERT INTO public.complaints (
+        INSERT INTO complaints (
             id, complaint_number, title, description, category, location, facility_id,
             priority, status, user_id, image_urls, created_at, updated_at
         ) VALUES (
-            :id::uuid, :complaint_number, :title, :description, :category, :location, :facility_id::uuid,
-            :priority, 'open', :user_id::uuid, :image_urls, NOW(), NOW()
+            :id, :complaint_number, :title, :description, :category, :location, :facility_id,
+            :priority, 'open', :user_id, :image_urls, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
         )
     """)
     try:
@@ -265,17 +264,17 @@ async def create_complaint(
             "facility_id": body.facility_id if body.facility_id else None,
             "priority": final_priority,
             "user_id": user_id,
-            "image_urls": body.image_urls,
+            "image_urls": str(body.image_urls) if body.image_urls else None,
         })
-    except Exception:
+    except Exception as err:
         pass
 
     # 5. Insert Initial Timeline Event
     timeline_sql = text("""
-        INSERT INTO public.complaint_timeline (
+        INSERT INTO complaint_timeline (
             id, complaint_id, action, performed_by, notes, created_at
         ) VALUES (
-            :id::uuid, :complaint_id::uuid, 'TICKET_CREATED', :user_id::uuid, 'Complaint submitted via Campus Care portal.', NOW()
+            :id, :complaint_id, 'TICKET_CREATED', :user_id, 'Complaint submitted via Campus Care portal.', CURRENT_TIMESTAMP
         )
     """)
     try:
@@ -357,7 +356,7 @@ async def list_complaints(
     params: dict[str, Any] = {"limit": limit, "offset": offset}
 
     if role == "student":
-        conditions.append("c.user_id = :user_id::uuid")
+        conditions.append("c.user_id = :user_id")
         params["user_id"] = user_id
 
     if status:
@@ -370,12 +369,12 @@ async def list_complaints(
         conditions.append("c.priority = :priority")
         params["priority"] = priority
     if facility_id:
-        conditions.append("c.facility_id = :facility_id::uuid")
+        conditions.append("c.facility_id = :facility_id")
         params["facility_id"] = facility_id
 
     where_clause = " AND ".join(conditions)
 
-    count_sql = text(f"SELECT COUNT(*) FROM public.complaints c WHERE {where_clause}")
+    count_sql = text(f"SELECT COUNT(*) FROM complaints c WHERE {where_clause}")
     try:
         total = (await db.execute(count_sql, params)).scalar() or 0
     except Exception:
@@ -384,13 +383,12 @@ async def list_complaints(
     query_sql = text(f"""
         SELECT 
             c.id, c.complaint_number, c.title, c.description, c.category, c.location,
-            c.facility_id, f.name as facility_name, c.priority, c.status, c.user_id,
+            c.facility_id, c.location as facility_name, c.priority, c.status, c.user_id,
             up.full_name as submitter_name, c.assigned_to, c.image_urls,
             c.created_at, c.updated_at, c.resolved_at, c.resolution_notes,
             c.feedback_rating, c.feedback_comments
-        FROM public.complaints c
-        LEFT JOIN public.facilities f ON c.facility_id = f.id
-        LEFT JOIN public.user_profiles up ON c.user_id = up.id
+        FROM complaints c
+        LEFT JOIN user_profiles up ON c.user_id = up.id
         WHERE {where_clause}
         ORDER BY 
             CASE c.priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 ELSE 4 END ASC,
@@ -518,14 +516,13 @@ async def get_complaint_detail(
     query = text("""
         SELECT 
             c.id, c.complaint_number, c.title, c.description, c.category, c.location,
-            c.facility_id, f.name as facility_name, c.priority, c.status, c.user_id,
+            c.facility_id, c.location as facility_name, c.priority, c.status, c.user_id,
             up.full_name as submitter_name, c.assigned_to, c.image_urls,
             c.created_at, c.updated_at, c.resolved_at, c.resolution_notes,
             c.feedback_rating, c.feedback_comments
-        FROM public.complaints c
-        LEFT JOIN public.facilities f ON c.facility_id = f.id
-        LEFT JOIN public.user_profiles up ON c.user_id = up.id
-        WHERE c.id = :id::uuid
+        FROM complaints c
+        LEFT JOIN user_profiles up ON c.user_id = up.id
+        WHERE c.id = :id
     """)
     r = (await db.execute(query, {"id": complaint_id})).mappings().first()
     if not r:
@@ -537,10 +534,10 @@ async def get_complaint_detail(
 
     # Timeline events
     t_query = text("""
-        SELECT t.id, t.action, t.performed_by, up.full_name as performed_by_name, t.notes, t.created_at::text
-        FROM public.complaint_timeline t
-        LEFT JOIN public.user_profiles up ON t.performed_by = up.id
-        WHERE t.complaint_id = :id::uuid
+        SELECT t.id, t.action, t.performed_by, up.full_name as performed_by_name, t.notes, t.created_at
+        FROM complaint_timeline t
+        LEFT JOIN user_profiles up ON t.performed_by = up.id
+        WHERE t.complaint_id = :id
         ORDER BY t.created_at ASC
     """)
     t_rows = (await db.execute(t_query, {"id": complaint_id})).mappings().all()
@@ -551,7 +548,7 @@ async def get_complaint_detail(
             performed_by=str(t["performed_by"]) if t["performed_by"] else None,
             performed_by_name=t["performed_by_name"] or "System",
             notes=t["notes"],
-            created_at=t["created_at"],
+            created_at=str(t["created_at"]),
         )
         for t in t_rows
     ]
@@ -571,9 +568,9 @@ async def get_complaint_detail(
         submitter_name=r.get("submitter_name") or "User",
         assigned_to=str(r["assigned_to"]) if r.get("assigned_to") else None,
         image_urls=r.get("image_urls") or [],
-        created_at=c_dt.isoformat(),
-        updated_at=r["updated_at"].isoformat() if isinstance(r["updated_at"], datetime) else c_dt.isoformat(),
-        resolved_at=r_dt.isoformat() if r_dt else None,
+        created_at=c_dt.isoformat() if isinstance(c_dt, datetime) else str(c_dt),
+        updated_at=r["updated_at"].isoformat() if isinstance(r["updated_at"], datetime) else str(c_dt),
+        resolved_at=r_dt.isoformat() if isinstance(r_dt, datetime) else (str(r_dt) if r_dt else None),
         resolution_notes=r.get("resolution_notes"),
         feedback_rating=r.get("feedback_rating"),
         feedback_comments=r.get("feedback_comments"),
@@ -593,16 +590,16 @@ async def assign_complaint(
     user_id = user.get("id") or user.get("sub")
 
     update_sql = text("""
-        UPDATE public.complaints 
-        SET assigned_to = :assigned_to::uuid, status = 'assigned', updated_at = NOW()
-        WHERE id = :id::uuid
+        UPDATE complaints 
+        SET assigned_to = :assigned_to, status = 'assigned', updated_at = CURRENT_TIMESTAMP
+        WHERE id = :id
     """)
     await db.execute(update_sql, {"assigned_to": body.assigned_to, "id": complaint_id})
 
     # Timeline event
     timeline_sql = text("""
-        INSERT INTO public.complaint_timeline (id, complaint_id, action, performed_by, notes, created_at)
-        VALUES (:id::uuid, :complaint_id::uuid, 'TICKET_ASSIGNED', :user_id::uuid, :notes, NOW())
+        INSERT INTO complaint_timeline (id, complaint_id, action, performed_by, notes, created_at)
+        VALUES (:id, :complaint_id, 'TICKET_ASSIGNED', :user_id, :notes, CURRENT_TIMESTAMP)
     """)
     await db.execute(timeline_sql, {
         "id": str(uuid.uuid4()),
@@ -624,12 +621,12 @@ async def update_complaint(
     """Update ticket operational status (in_progress, pending_parts, on_hold)."""
     user_id = user.get("id") or user.get("sub")
 
-    update_sql = text("UPDATE public.complaints SET status = :status, updated_at = NOW() WHERE id = :id::uuid")
+    update_sql = text("UPDATE complaints SET status = :status, updated_at = CURRENT_TIMESTAMP WHERE id = :id")
     await db.execute(update_sql, {"status": body.status, "id": complaint_id})
 
     timeline_sql = text("""
-        INSERT INTO public.complaint_timeline (id, complaint_id, action, performed_by, notes, created_at)
-        VALUES (:id::uuid, :complaint_id::uuid, 'STATUS_UPDATED', :user_id::uuid, :notes, NOW())
+        INSERT INTO complaint_timeline (id, complaint_id, action, performed_by, notes, created_at)
+        VALUES (:id, :complaint_id, 'STATUS_UPDATED', :user_id, :notes, CURRENT_TIMESTAMP)
     """)
     await db.execute(timeline_sql, {
         "id": str(uuid.uuid4()),
@@ -652,15 +649,15 @@ async def escalate_complaint(
     user_id = user.get("id") or user.get("sub")
 
     update_sql = text("""
-        UPDATE public.complaints 
-        SET priority = 'critical', status = 'escalated', updated_at = NOW() 
-        WHERE id = :id::uuid
+        UPDATE complaints 
+        SET priority = 'critical', status = 'escalated', updated_at = CURRENT_TIMESTAMP 
+        WHERE id = :id
     """)
     await db.execute(update_sql, {"id": complaint_id})
 
     timeline_sql = text("""
-        INSERT INTO public.complaint_timeline (id, complaint_id, action, performed_by, notes, created_at)
-        VALUES (:id::uuid, :complaint_id::uuid, 'TICKET_ESCALATED', :user_id::uuid, :notes, NOW())
+        INSERT INTO complaint_timeline (id, complaint_id, action, performed_by, notes, created_at)
+        VALUES (:id, :complaint_id, 'TICKET_ESCALATED', :user_id, :notes, CURRENT_TIMESTAMP)
     """)
     await db.execute(timeline_sql, {
         "id": str(uuid.uuid4()),
@@ -683,15 +680,15 @@ async def resolve_complaint(
     user_id = user.get("id") or user.get("sub")
 
     update_sql = text("""
-        UPDATE public.complaints 
-        SET status = 'resolved', resolved_at = NOW(), resolution_notes = :notes, updated_at = NOW() 
-        WHERE id = :id::uuid
+        UPDATE complaints 
+        SET status = 'resolved', resolved_at = CURRENT_TIMESTAMP, resolution_notes = :notes, updated_at = CURRENT_TIMESTAMP 
+        WHERE id = :id
     """)
     await db.execute(update_sql, {"notes": body.resolution_notes, "id": complaint_id})
 
     timeline_sql = text("""
-        INSERT INTO public.complaint_timeline (id, complaint_id, action, performed_by, notes, created_at)
-        VALUES (:id::uuid, :complaint_id::uuid, 'TICKET_RESOLVED', :user_id::uuid, :notes, NOW())
+        INSERT INTO complaint_timeline (id, complaint_id, action, performed_by, notes, created_at)
+        VALUES (:id, :complaint_id, 'TICKET_RESOLVED', :user_id, :notes, CURRENT_TIMESTAMP)
     """)
     await db.execute(timeline_sql, {
         "id": str(uuid.uuid4()),
@@ -714,9 +711,9 @@ async def submit_feedback(
     user_id = user.get("id") or user.get("sub")
 
     update_sql = text("""
-        UPDATE public.complaints 
-        SET feedback_rating = :rating, feedback_comments = :comments, status = 'closed', updated_at = NOW() 
-        WHERE id = :id::uuid
+        UPDATE complaints 
+        SET feedback_rating = :rating, feedback_comments = :comments, status = 'closed', updated_at = CURRENT_TIMESTAMP 
+        WHERE id = :id
     """)
     await db.execute(update_sql, {
         "rating": body.rating,
@@ -725,8 +722,8 @@ async def submit_feedback(
     })
 
     timeline_sql = text("""
-        INSERT INTO public.complaint_timeline (id, complaint_id, action, performed_by, notes, created_at)
-        VALUES (:id::uuid, :complaint_id::uuid, 'FEEDBACK_SUBMITTED', :user_id::uuid, :notes, NOW())
+        INSERT INTO complaint_timeline (id, complaint_id, action, performed_by, notes, created_at)
+        VALUES (:id, :complaint_id, 'FEEDBACK_SUBMITTED', :user_id, :notes, CURRENT_TIMESTAMP)
     """)
     await db.execute(timeline_sql, {
         "id": str(uuid.uuid4()),
@@ -745,17 +742,17 @@ async def duplicate_check(
     user: dict = Depends(get_current_user),
 ):
     """Query potential duplicate open tickets in the same category or location."""
-    c_query = text("SELECT category, facility_id, location, title FROM public.complaints WHERE id = :id::uuid")
+    c_query = text("SELECT category, facility_id, location, title FROM complaints WHERE id = :id")
     curr = (await db.execute(c_query, {"id": complaint_id})).mappings().first()
     if not curr:
         return []
 
     dup_query = text("""
-        SELECT id, complaint_number, title, category, location, status, created_at::text
-        FROM public.complaints
-        WHERE id != :id::uuid
+        SELECT id, complaint_number, title, category, location, status, created_at
+        FROM complaints
+        WHERE id != :id
           AND status NOT IN ('resolved', 'closed')
-          AND (category = :category OR facility_id = :facility_id::uuid)
+          AND (category = :category OR facility_id = :facility_id)
         LIMIT 5
     """)
     rows = (await db.execute(dup_query, {
@@ -773,7 +770,7 @@ async def duplicate_check(
             location=r.get("location"),
             status=r["status"],
             similarity=0.85,
-            created_at=r["created_at"],
+            created_at=str(r["created_at"]),
         )
         for r in rows
     ]
@@ -787,14 +784,14 @@ async def get_campus_care_dashboard_stats(
     user: dict = Depends(require_capability("analytics")),
 ):
     """Admin KPI overview for maintenance tickets and real-time SLA metrics."""
-    total_sql = text("SELECT COUNT(*) FROM public.complaints")
-    total_count = (await db.execute(total_sql)).scalar() or 24
+    total_sql = text("SELECT COUNT(*) FROM complaints")
+    total_count = (await db.execute(total_sql)).scalar() or 0
 
-    open_sql = text("SELECT COUNT(*) FROM public.complaints WHERE status IN ('open', 'assigned', 'in_progress', 'escalated')")
-    open_count = (await db.execute(open_sql)).scalar() or 6
+    open_sql = text("SELECT COUNT(*) FROM complaints WHERE status IN ('open', 'assigned', 'in_progress', 'escalated')")
+    open_count = (await db.execute(open_sql)).scalar() or 0
 
-    resolved_sql = text("SELECT COUNT(*) FROM public.complaints WHERE status IN ('resolved', 'closed')")
-    resolved_count = (await db.execute(resolved_sql)).scalar() or 18
+    resolved_sql = text("SELECT COUNT(*) FROM complaints WHERE status IN ('resolved', 'closed')")
+    resolved_count = (await db.execute(resolved_sql)).scalar() or 0
 
     return {
         "total_complaints": total_count,

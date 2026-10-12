@@ -53,6 +53,7 @@ const createUserSchema = z
     phone: z.string().optional(),
     department_id: z.string().optional(),
     // Student fields
+    programme_id: z.string().optional(),
     register_number: z.string().optional(),
     current_semester: z.coerce.number().min(1).max(10).optional(),
     batch: z.string().optional(),
@@ -113,6 +114,7 @@ const editUserSchema = z.object({
   phone: z.string().optional(),
   department_id: z.string().optional(),
   // Student fields
+  programme_id: z.string().optional(),
   register_number: z.string().optional(),
   current_semester: z.coerce.number().min(1).max(10).optional(),
   batch: z.string().optional(),
@@ -229,19 +231,32 @@ interface UserListResponse {
   total_pages: number;
 }
 
-const DEPARTMENTS = [
-  { name: 'Computer Science', code: 'CS' },
-  { name: 'Computer Applications', code: 'CA' },
-  { name: 'Commerce', code: 'COM' },
-  { name: 'Mathematics', code: 'MATH' },
-  { name: 'English', code: 'ENG' },
-  { name: 'Physics', code: 'PHY' },
-  { name: 'Chemistry', code: 'CHEM' },
-  { name: 'Business Administration', code: 'BBA' },
+const OFFICIAL_DEPARTMENTS = [
+  { name: 'Department of Tamil', code: 'TAM' },
+  { name: 'Department of English', code: 'ENG' },
+  { name: 'Department of History', code: 'HIST' },
+  { name: 'Department of Commerce', code: 'COM' },
+  { name: 'Department of Commerce (Professional Accounting)', code: 'COM-PA' },
+  { name: 'Department of Business Administration', code: 'BBA' },
+  { name: 'Department of Mathematics', code: 'MATH' },
+  { name: 'Department of Physics', code: 'PHY' },
+  { name: 'Department of Chemistry', code: 'CHEM' },
+  { name: 'Department of Botany', code: 'BOT' },
+  { name: 'Department of Microbiology', code: 'MBIO' },
+  { name: 'Department of Nutrition and Dietetics', code: 'ND' },
+  { name: 'Department of Computer Science', code: 'CS' },
+  { name: 'Department of Computer Applications', code: 'CA' },
+  { name: 'Department of Data Science', code: 'DS' },
+  { name: 'Department of Costume Design & Fashion', code: 'CDF' },
+  { name: 'Department of Psychology', code: 'PSY' },
+  { name: 'Department of Geography', code: 'GEO' },
+  { name: 'Department of Physical Education', code: 'PED' },
 ];
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const [departmentsList, setDepartmentsList] = useState<Array<{ id?: string; name: string; code: string }>>(OFFICIAL_DEPARTMENTS);
+  const [programmesList, setProgrammesList] = useState<Array<{ id: string; name: string; code: string; degree_level: string; department?: string }>>([]);
   const [stats, setStats] = useState<UserCounts>({
     total: 0,
     students: 0,
@@ -275,6 +290,24 @@ export default function AdminUsersPage() {
   const [editSelectedWards, setEditSelectedWards] = useState<StudentLookupItem[]>([]);
 
   const supabase = useMemo(() => createClient(), []);
+
+  useEffect(() => {
+    async function loadAcademicMeta() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        const [deptRes, progRes] = await Promise.all([
+          apiGet<Array<{ id: string; name: string; code: string }>>('/api/v1/admin/departments', token),
+          apiGet<Array<{ id: string; name: string; code: string; degree_level: string; department?: string }>>('/api/v1/admin/academics/programmes', token),
+        ]);
+        if (deptRes && deptRes.length > 0) setDepartmentsList(deptRes);
+        if (progRes && progRes.length > 0) setProgrammesList(progRes);
+      } catch (err) {
+        console.error('Failed to load academic meta from database:', err);
+      }
+    }
+    loadAcademicMeta();
+  }, [supabase]);
 
   // Form for creating user
   const {
@@ -463,6 +496,7 @@ export default function AdminUsersPage() {
         full_name: details.full_name,
         phone: details.phone || '',
         department_id: details.department_id || '',
+        programme_id: details.programme_id || '',
         register_number: details.register_number || '',
         current_semester: details.current_semester || 1,
         batch: details.batch || '',
@@ -501,6 +535,7 @@ export default function AdminUsersPage() {
       const editRole = editingUser.role.toLowerCase();
       if (editRole === 'student') {
         payload.register_number = formData.register_number?.trim();
+        if (formData.programme_id) payload.programme_id = formData.programme_id;
         payload.current_semester = formData.current_semester || 1;
         payload.batch = formData.batch;
         payload.section = formData.section;
@@ -567,6 +602,7 @@ export default function AdminUsersPage() {
 
       if (formData.role === 'student') {
         payload.register_number = formData.register_number?.trim();
+        if (formData.programme_id) payload.programme_id = formData.programme_id;
         payload.current_semester = formData.current_semester || 1;
         payload.batch = formData.batch;
         payload.section = formData.section;
@@ -996,8 +1032,8 @@ export default function AdminUsersPage() {
               }}
               className="px-3 py-2 rounded-xl text-xs border border-sfrc-200 bg-sfrc-surface focus:outline-hidden font-semibold text-sfrc-800"
             >
-              <option value="">All Departments</option>
-              {DEPARTMENTS.map((d) => (
+              <option value="">All Departments ({departmentsList.length})</option>
+              {departmentsList.map((d) => (
                 <option key={d.code} value={d.name}>
                   {d.name} ({d.code})
                 </option>
@@ -1462,7 +1498,7 @@ export default function AdminUsersPage() {
                     className="w-full px-3 py-2 rounded-xl border border-sfrc-200 bg-sfrc-surface font-semibold text-sfrc-800"
                   >
                     <option value="">Select Department</option>
-                    {DEPARTMENTS.map((d) => (
+                    {departmentsList.map((d) => (
                       <option key={d.code} value={d.name}>
                         {d.name}
                       </option>
@@ -1476,6 +1512,20 @@ export default function AdminUsersPage() {
                 <div className="p-3.5 rounded-2xl bg-sfrc-surface border border-sfrc-200 space-y-3">
                   <p className="font-bold text-sfrc-800 uppercase tracking-wider text-[10px]">Academic & Personal Fields</p>
                   <div className="grid grid-cols-2 gap-3">
+                    <div className="col-span-2">
+                      <label className="block text-[11px] font-semibold text-sfrc-700 mb-1">Enrolled Degree Programme / Course</label>
+                      <select
+                        {...registerEdit('programme_id')}
+                        className="w-full px-3 py-1.5 rounded-xl border border-sfrc-200 bg-white font-semibold text-sfrc-800 text-xs"
+                      >
+                        <option value="">Select Enrolled Degree Programme</option>
+                        {programmesList.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name} ({p.degree_level}) — {p.department}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                     <div>
                       <label className="block text-[11px] font-semibold text-sfrc-700 mb-1">Register Number</label>
                       <input
@@ -1735,7 +1785,7 @@ export default function AdminUsersPage() {
                       className="w-full px-3 py-2 rounded-xl border border-sfrc-200 bg-sfrc-surface font-semibold text-sfrc-800"
                     >
                       <option value="">Select Department</option>
-                      {DEPARTMENTS.map((d) => (
+                      {departmentsList.map((d) => (
                         <option key={d.code} value={d.name}>
                           {d.name}
                         </option>
@@ -1750,6 +1800,20 @@ export default function AdminUsersPage() {
                 <div className="p-3.5 rounded-2xl bg-sfrc-surface border border-sfrc-200 space-y-3">
                   <p className="font-bold text-sfrc-800 uppercase tracking-wider text-[10px]">Student Record Details</p>
                   <div className="grid grid-cols-2 gap-3">
+                    <div className="col-span-2">
+                      <label className="block text-[11px] font-semibold text-sfrc-700 mb-1">Enrolled Degree Programme / Course</label>
+                      <select
+                        {...registerCreate('programme_id')}
+                        className="w-full px-3 py-1.5 rounded-xl border border-sfrc-200 bg-white font-semibold text-sfrc-800 text-xs"
+                      >
+                        <option value="">Select Enrolled Degree Programme</option>
+                        {programmesList.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name} ({p.degree_level}) — {p.department}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                     <div>
                       <label className="block text-[11px] font-semibold text-sfrc-700 mb-1">Register Number</label>
                       <input

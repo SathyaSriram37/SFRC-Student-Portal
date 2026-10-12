@@ -170,20 +170,41 @@ async def list_faculty_mentees(
         JOIN students s ON ma.student_id = s.id
         JOIN user_profiles up ON s.user_id = up.id
         LEFT JOIN programmes p ON s.programme_id = p.id
-        WHERE (ma.faculty_id = :faculty_id OR :role = 'admin') AND ma.is_active = 1
+        WHERE (ma.faculty_id = :faculty_id OR ma.faculty_id = :user_id OR :role = 'admin') AND ma.is_active = 1
         ORDER BY up.full_name ASC
     """)
-    rows = (await db.execute(query, {"faculty_id": faculty_id, "role": role})).mappings().all()
+    rows = (await db.execute(query, {"faculty_id": faculty_id, "user_id": user_id, "role": role})).mappings().all()
 
     items = []
     for r in rows:
-        pct = 91.5
-        cgpa = 8.75
+        st_id = str(r["student_id"])
+        
+        # Real Attendance % calculation
+        att_stat = (await db.execute(text("""
+            SELECT 
+                COUNT(*) as total_att,
+                SUM(CASE WHEN LOWER(status) = 'present' THEN 1 ELSE 0 END) as present_att
+            FROM attendance_records
+            WHERE student_id = :st_id
+        """), {"st_id": st_id})).mappings().first()
+        
+        total_att = int(att_stat["total_att"] or 0) if att_stat else 0
+        present_att = int(att_stat["present_att"] or 0) if att_stat else 0
+        pct = round((present_att / total_att) * 100.0, 1) if total_att > 0 else 100.0
+
+        # Real CGPA calculation from marks ledger
+        marks_stat = (await db.execute(text("""
+            SELECT AVG(marks_obtained / max_marks) * 10.0 as avg_cgpa
+            FROM marks
+            WHERE student_id = :st_id AND max_marks > 0
+        """), {"st_id": st_id})).scalar()
+        cgpa = round(float(marks_stat), 2) if marks_stat is not None else 8.5
+
         status_val = "at_risk" if pct < 75.0 else "on_track"
 
         items.append(
             FacultyMenteeListItem(
-                student_id=str(r["student_id"]),
+                student_id=st_id,
                 full_name=r["full_name"],
                 register_number=r["register_number"],
                 programme_name=r["programme_name"],

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
+import AppShell from '@/components/layout/AppShell';
 import { Upload, BookOpen, Video, Headphones, GitFork, FileText, MonitorPlay, CheckCircle2, Eye, BarChart2, PlusCircle, FolderPlus, Sparkles, RefreshCw, Globe, FileUp, AlertCircle, ExternalLink } from 'lucide-react';
 import {
   LineChart,
@@ -48,6 +49,7 @@ const DEPARTMENTS = [
 ];
 
 export default function FacultyEContentManagePage() {
+  const [userName, setUserName] = useState('Faculty');
   const [activeTab, setActiveTab] = useState<'my-content' | 'upload'>('my-content');
   const [items, setItems] = useState<EContentItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -103,12 +105,21 @@ export default function FacultyEContentManagePage() {
   useEffect(() => {
     let ignore = false;
     (async () => {
-      await loadFacultyContent();
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const metaName = session?.user?.user_metadata?.full_name;
+        if (!ignore && metaName) setUserName(metaName);
+      } catch (err) {
+        console.error('Failed to get session user name:', err);
+      }
+      if (!ignore) {
+        await loadFacultyContent();
+      }
     })();
     return () => {
       ignore = true;
     };
-  }, [loadFacultyContent]);
+  }, [loadFacultyContent, supabase]);
 
   // Toggle Publish/Unpublish Handler
   const handleTogglePublish = async (item: EContentItem) => {
@@ -231,10 +242,10 @@ export default function FacultyEContentManagePage() {
   };
 
   return (
-    <div className="min-h-screen bg-sfrc-surface pb-16">
-      {/* Header Banner */}
-      <div className="bg-white border-b border-sfrc-200 py-8 px-6 sm:px-10 shadow-2xs">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <AppShell role="faculty" userName={userName}>
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
+        {/* Header Banner */}
+        <div className="bg-white border border-sfrc-200 rounded-3xl p-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 text-xs font-bold text-sfrc-700 uppercase tracking-wider mb-1">
               <Sparkles className="w-3.5 h-3.5" />
@@ -372,7 +383,7 @@ export default function FacultyEContentManagePage() {
                             <span className="bg-sfrc-100 px-2 py-0.5 rounded text-sfrc-900 font-bold">
                               {item.course_code}
                             </span>
-                            <span className="text-sfrc-500 ml-1.5 font-medium">({item.department_code})</span>
+                            <span className="text-sfrc-500 ml-1.5 font-medium">({item.department_code || 'CS'})</span>
                           </td>
 
                           <td className="py-4 px-4 text-sfrc-600 font-medium">
@@ -773,6 +784,6 @@ export default function FacultyEContentManagePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </AppShell>
   );
 }

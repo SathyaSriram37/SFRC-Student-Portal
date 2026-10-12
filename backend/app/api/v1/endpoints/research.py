@@ -528,12 +528,20 @@ async def get_research_summary(
             leaderboard_map[name] = {"faculty_name": name, "department": pub["department_code"], "papers": 0, "top_indexing": pub["indexing"]}
         leaderboard_map[name]["papers"] += 1
 
+    scholars_q = text("""
+        SELECT COUNT(*) FROM students s
+        LEFT JOIN programmes p ON s.programme_id = p.id
+        WHERE LOWER(p.name) LIKE '%ph.d%' OR LOWER(p.degree_level) = 'phd' OR LOWER(p.degree_level) = 'pg'
+    """)
+    scholars_count = (await db.execute(scholars_q)).scalar() or 0
+
     return {
         "total_projects": len(proj_rows),
         "ongoing_projects": ongoing_count,
         "completed_projects": completed_count,
         "total_grants_sanctioned_inr": total_grant_inr,
         "total_publications": len(pub_rows),
+        "total_research_scholars": scholars_count,
         "department_summary": list(dept_map.values()),
         "faculty_leaderboard": list(leaderboard_map.values()),
     }

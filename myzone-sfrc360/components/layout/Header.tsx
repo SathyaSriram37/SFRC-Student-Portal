@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { apiGet, apiPost } from '@/lib/api-client';
 import { GlobalSearchModal } from '@/components/search/GlobalSearchModal';
+import ThemeToggle from '@/components/shared/ThemeToggle';
 
 export interface HeaderNotification {
   id: string;
@@ -240,6 +241,9 @@ export default function Header() {
               ⌘K
             </kbd>
           </button>
+
+          {/* Theme Toggle */}
+          <ThemeToggle />
 
           {/* Notification Bell Dropdown (Shown on all dashboard pages) */}
           {!isLanding && !isLogin && (

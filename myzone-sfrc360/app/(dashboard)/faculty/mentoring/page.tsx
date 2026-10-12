@@ -22,6 +22,7 @@ interface FacultyMentee {
 }
 
 export default function FacultyMentoringListPage() {
+  const [userName, setUserName] = useState('Faculty');
   const [mentees, setMentees] = useState<FacultyMentee[]>([]);
   const [filter, setFilter] = useState<'all' | 'at_risk' | 'on_track'>('all');
   const [search, setSearch] = useState('');
@@ -34,49 +35,18 @@ export default function FacultyMentoringListPage() {
     (async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
+        const metaName = session?.user?.user_metadata?.full_name;
+        if (!ignore && metaName) setUserName(metaName);
+
         const token = session?.access_token;
         const data = await apiGet<FacultyMentee[]>('/api/v1/mentoring/my-mentees', token);
         if (!ignore) {
-          setMentees(data);
+          setMentees(data || []);
         }
       } catch (err) {
         console.error('Failed to load mentees:', err);
         if (!ignore) {
-          setMentees([
-            {
-              student_id: '00000000-0000-0000-0000-000000000001',
-              full_name: 'Priyadharshini S',
-              register_number: '22UCA042',
-              programme_name: 'B.Sc Computer Science',
-              current_semester: 5,
-              attendance_pct: 91.5,
-              cgpa: 8.75,
-              last_meeting_date: '2026-09-24',
-              status: 'on_track',
-            },
-            {
-              student_id: '00000000-0000-0000-0000-000000000002',
-              full_name: 'Kavitha M',
-              register_number: '22UCA018',
-              programme_name: 'B.Sc Computer Science',
-              current_semester: 5,
-              attendance_pct: 68.0,
-              cgpa: 7.20,
-              last_meeting_date: '2026-09-18',
-              status: 'at_risk',
-            },
-            {
-              student_id: '00000000-0000-0000-0000-000000000003',
-              full_name: 'Ananya R',
-              register_number: '22UCA005',
-              programme_name: 'B.Sc Computer Science',
-              current_semester: 5,
-              attendance_pct: 94.0,
-              cgpa: 9.10,
-              last_meeting_date: '2026-09-22',
-              status: 'on_track',
-            },
-          ]);
+          setMentees([]);
         }
       } finally {
         if (!ignore) {
@@ -103,7 +73,7 @@ export default function FacultyMentoringListPage() {
   });
 
   return (
-    <AppShell role="faculty" userName="Dr. K. Anitha">
+    <AppShell role="faculty" userName={userName}>
       <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

@@ -254,8 +254,8 @@ export default function AdminAuditLogsPage() {
                     </td>
                   </tr>
                 ) : (
-                  logs.map((log) => (
-                    <tr key={log.id} className="hover:bg-sfrc-surface/60 transition-colors">
+                  logs.map((log, idx) => (
+                    <tr key={`${log.id}-${idx}`} className="hover:bg-sfrc-surface/60 transition-colors">
                       <td className="py-3.5 px-4">
                         <span className={cn('px-2.5 py-1 rounded-md text-[11px] font-bold border font-mono', getActionColor(log.action))}>
                           {log.action}

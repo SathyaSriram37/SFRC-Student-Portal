@@ -87,6 +87,7 @@ export default function FacultyMenteeDetailPage({
   const studentId = resolvedParams.studentId;
 
   const [data, setData] = useState<MenteeDetailData | null>(null);
+  const [userName, setUserName] = useState('Faculty Mentor');
   const [isLoading, setIsLoading] = useState(true);
   const [isMeetingModalOpen, setIsMeetingModalOpen] = useState(false);
   const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
@@ -130,6 +131,9 @@ export default function FacultyMenteeDetailPage({
     (async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
+        const metaName = session?.user?.user_metadata?.full_name;
+        if (!ignore && metaName) setUserName(metaName);
+
         const token = session?.access_token;
 
         const res = await apiGet<MenteeDetailData>(`/api/v1/mentoring/mentees/${studentId}`, token);
@@ -217,7 +221,7 @@ export default function FacultyMenteeDetailPage({
 
   if (isLoading && !data) {
     return (
-      <AppShell role="faculty" userName="Faculty Mentor">
+      <AppShell role="faculty" userName={userName}>
         <div className="min-h-[60vh] flex flex-col items-center justify-center gap-3">
           <Loader2 className="w-8 h-8 animate-spin text-sfrc-700" />
           <p className="text-xs font-semibold text-sfrc-600">
@@ -232,7 +236,7 @@ export default function FacultyMenteeDetailPage({
   const isAtRisk = (mentee?.attendance_pct ?? 100) < 75;
 
   return (
-    <AppShell role="faculty" userName="Dr. K. Anitha">
+    <AppShell role="faculty" userName={userName}>
       <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
         {/* Header Navigation */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

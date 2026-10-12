@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { Building2, Search, MapPin, Users, AlertTriangle, CheckCircle2, PlusCircle, Clock, Layers, ArrowRight, ShieldCheck, RefreshCw, Phone, Accessibility, Compass, ArrowUpRight } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,6 +17,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { apiGet } from '@/lib/api-client';
+import { createClient } from '@/lib/supabase/client';
 
 interface Facility {
   id: string;
@@ -58,11 +59,23 @@ export default function StudentFacilitiesPage() {
   const [facilityComplaints, setFacilityComplaints] = useState<FacilityComplaint[]>([]);
   const [loadingComplaints, setLoadingComplaints] = useState(false);
 
+  const supabase = useMemo(() => createClient(), []);
+
+  const getAuthToken = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      return session?.access_token;
+    } catch {
+      return undefined;
+    }
+  };
+
   const fetchFacilities = async () => {
     try {
+      const token = await getAuthToken();
       const [facsData, catsData] = await Promise.all([
-        apiGet<Facility[]>('/api/v1/facilities'),
-        apiGet<string[]>('/api/v1/facilities/categories').catch(() => []),
+        apiGet<Facility[]>('/api/v1/facilities', token),
+        apiGet<string[]>('/api/v1/facilities/categories', token).catch(() => []),
       ]);
 
       if (Array.isArray(facsData)) setFacilities(facsData);
@@ -80,9 +93,10 @@ export default function StudentFacilitiesPage() {
     let ignore = false;
     (async () => {
       try {
+        const token = await getAuthToken();
         const [facsData, catsData] = await Promise.all([
-          apiGet<Facility[]>('/api/v1/facilities'),
-          apiGet<string[]>('/api/v1/facilities/categories').catch(() => []),
+          apiGet<Facility[]>('/api/v1/facilities', token),
+          apiGet<string[]>('/api/v1/facilities/categories', token).catch(() => []),
         ]);
 
         if (!ignore) {
@@ -107,7 +121,8 @@ export default function StudentFacilitiesPage() {
     setSelectedFacility(fac);
     try {
       setLoadingComplaints(true);
-      const complaints = await apiGet<FacilityComplaint[]>(`/api/v1/facilities/${fac.id}/complaints`);
+      const token = await getAuthToken();
+      const complaints = await apiGet<FacilityComplaint[]>(`/api/v1/facilities/${fac.id}/complaints`, token);
       if (Array.isArray(complaints)) {
         setFacilityComplaints(complaints);
       }

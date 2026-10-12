@@ -54,6 +54,7 @@ export default function FacultyFacilitiesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedFacility, setSelectedFacility] = useState<Facility | null>(null);
+  const [userName, setUserName] = useState<string>('Faculty');
 
   const supabase = useMemo(() => createClient(), []);
 
@@ -62,6 +63,9 @@ export default function FacultyFacilitiesPage() {
       setIsLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
+      if (session?.user?.user_metadata?.full_name) {
+        setUserName(session.user.user_metadata.full_name);
+      }
       const res = await apiGet<Facility[]>('/api/v1/facilities', token);
       if (res) {
         setFacilities(res);
@@ -93,7 +97,7 @@ export default function FacultyFacilitiesPage() {
   });
 
   return (
-    <AppShell role="faculty" userName="Faculty">
+    <AppShell role="faculty" userName={userName}>
       <div className="p-4 sm:p-6 lg:p-8 space-y-8 max-w-7xl mx-auto">
         {/* Header Banner */}
         <div className="bg-white p-6 rounded-3xl border border-sfrc-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">

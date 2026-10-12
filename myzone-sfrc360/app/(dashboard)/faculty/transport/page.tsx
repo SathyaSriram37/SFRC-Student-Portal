@@ -29,6 +29,7 @@ export default function FacultyTransportPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string>('Faculty Member');
 
   const supabase = useMemo(() => createClient(), []);
 
@@ -42,6 +43,9 @@ export default function FacultyTransportPage() {
         data: { session },
       } = await supabase.auth.getSession();
       const token = session?.access_token;
+      if (session?.user?.user_metadata?.full_name) {
+        setUserName(session.user.user_metadata.full_name);
+      }
 
       const [liveRes, routesRes] = await Promise.allSettled([
         apiGet<LiveTransportData>('/api/v1/transport/me/live-tracking', token),
@@ -72,7 +76,7 @@ export default function FacultyTransportPage() {
   }, [loadData]);
 
   return (
-    <AppShell role="faculty" userName="Faculty Member">
+    <AppShell role="faculty" userName={userName}>
       <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
         {/* Header Breadcrumb */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

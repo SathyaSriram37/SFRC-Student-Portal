@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Library, BookOpen, Search, BookMarked, Clock, AlertTriangle, CheckCircle2, ExternalLink, Info, Globe, RefreshCw, ShieldCheck } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 
 import { apiGet } from '@/lib/api-client';
+import { createClient } from '@/lib/supabase/client';
 
 interface LibraryItem {
   id: string;
@@ -70,6 +71,17 @@ export default function StudentLibraryPage() {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [totalVolumes, setTotalVolumes] = useState(64795);
 
+  const supabase = useMemo(() => createClient(), []);
+
+  const getAuthToken = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      return session?.access_token;
+    } catch {
+      return undefined;
+    }
+  };
+
   // 300ms Search Debounce
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -81,12 +93,14 @@ export default function StudentLibraryPage() {
   // Load Library Data
   const fetchCatalog = async () => {
     try {
+      const token = await getAuthToken();
       const queryParams = new URLSearchParams();
       if (debouncedQuery) queryParams.set('q', debouncedQuery);
       if (selectedCategory !== 'All') queryParams.set('cat', selectedCategory);
 
       const res = await apiGet<{ items: LibraryItem[]; total: number; total_volumes?: number }>(
-        `/api/v1/library/items?${queryParams.toString()}`
+        `/api/v1/library/items?${queryParams.toString()}`,
+        token
       );
       if (res && res.items) {
         setBooks(res.items);
@@ -103,12 +117,14 @@ export default function StudentLibraryPage() {
     let ignore = false;
     (async () => {
       try {
+        const token = await getAuthToken();
         const queryParams = new URLSearchParams();
         if (debouncedQuery) queryParams.set('q', debouncedQuery);
         if (selectedCategory !== 'All') queryParams.set('cat', selectedCategory);
 
         const res = await apiGet<{ items: LibraryItem[]; total: number; total_volumes?: number }>(
-          `/api/v1/library/items?${queryParams.toString()}`
+          `/api/v1/library/items?${queryParams.toString()}`,
+          token
         );
         if (!ignore && res && res.items) {
           setBooks(res.items);
@@ -132,9 +148,10 @@ export default function StudentLibraryPage() {
     let ignore = false;
     (async () => {
       try {
+        const token = await getAuthToken();
         const [loansRes, eRes] = await Promise.allSettled([
-          apiGet<MyLoansData>('/api/v1/library/me/loans'),
-          apiGet<EResource[]>('/api/v1/library/e-resources'),
+          apiGet<MyLoansData>('/api/v1/library/me/loans', token),
+          apiGet<EResource[]>('/api/v1/library/e-resources', token),
         ]);
         if (!ignore) {
           if (loansRes.status === 'fulfilled' && loansRes.value) {

@@ -44,6 +44,7 @@ interface EnrolledStudentItem {
 }
 
 export default function FacultyCoursesPage() {
+  const [userName, setUserName] = useState('Faculty');
   const [courses, setCourses] = useState<FacultyCourseItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -59,6 +60,9 @@ export default function FacultyCoursesPage() {
       try {
         setIsLoading(true);
         const { data: { session } } = await supabase.auth.getSession();
+        const metaName = session?.user?.user_metadata?.full_name;
+        if (!ignore && metaName) setUserName(metaName);
+
         const token = session?.access_token;
         const res = await apiGet<FacultyCourseItem[]>('/api/v1/faculty/me/courses', token);
         if (!ignore && res) {
@@ -109,7 +113,7 @@ export default function FacultyCoursesPage() {
   });
 
   return (
-    <AppShell role="faculty" userName="Faculty">
+    <AppShell role="faculty" userName={userName}>
       <div className="p-4 sm:p-6 lg:p-8 space-y-8 max-w-7xl mx-auto">
         {/* Header Banner */}
         <div className="bg-white p-6 rounded-3xl border border-sfrc-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">

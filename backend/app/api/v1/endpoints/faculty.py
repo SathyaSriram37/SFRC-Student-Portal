@@ -222,9 +222,9 @@ async def get_faculty_dashboard(
     if faculty_id:
         mentee_query = text("""
             SELECT COUNT(*) FROM mentorship_assignments
-            WHERE (faculty_id = :faculty_id OR faculty_id IS NULL) AND is_active = 1
+            WHERE (faculty_id = :faculty_id OR faculty_id = :user_id) AND is_active = 1
         """)
-        mentee_count = (await db.execute(mentee_query, {"faculty_id": faculty_id})).scalar() or 0
+        mentee_count = (await db.execute(mentee_query, {"faculty_id": faculty_id, "user_id": str(user_id)})) .scalar() or 0
 
     return FacultyDashboardResponse(
         profile=faculty_profile,
@@ -399,3 +399,58 @@ async def get_course_enrolled_students(
         ))
 
     return roster
+
+
+# ── Student Leave / OD Management Endpoints ─────────────────────────────────
+
+class StudentLeaveReviewRequest(BaseModel):
+    status: str  # "approved" | "rejected"
+    remarks: Optional[str] = "Approved by faculty in charge"
+
+
+@router.get("/leaves/pending")
+async def get_pending_student_leaves(
+    db: AsyncSession = Depends(get_db),
+    user: dict[str, Any] = Depends(require_capability("attendance:mark")),
+):
+    """List all student leave and on-duty requests for faculty review."""
+    query = text("""
+        SELECT id, user_id, student_id, student_name, register_number,
+               leave_type, reason, from_date, to_date, total_days, status, approval_remarks, created_at
+        FROM student_leaves
+        ORDER BY created_at DESC
+    """)
+    rows = (await db.execute(query)).mappings().all()
+    return [dict(r) for r in rows]
+
+
+@router.put("/leaves/{leave_id}/review")
+async def review_student_leave(
+    leave_id: str,
+    payload: StudentLeaveReviewRequest,
+    db: AsyncSession = Depends(get_db),
+    user: dict[str, Any] = Depends(require_capability("attendance:mark")),
+):
+    """Approve or reject student leave/OD application with remarks and audit trail."""
+    reviewer_id = str(user.get("id") or user.get("sub") or "")
+    q = text("""
+        UPDATE student_leaves
+        SET status = :status, approval_remarks = :remarks, approved_by = :reviewer_id, updated_at = CURRENT_TIMESTAMP
+        WHERE id = :leave_id
+    """)
+    await db.execute(q, {
+        "status": payload.status,
+        "remarks": payload.remarks,
+        "reviewer_id": reviewer_id,
+        "leave_id": leave_id,
+    })
+    await db.commit()
+    await log_audit_event(
+        db=db,
+        user_id=reviewer_id,
+        action="student_leave:review",
+        resource_type="student_leaves",
+        resource_id=leave_id,
+        details={"status": payload.status, "remarks": payload.remarks},
+    )
+    return {"status": "success", "message": f"Student leave application marked as {payload.status}"}

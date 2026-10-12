@@ -50,6 +50,7 @@ export default function FacultyEventsPage() {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedEvent, setSelectedEvent] = useState<EventDetail | null>(null);
   const [isRegistering, setIsRegistering] = useState(false);
+  const [userName, setUserName] = useState<string>('Faculty');
 
   const supabase = useMemo(() => createClient(), []);
 
@@ -58,6 +59,9 @@ export default function FacultyEventsPage() {
       setIsLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
+      if (session?.user?.user_metadata?.full_name) {
+        setUserName(session.user.user_metadata.full_name);
+      }
       const res = await apiGet<{ events: EventDetail[]; total: number }>('/api/v1/events', token);
       if (res && res.events) {
         setEvents(res.events);
@@ -117,7 +121,7 @@ export default function FacultyEventsPage() {
   });
 
   return (
-    <AppShell role="faculty" userName="Faculty">
+    <AppShell role="faculty" userName={userName}>
       <div className="p-4 sm:p-6 lg:p-8 space-y-8 max-w-7xl mx-auto">
         {/* Header */}
         <div className="bg-white p-6 rounded-3xl border border-sfrc-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
