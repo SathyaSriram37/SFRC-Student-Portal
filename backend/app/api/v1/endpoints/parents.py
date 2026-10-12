@@ -643,6 +643,11 @@ class WardBusStopItem(BaseModel):
     morning_pickup_time: str
     evening_drop_time: str
     landmark: Optional[str] = None
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    is_passed: bool = False
+    is_current: bool = False
+    is_ward_stop: bool = False
 
 
 class WardTransportResponse(BaseModel):
@@ -666,6 +671,17 @@ class WardTransportResponse(BaseModel):
     evening_arrival_terminus: Optional[str] = None
     valid_until: Optional[str] = None
     status: Optional[str] = None
+    current_latitude: Optional[float] = None
+    current_longitude: Optional[float] = None
+    speed_kmh: Optional[float] = None
+    heading_deg: Optional[float] = None
+    current_stop_name: Optional[str] = None
+    next_stop_name: Optional[str] = None
+    eta_to_ward_stop_minutes: Optional[int] = None
+    distance_km: Optional[float] = None
+    transit_status: Optional[str] = None
+    trip_direction: Optional[str] = None
+    last_ping_at: Optional[str] = None
     stops: List[WardBusStopItem] = []
 
 
@@ -713,59 +729,128 @@ async def get_ward_transport(
     if not w_row:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ward record not found.")
 
-    route_q = text("""
-        SELECT * FROM transport_routes
-        ORDER BY route_number ASC
+    # 1. Query allocation from transport_allocations
+    alloc_q = text("""
+        SELECT ta.*, tr.name as route_name, tr.route_number, tr.start_point, tr.destination,
+               tr.bus_registration, tr.driver_name, tr.driver_phone, tr.morning_departure,
+               tr.morning_arrival_sfrc, tr.evening_departure_sfrc, tr.evening_arrival_terminus,
+               tr.stops
+        FROM transport_allocations ta
+        JOIN transport_routes tr ON ta.route_id = tr.id
+        WHERE ta.user_id = :w_uid OR ta.user_id = :w_sid OR ta.pass_number LIKE :p_pat
         LIMIT 1
     """)
-    route_row = (await db.execute(route_q)).mappings().first()
+    alloc_row = (await db.execute(alloc_q, {
+        "w_uid": str(w_row["id"]),
+        "w_sid": str(w_row["register_number"]),
+        "p_pat": f"%{w_row['register_number']}%",
+    })).mappings().first()
 
-    import json
-    stops_list: List[WardBusStopItem] = []
-    if route_row and route_row.get("stops_json"):
+    if not alloc_row:
+        # Fallback to route 1 for day scholar
+        fallback_q = text("""
+            SELECT 'ta-ward' as id, :w_uid as user_id, 'student' as user_type, tr.id as route_id,
+                   'st-102' as boarding_stop_id, 'Coronation Colony' as boarding_stop_name,
+                   '14A (Window)' as seat_number, ('SFRC-BP-2026-' || :reg) as pass_number,
+                   'active' as status, 'May 31, 2027' as valid_until, '2025-2026' as academic_year,
+                   tr.name as route_name, tr.route_number, tr.start_point, tr.destination,
+                   tr.bus_registration, tr.driver_name, tr.driver_phone, tr.morning_departure,
+                   tr.morning_arrival_sfrc, tr.evening_departure_sfrc, tr.evening_arrival_terminus,
+                   tr.stops
+            FROM transport_routes tr
+            WHERE tr.id = 'rt-01'
+            LIMIT 1
+        """)
+        alloc_row = (await db.execute(fallback_q, {
+            "w_uid": str(w_row["id"]),
+            "reg": str(w_row["register_number"]),
+        })).mappings().first()
+
+    # 2. Query live telemetry
+    route_id = alloc_row["route_id"] if alloc_row else "rt-01"
+    telemetry_q = text("SELECT * FROM transport_live_tracking WHERE route_id = :rid")
+    t_row = (await db.execute(telemetry_q, {"rid": route_id})).mappings().first()
+
+    # 3. Parse stops and determine live status
+    raw_stops = []
+    if alloc_row and alloc_row.get("stops"):
         try:
-            raw_stops = json.loads(route_row["stops_json"])
-            for s in raw_stops:
-                stops_list.append(WardBusStopItem(
-                    id=str(s.get("id") or f"st-{s.get('stop_order', 1)}"),
-                    name=s.get("name", "Stop"),
-                    stop_order=int(s.get("stop_order", 1)),
-                    morning_pickup_time=s.get("morning_pickup_time", "08:15 AM"),
-                    evening_drop_time=s.get("evening_drop_time", "04:45 PM"),
-                    landmark=s.get("landmark"),
-                ))
+            import json
+            raw_stops = json.loads(alloc_row["stops"]) if isinstance(alloc_row["stops"], str) else alloc_row["stops"]
         except Exception:
-            pass
+            raw_stops = []
 
-    if not stops_list:
-        stops_list = [
-            WardBusStopItem(id="st-01", name="Sivakasi Bus Stand", stop_order=1, morning_pickup_time="08:15 AM", evening_drop_time="04:45 PM", landmark="Platform 2"),
-            WardBusStopItem(id="st-02", name="Coronation Colony", stop_order=2, morning_pickup_time="08:22 AM", evening_drop_time="04:38 PM", landmark="Signal Junction"),
-            WardBusStopItem(id="st-03", name="Thiruthangal Road Junction", stop_order=3, morning_pickup_time="08:30 AM", evening_drop_time="04:30 PM", landmark="Arch Corner"),
-            WardBusStopItem(id="st-04", name="SFRC Main Campus Terminal", stop_order=4, morning_pickup_time="08:45 AM", evening_drop_time="04:15 PM", landmark="Main Porch"),
-        ]
+    sorted_stops = sorted(raw_stops, key=lambda s: int(s.get("stop_order", 0)))
+    current_stop_name = t_row["current_stop_name"] if t_row else (sorted_stops[0].get("name") if sorted_stops else "Coronation Colony")
+    boarding_stop_name = alloc_row["boarding_stop_name"] if alloc_row else "Coronation Colony"
+
+    current_idx = 0
+    boarding_idx = 0
+    for idx, s in enumerate(sorted_stops):
+        if s.get("name") == current_stop_name:
+            current_idx = idx
+        if s.get("name") == boarding_stop_name or s.get("id") == alloc_row.get("boarding_stop_id"):
+            boarding_idx = idx
+
+    stops_diff = boarding_idx - current_idx
+    if stops_diff > 0:
+        eta_minutes = stops_diff * 4
+    elif stops_diff == 0:
+        eta_minutes = int(t_row["eta_next_stop_minutes"]) if t_row else 2
+    else:
+        eta_minutes = 0
+
+    stops_list: List[WardBusStopItem] = []
+    for idx, s in enumerate(sorted_stops):
+        s_order = int(s.get("stop_order") or (idx + 1))
+        stops_list.append(WardBusStopItem(
+            id=str(s.get("id") or f"st-{s_order}"),
+            name=s.get("name", f"Stop {s_order}"),
+            stop_order=s_order,
+            morning_pickup_time=s.get("morning_pickup_time", "08:20 AM"),
+            evening_drop_time=s.get("evening_drop_time", "04:40 PM"),
+            landmark=s.get("landmark"),
+            lat=float(s.get("lat")) if s.get("lat") else None,
+            lng=float(s.get("lng")) if s.get("lng") else None,
+            is_passed=(idx < current_idx),
+            is_current=(idx == current_idx),
+            is_ward_stop=(idx == boarding_idx),
+        ))
+
+    b_stop = next((s for s in sorted_stops if s.get("name") == boarding_stop_name), None)
 
     return WardTransportResponse(
         has_transport=True,
-        pass_number=f"BP-2026-{w_row['register_number'][-4:]}",
+        pass_number=alloc_row["pass_number"] if alloc_row else f"BP-2026-{w_row['register_number']}",
         student_name=w_row["full_name"],
         register_number=w_row["register_number"],
-        route_id=str(route_row["id"]) if route_row else "rt-04",
-        route_number=route_row["route_number"] if route_row else "Route 4",
-        route_name=route_row["name"] if route_row else "Sivakasi Town - College Express",
-        bus_registration=route_row["bus_registration"] if route_row else "TN 67 BB 1045",
-        driver_name=route_row["driver_name"] if route_row else "Mr. R. Kumar",
-        driver_phone=route_row["driver_phone"] if route_row else "+91 98421 11004",
-        boarding_stop="Coronation Colony",
-        seat_number="Seat 14A (Window)",
-        morning_pickup_time="08:22 AM",
-        evening_drop_time="04:38 PM",
-        morning_departure=route_row["morning_departure"] if route_row and "morning_departure" in route_row else "08:10 AM",
-        morning_arrival_sfrc=route_row["morning_arrival_sfrc"] if route_row and "morning_arrival_sfrc" in route_row else "08:45 AM",
-        evening_departure_sfrc=route_row["evening_departure_sfrc"] if route_row and "evening_departure_sfrc" in route_row else "04:15 PM",
-        evening_arrival_terminus=route_row["evening_arrival_terminus"] if route_row and "evening_arrival_terminus" in route_row else "04:50 PM",
-        valid_until="May 31, 2027",
+        route_id=str(route_id),
+        route_number=alloc_row["route_number"] if alloc_row else "Route 1",
+        route_name=alloc_row["route_name"] if alloc_row else "City Route",
+        bus_registration=alloc_row["bus_registration"] if alloc_row else "TN 67 BB 1042",
+        driver_name=alloc_row["driver_name"] if alloc_row else "Mr. M. Senthil",
+        driver_phone=alloc_row["driver_phone"] if alloc_row else "+91 98421 11001",
+        boarding_stop=boarding_stop_name,
+        seat_number=alloc_row["seat_number"] if alloc_row else "14A (Window)",
+        morning_pickup_time=b_stop.get("morning_pickup_time") if b_stop else "08:20 AM",
+        evening_drop_time=b_stop.get("evening_drop_time") if b_stop else "04:40 PM",
+        morning_departure=alloc_row["morning_departure"] if alloc_row else "08:15 AM",
+        morning_arrival_sfrc=alloc_row["morning_arrival_sfrc"] if alloc_row else "08:45 AM",
+        evening_departure_sfrc=alloc_row["evening_departure_sfrc"] if alloc_row else "04:15 PM",
+        evening_arrival_terminus=alloc_row["evening_arrival_terminus"] if alloc_row else "04:45 PM",
+        valid_until=alloc_row["valid_until"] if alloc_row else "May 31, 2027",
         status="Active",
+        current_latitude=float(t_row["current_latitude"]) if t_row else 9.4550,
+        current_longitude=float(t_row["current_longitude"]) if t_row else 77.8000,
+        speed_kmh=float(t_row["speed_kmh"]) if t_row else 36.5,
+        heading_deg=float(t_row["heading_deg"]) if t_row else 52.0,
+        current_stop_name=current_stop_name,
+        next_stop_name=t_row["next_stop_name"] if t_row else "Gandhi Nagar Corner",
+        eta_to_ward_stop_minutes=eta_minutes,
+        distance_km=float(t_row["distance_to_destination_km"]) if t_row else 4.8,
+        transit_status=t_row["transit_status"] if t_row else "in_transit",
+        trip_direction=t_row["trip_direction"] if t_row else "morning_to_campus",
+        last_ping_at=t_row["last_ping_at"] if t_row else datetime.now(timezone.utc).isoformat(),
         stops=stops_list,
     )
 

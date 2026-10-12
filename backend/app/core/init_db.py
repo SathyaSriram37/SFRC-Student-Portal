@@ -713,6 +713,41 @@ CREATE TABLE IF NOT EXISTS transport_routes (
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS transport_allocations (
+    id VARCHAR(100) PRIMARY KEY,
+    user_id VARCHAR(100) NOT NULL,
+    user_type VARCHAR(50) NOT NULL,
+    route_id VARCHAR(100) NOT NULL,
+    boarding_stop_id VARCHAR(100) NOT NULL,
+    boarding_stop_name VARCHAR(255) NOT NULL,
+    seat_number VARCHAR(50) NOT NULL,
+    pass_number VARCHAR(100) NOT NULL UNIQUE,
+    status VARCHAR(50) DEFAULT 'active',
+    valid_until VARCHAR(100) DEFAULT 'May 31, 2027',
+    academic_year VARCHAR(50) DEFAULT '2025-2026',
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS transport_live_tracking (
+    route_id VARCHAR(100) PRIMARY KEY,
+    bus_registration VARCHAR(100) NOT NULL,
+    current_latitude REAL NOT NULL,
+    current_longitude REAL NOT NULL,
+    speed_kmh REAL DEFAULT 35.0,
+    heading_deg REAL DEFAULT 45.0,
+    current_stop_id VARCHAR(100),
+    current_stop_name VARCHAR(255),
+    next_stop_id VARCHAR(100),
+    next_stop_name VARCHAR(255),
+    eta_next_stop_minutes INTEGER DEFAULT 4,
+    distance_to_destination_km REAL DEFAULT 5.2,
+    trip_direction VARCHAR(50) DEFAULT 'morning_to_campus',
+    transit_status VARCHAR(50) DEFAULT 'in_transit',
+    last_ping_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    is_delay_reported BOOLEAN DEFAULT 0,
+    delay_reason TEXT
+);
+
 CREATE TABLE IF NOT EXISTS pragya_knowledge_base (
     id VARCHAR(100) PRIMARY KEY,
     category VARCHAR(100) NOT NULL,

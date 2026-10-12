@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import {
   Bus,
@@ -14,6 +14,10 @@ import {
   AlertCircle,
   CheckCircle2,
   Users,
+  Gauge,
+  Radio,
+  RefreshCw,
+  Compass,
 } from 'lucide-react';
 import AppShell from '@/components/layout/AppShell';
 import AskPragyaBanner from '@/components/shared/AskPragyaBanner';
@@ -35,6 +39,11 @@ interface BusStopItem {
   morning_pickup_time: string;
   evening_drop_time: string;
   landmark?: string;
+  lat?: number;
+  lng?: number;
+  is_passed?: boolean;
+  is_current?: boolean;
+  is_ward_stop?: boolean;
 }
 
 interface WardTransportInfo {
@@ -58,6 +67,17 @@ interface WardTransportInfo {
   evening_arrival_terminus?: string;
   valid_until?: string;
   status?: string;
+  current_latitude?: number;
+  current_longitude?: number;
+  speed_kmh?: number;
+  heading_deg?: number;
+  current_stop_name?: string;
+  next_stop_name?: string;
+  eta_to_ward_stop_minutes?: number;
+  distance_km?: number;
+  transit_status?: string;
+  trip_direction?: string;
+  last_ping_at?: string;
   stops: BusStopItem[];
 }
 
@@ -66,40 +86,57 @@ export default function ParentTransportPage() {
   const [selectedWardId, setSelectedWardId] = useState<string | null>(null);
   const [transport, setTransport] = useState<WardTransportInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pulseTime, setPulseTime] = useState<string>('');
 
   const supabase = useMemo(() => createClient(), []);
 
-  useEffect(() => {
-    let ignore = false;
-    async function loadTransport() {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const token = session?.access_token;
+  const loadTransport = useCallback(async (isSync = false) => {
+    if (isSync) setIsRefreshing(true);
+    else setIsLoading(true);
+    setError(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
 
-        const wardList = await apiGet<WardItem[]>('/api/v1/parents/me/wards', token).catch(() => []);
-        if (!ignore) setWards(wardList);
+      const wardList = await apiGet<WardItem[]>('/api/v1/parents/me/wards', token).catch(() => []);
+      setWards(wardList);
 
-        const targetWardId = selectedWardId || (wardList.length > 0 ? wardList[0].student_id : null);
-        if (targetWardId) {
-          if (!ignore) setSelectedWardId(targetWardId);
-          const data = await apiGet<WardTransportInfo>(`/api/v1/parents/me/wards/${targetWardId}/transport`, token);
-          if (!ignore) setTransport(data);
-        }
-      } catch (err: unknown) {
-        console.error('Failed to load transport details:', err);
-        if (!ignore) setError('Unable to load bus route and transit schedule.');
-      } finally {
-        if (!ignore) setIsLoading(false);
+      const targetWardId = selectedWardId || (wardList.length > 0 ? wardList[0].student_id : null);
+      if (targetWardId) {
+        setSelectedWardId(targetWardId);
+        const data = await apiGet<WardTransportInfo>(`/api/v1/parents/me/wards/${targetWardId}/transport`, token);
+        setTransport(data);
       }
+    } catch (err: unknown) {
+      console.error('Failed to load transport details:', err);
+      setError('Unable to load bus route and transit schedule.');
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
     }
-    loadTransport();
-    return () => { ignore = true; };
   }, [selectedWardId, supabase]);
 
+  useEffect(() => {
+    loadTransport();
+    setPulseTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+    const interval = setInterval(() => {
+      loadTransport(true);
+      setPulseTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [loadTransport]);
+
   const selectedWard = wards.find((w) => w.student_id === selectedWardId) || wards[0];
+  const stops = transport?.stops || [];
+  const boardingStop = transport?.boarding_stop || 'Coronation Colony';
+
+  // Calculate progress percentage along route
+  const currentStopIndex = stops.findIndex((s) => s.is_current || s.name === transport?.current_stop_name);
+  const progressPct = stops.length > 1
+    ? Math.min(100, Math.max(10, Math.round(((currentStopIndex + 1) / stops.length) * 100)))
+    : 50;
 
   return (
     <AppShell role="parent" userName="Parent">
@@ -124,24 +161,37 @@ export default function ParentTransportPage() {
             </div>
           </div>
 
-          {wards.length > 1 && (
-            <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-sfrc-200">
-              {wards.map((w) => (
-                <button
-                  key={w.student_id}
-                  onClick={() => setSelectedWardId(w.student_id)}
-                  className={cn(
-                    'px-3 py-1.5 rounded-xl text-xs font-bold transition-all',
-                    selectedWardId === w.student_id
-                      ? 'bg-sfrc-700 text-white'
-                      : 'text-sfrc-700 hover:bg-sfrc-100'
-                  )}
-                >
-                  {w.full_name}
-                </button>
-              ))}
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            {wards.length > 1 && (
+              <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-sfrc-200">
+                {wards.map((w) => (
+                  <button
+                    key={w.student_id}
+                    onClick={() => setSelectedWardId(w.student_id)}
+                    className={cn(
+                      'px-3 py-1.5 rounded-xl text-xs font-bold transition-all',
+                      selectedWardId === w.student_id
+                        ? 'bg-sfrc-700 text-white'
+                        : 'text-sfrc-700 hover:bg-sfrc-100'
+                    )}
+                  >
+                    {w.full_name}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => loadTransport(true)}
+              disabled={isRefreshing}
+              className="p-2.5 rounded-2xl bg-white border border-sfrc-200 text-sfrc-700 hover:bg-sfrc-50 transition-all flex items-center gap-1.5 text-xs font-bold shadow-xs"
+              title="Refresh GPS Telemetry"
+            >
+              <RefreshCw className={cn('w-4 h-4', isRefreshing && 'animate-spin')} />
+              <span className="hidden sm:inline">Sync GPS</span>
+            </button>
+          </div>
         </div>
 
         {/* Live Operational Status Banner */}
@@ -153,26 +203,64 @@ export default function ParentTransportPage() {
                 Transit Active • Operating on Time
               </div>
               <h2 className="text-2xl font-black tracking-tight text-white">
-                {transport?.route_number || 'Route 4'} : {transport?.route_name || 'Sivakasi Town - College Express'}
+                {transport?.route_number || 'Route 1'} : {transport?.route_name || 'City Route'}
               </h2>
               <p className="text-emerald-100/90 text-xs max-w-xl">
-                Assigned Boarding Stop: <strong className="text-white">{transport?.boarding_stop || 'Coronation Colony'}</strong>.
-                Morning Pickup: <strong className="text-emerald-200">{transport?.morning_pickup_time || '08:22 AM'}</strong> • Evening Drop: <strong className="text-emerald-200">{transport?.evening_drop_time || '04:38 PM'}</strong>.
+                Assigned Boarding Stop: <strong className="text-white">{boardingStop}</strong>.
+                Morning Pickup: <strong className="text-emerald-200">{transport?.morning_pickup_time || '08:20 AM'}</strong> • Evening Drop: <strong className="text-emerald-200">{transport?.evening_drop_time || '04:40 PM'}</strong>.
               </p>
             </div>
 
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <div className="px-4 py-2.5 rounded-xl bg-white/10 border border-white/20 text-center">
+                <p className="text-[10px] text-emerald-200 font-bold uppercase tracking-wider flex items-center justify-center gap-1">
+                  <Gauge className="w-3 h-3 text-emerald-300" /> Live Speed
+                </p>
+                <p className="text-base font-black text-white">{transport?.speed_kmh ? `${transport.speed_kmh.toFixed(1)} km/h` : '36.5 km/h'}</p>
+              </div>
+
+              <div className="px-4 py-2.5 rounded-xl bg-white/10 border border-white/20 text-center">
+                <p className="text-[10px] text-emerald-200 font-bold uppercase tracking-wider flex items-center justify-center gap-1">
+                  <Clock className="w-3 h-3 text-amber-300" /> Ward Pickup ETA
+                </p>
+                <p className="text-base font-black text-emerald-300">
+                  {transport?.eta_to_ward_stop_minutes !== undefined ? `~${transport.eta_to_ward_stop_minutes} Mins` : '~4 Mins'}
+                </p>
+              </div>
+
               <a
-                href={`tel:${transport?.driver_phone || '+919842111004'}`}
+                href={`tel:${transport?.driver_phone || '+919842111001'}`}
                 className="px-4 py-2.5 rounded-xl bg-white text-emerald-950 font-bold text-xs flex items-center justify-center gap-2 hover:bg-emerald-50 transition-colors shadow-sm"
               >
                 <Phone className="w-4 h-4 text-emerald-700" />
-                Call Driver ({transport?.driver_name || 'Mr. R. Kumar'})
+                Call Driver ({transport?.driver_name || 'Mr. M. Senthil'})
               </a>
-              <div className="px-4 py-2 rounded-xl bg-white/10 border border-white/20 text-center">
-                <p className="text-[10px] text-emerald-200 font-bold uppercase tracking-wider">Bus Registration</p>
-                <p className="text-xs font-mono font-black text-white">{transport?.bus_registration || 'TN 67 BB 1045'}</p>
-              </div>
+            </div>
+          </div>
+
+          {/* Visual Route Progress Track */}
+          <div className="relative z-10 mt-6 pt-4 border-t border-white/10 space-y-2">
+            <div className="flex items-center justify-between text-xs font-semibold text-emerald-100">
+              <span className="flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-emerald-400" />
+                Current Bus Station: <strong className="text-white">{transport?.current_stop_name || 'Coronation Colony'}</strong>
+              </span>
+              <span className="text-emerald-300">
+                Next Station: <strong>{transport?.next_stop_name || 'Gandhi Nagar Corner'}</strong>
+              </span>
+            </div>
+
+            <div className="w-full bg-white/15 rounded-full h-2.5 overflow-hidden p-0.5">
+              <div
+                className="bg-gradient-to-r from-emerald-500 via-teal-400 to-sfrc-400 h-1.5 rounded-full transition-all duration-1000 ease-out"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+
+            <div className="flex items-center justify-between text-[11px] text-emerald-300">
+              <span>Bus Registration: <strong className="font-mono text-white">{transport?.bus_registration || 'TN 67 BB 1042'}</strong></span>
+              <span className="font-mono text-white/80">Satellite Ping: {pulseTime || 'Active'}</span>
+              <span>Arrival Terminal: {transport?.morning_arrival_sfrc || '08:45 AM'}</span>
             </div>
           </div>
         </div>
@@ -195,7 +283,7 @@ export default function ParentTransportPage() {
               <div className="mt-4 space-y-3.5 text-xs">
                 <div>
                   <p className="text-[11px] text-sfrc-500 font-bold uppercase">Pass Number</p>
-                  <p className="text-sm font-black font-mono text-sfrc-900 mt-0.5">{transport?.pass_number || 'BP-2026-A001'}</p>
+                  <p className="text-sm font-black font-mono text-sfrc-900 mt-0.5">{transport?.pass_number || 'SFRC-BP-2026-23UCA001'}</p>
                 </div>
                 <div>
                   <p className="text-[11px] text-sfrc-500 font-bold uppercase">Scholar Name</p>
@@ -208,8 +296,15 @@ export default function ParentTransportPage() {
                   </div>
                   <div>
                     <p className="text-[10px] text-sfrc-500 font-bold uppercase">Allocated Seat</p>
-                    <p className="font-bold text-sfrc-900">{transport?.seat_number || 'Seat 14A'}</p>
+                    <p className="font-bold text-sfrc-900">{transport?.seat_number || 'Seat 14A (Window)'}</p>
                   </div>
+                </div>
+                <div className="pt-2 border-t border-sfrc-100">
+                  <p className="text-[10px] text-sfrc-500 font-bold uppercase">Ward Boarding Stop</p>
+                  <p className="font-bold text-sfrc-900 text-sm flex items-center gap-1.5 mt-0.5">
+                    <MapPin className="w-4 h-4 text-amber-600" />
+                    {boardingStop}
+                  </p>
                 </div>
                 <div className="pt-2 border-t border-sfrc-100">
                   <p className="text-[10px] text-sfrc-500 font-bold uppercase">Validity Period</p>
@@ -218,106 +313,108 @@ export default function ParentTransportPage() {
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-sfrc-50 border border-sfrc-200/80 text-[11px] text-sfrc-600 space-y-1">
-              <p className="font-bold text-sfrc-800 flex items-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                Institutional Bus Safety Charter
+            <div className="p-4 rounded-2xl bg-sfrc-50 border border-sfrc-100 space-y-1">
+              <p className="text-xs font-bold text-sfrc-900">Safe Commute Guarantee</p>
+              <p className="text-[11px] text-sfrc-600">
+                Biometric onboard attendance logs automatically alert parents via SMS upon campus entry.
               </p>
-              <p>Every college vehicle features speed governors, first aid units, and verified staff.</p>
             </div>
           </div>
 
-          {/* Column 2: Live Route Stops & Timings Timeline */}
-          <div className="lg:col-span-2 bg-white rounded-3xl border border-sfrc-200 p-6 shadow-xs space-y-6">
-            <div className="flex items-center justify-between">
+          {/* Column 2 & 3: Interactive Route Stop Timeline */}
+          <div className="lg:col-span-2 bg-white rounded-3xl border border-sfrc-200 p-6 shadow-xs space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-sfrc-100">
               <div>
                 <h2 className="text-base font-black text-sfrc-900 flex items-center gap-2">
                   <Navigation className="w-5 h-5 text-sfrc-700" />
-                  Route Transit Stops & Boarding Timelines
+                  Live Route Stations & Transit Schedule
                 </h2>
-                <p className="text-xs text-sfrc-500 mt-0.5">
-                  Sequential scheduled timings for morning arrival and evening return
+                <p className="text-xs text-sfrc-600 mt-0.5">
+                  Live stop indicators updated via GPS beacon
                 </p>
               </div>
-              <span className="text-xs font-bold text-sfrc-700 bg-sfrc-100 px-3 py-1 rounded-xl">
-                {transport?.stops.length || 4} Stops
-              </span>
+              <div className="flex items-center gap-3 text-xs">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Passed
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping" /> Ward Stop
+                </span>
+              </div>
             </div>
 
-            {/* Timeline List */}
-            <div className="space-y-4 relative before:absolute before:inset-0 before:left-3.5 before:w-0.5 before:bg-sfrc-200">
-              {transport?.stops.map((stop, index) => {
-                const isWardStop = stop.name.toLowerCase().includes(transport.boarding_stop?.toLowerCase() || 'coronation');
+            {/* Stop Timeline */}
+            <div className="space-y-4">
+              {stops.map((stop, idx) => {
+                const isWardStop = stop.is_ward_stop || stop.name === boardingStop;
+                const isCurrent = stop.is_current || stop.name === transport?.current_stop_name;
+
                 return (
-                  <div key={stop.id} className="relative flex items-start gap-4 pl-2">
-                    <div
-                      className={cn(
-                        'w-4 h-4 rounded-full mt-1.5 border-2 shrink-0 z-10 transition-all',
-                        isWardStop
-                          ? 'bg-emerald-600 border-white ring-4 ring-emerald-200'
-                          : 'bg-white border-sfrc-400'
-                      )}
-                    />
-                    <div
-                      className={cn(
-                        'flex-1 p-4 rounded-2xl border transition-all',
-                        isWardStop
-                          ? 'bg-emerald-50/70 border-emerald-300 shadow-xs'
-                          : 'bg-sfrc-surface/50 border-sfrc-200'
-                      )}
-                    >
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="text-xs font-bold text-sfrc-900">{stop.name}</h3>
-                            {isWardStop && (
-                              <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-emerald-600 text-white">
-                                Ward Boarding Stop
-                              </span>
-                            )}
-                          </div>
-                          {stop.landmark && (
-                            <p className="text-[11px] text-sfrc-500 mt-0.5 flex items-center gap-1">
-                              <MapPin className="w-3 h-3 text-sfrc-400" />
-                              {stop.landmark}
-                            </p>
+                  <div
+                    key={stop.id || idx}
+                    className={cn(
+                      'p-4 rounded-2xl border transition-all flex items-center justify-between gap-4',
+                      isWardStop
+                        ? 'border-amber-400 bg-amber-50/50 shadow-xs ring-2 ring-amber-400/20'
+                        : isCurrent
+                        ? 'border-emerald-500 bg-emerald-50/40 shadow-xs'
+                        : 'border-sfrc-100 hover:border-sfrc-200 bg-white'
+                    )}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className={cn(
+                          'w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black shrink-0',
+                          stop.is_passed
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : isCurrent
+                            ? 'bg-emerald-600 text-white animate-pulse'
+                            : isWardStop
+                            ? 'bg-amber-500 text-white'
+                            : 'bg-sfrc-100 text-sfrc-700'
+                        )}
+                      >
+                        {stop.is_passed ? (
+                          <CheckCircle2 className="w-4 h-4" />
+                        ) : (
+                          stop.stop_order || idx + 1
+                        )}
+                      </div>
+
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-xs font-bold text-sfrc-900 truncate">{stop.name}</h3>
+                          {isWardStop && (
+                            <span className="px-2 py-0.5 rounded-md bg-amber-500 text-white text-[10px] font-black uppercase tracking-wider shrink-0">
+                              Ward Stop
+                            </span>
+                          )}
+                          {isCurrent && (
+                            <span className="px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider shrink-0">
+                              Bus Here Now
+                            </span>
                           )}
                         </div>
-
-                        <div className="flex items-center gap-4 text-xs font-mono">
-                          <div className="text-right">
-                            <span className="text-[10px] text-sfrc-400 font-sans block uppercase">Morning Pickup</span>
-                            <span className="font-bold text-sfrc-800">{stop.morning_pickup_time}</span>
-                          </div>
-                          <div className="text-right">
-                            <span className="text-[10px] text-sfrc-400 font-sans block uppercase">Evening Drop</span>
-                            <span className="font-bold text-sfrc-800">{stop.evening_drop_time}</span>
-                          </div>
-                        </div>
+                        {stop.landmark && (
+                          <p className="text-[11px] text-sfrc-500 mt-0.5 truncate">Landmark: {stop.landmark}</p>
+                        )}
                       </div>
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <div className="text-xs font-bold text-sfrc-900 flex items-center justify-end gap-1">
+                        <Clock className="w-3 h-3 text-sfrc-500" />
+                        {stop.morning_pickup_time}
+                      </div>
+                      <p className="text-[10px] text-sfrc-500 mt-0.5">Return: {stop.evening_drop_time}</p>
                     </div>
                   </div>
                 );
               })}
             </div>
-
-            {/* Helpline Advisory Box */}
-            <div className="p-4 rounded-2xl bg-sfrc-50 border border-sfrc-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="text-xs text-sfrc-700">
-                <p className="font-bold">Transportation Inquiries & Helpdesk</p>
-                <p className="text-[11px] text-sfrc-500">Contact Transport In-Charge for route changes, seasonal passes, or stop updates.</p>
-              </div>
-              <a
-                href="tel:+914562220389"
-                className="px-3.5 py-1.5 rounded-xl bg-sfrc-800 hover:bg-sfrc-900 text-white text-xs font-bold transition-colors shrink-0 text-center"
-              >
-                Call Transport Desk
-              </a>
-            </div>
           </div>
         </div>
 
-        {/* Pragya AI Integration */}
         <AskPragyaBanner />
       </div>
     </AppShell>

@@ -4549,6 +4549,87 @@ INSERT INTO "timetables" VALUES('55db30cf-3911-4a65-add9-d958b2c051cc','c-cs-22u
 INSERT INTO "timetables" VALUES('ed233f1a-0dc4-4d56-a921-2c03ac45bd91','c-cs-22ucsc61','9e2632d7-7154-4253-b12d-98e6b2817f12','8f09adbb-f2de-4d4e-9086-fb09dc5df59c',7,1,'9:30 AM','10:30 AM','CS Lab 1',4,'2026-10-11 14:03:02');
 INSERT INTO "timetables" VALUES('971d76c1-bafa-45d9-a078-956be5eb18b2','c-cs-22pcsc21','c1b28a7d-90d8-4557-86cd-9ae767df83bd','8f09adbb-f2de-4d4e-9086-fb09dc5df59c',7,2,'10:30 AM','11:30 AM','CS Lab 2',4,'2026-10-11 14:03:02');
 INSERT INTO "timetables" VALUES('f55a0679-a38e-4237-adc4-a2e14df12c29','c-cs-22ucsc41','9e2632d7-7154-4253-b12d-98e6b2817f12','8f09adbb-f2de-4d4e-9086-fb09dc5df59c',7,3,'11:30 AM','12:30 AM','CS Lab 3',4,'2026-10-11 14:03:02');
+CREATE TABLE transport_allocations (
+    id VARCHAR(100) PRIMARY KEY,
+    user_id VARCHAR(100) NOT NULL,
+    user_type VARCHAR(50) NOT NULL, -- 'student' or 'faculty'
+    route_id VARCHAR(100) NOT NULL,
+    boarding_stop_id VARCHAR(100) NOT NULL,
+    boarding_stop_name VARCHAR(255) NOT NULL,
+    seat_number VARCHAR(50) NOT NULL,
+    pass_number VARCHAR(100) NOT NULL UNIQUE,
+    status VARCHAR(50) DEFAULT 'active',
+    valid_until VARCHAR(100) DEFAULT 'May 31, 2027',
+    academic_year VARCHAR(50) DEFAULT '2025-2026',
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (route_id) REFERENCES transport_routes(id),
+    FOREIGN KEY (user_id) REFERENCES user_profiles(id)
+);
+INSERT INTO "transport_allocations" VALUES('ta-priya-01','f8a022cb-a8d0-49af-b66d-cbf832d4f01f','student','rt-01','st-102','Coronation Colony','14A (Window)','SFRC-BP-2026-23UCA001','active','May 31, 2027','2025-2026','2026-10-12 08:57:07');
+INSERT INTO "transport_allocations" VALUES('ta-stu-001','43f4a04f-cc25-4163-823a-44009ef620fc','student','rt-01','st-101','Sivakasi Old Bus Stand','04B','SFRC-BP-2026-24HARISHMA-UGDS','active','May 31, 2027','2025-2026','2026-10-12 08:57:07');
+INSERT INTO "transport_allocations" VALUES('ta-stu-003','stu-p8-33e022','student','rt-03','st-104','NRKR Road Junction','12B','SFRC-BP-2026-24P8242B','active','May 31, 2027','2025-2026','2026-10-12 08:57:07');
+INSERT INTO "transport_allocations" VALUES('ta-stu-004','stu-p8-8718db','student','rt-04','st-105','Railway Feeder Road','16A','SFRC-BP-2026-24P8B704','active','May 31, 2027','2025-2026','2026-10-12 08:57:07');
+INSERT INTO "transport_allocations" VALUES('ta-stu-005','stu-p8-1a78cc','student','rt-01','st-106','Viswanatham Road','21A','SFRC-BP-2026-24P8EFAD','active','May 31, 2027','2025-2026','2026-10-12 08:57:07');
+INSERT INTO "transport_allocations" VALUES('ta-stu-006','stu-p8-7b2442','student','rt-02','st-101','Sivakasi Old Bus Stand','04B','SFRC-BP-2026-24P887CE','active','May 31, 2027','2025-2026','2026-10-12 08:57:07');
+INSERT INTO "transport_allocations" VALUES('ta-stu-007','e2f2cce7-f917-4334-a803-2859170e88f9','student','rt-03','st-103','Gandhi Nagar Corner','09A','SFRC-BP-2026-26UCA001','active','May 31, 2027','2025-2026','2026-10-12 08:57:07');
+INSERT INTO "transport_allocations" VALUES('ta-stu-008','stu-p8-fe7840','student','rt-04','st-104','NRKR Road Junction','12B','SFRC-BP-2026-24P8B5D2','active','May 31, 2027','2025-2026','2026-10-12 08:57:07');
+INSERT INTO "transport_allocations" VALUES('ta-stu-009','stu-p8-5a1d5a','student','rt-01','st-105','Railway Feeder Road','16A','SFRC-BP-2026-24P84306','active','May 31, 2027','2025-2026','2026-10-12 08:57:07');
+INSERT INTO "transport_allocations" VALUES('ta-stu-010','0c79d2f5-d208-4dc1-8737-f270915371ff','student','rt-02','st-106','Viswanatham Road','21A','SFRC-BP-2026-21UQ003','active','May 31, 2027','2025-2026','2026-10-12 08:57:07');
+INSERT INTO "transport_allocations" VALUES('ta-stu-011','stu-p8-e1ef8a','student','rt-03','st-101','Sivakasi Old Bus Stand','04B','SFRC-BP-2026-24P886E0','active','May 31, 2027','2025-2026','2026-10-12 08:57:07');
+INSERT INTO "transport_allocations" VALUES('ta-stu-012','stu-p8-4098bc','student','rt-04','st-103','Gandhi Nagar Corner','09A','SFRC-BP-2026-24P85905','active','May 31, 2027','2025-2026','2026-10-12 08:57:07');
+INSERT INTO "transport_allocations" VALUES('ta-stu-013','stu-p8-0a37e1','student','rt-01','st-104','NRKR Road Junction','12B','SFRC-BP-2026-24P81259','active','May 31, 2027','2025-2026','2026-10-12 08:57:07');
+INSERT INTO "transport_allocations" VALUES('ta-stu-014','stu-p8-eec2d9','student','rt-02','st-105','Railway Feeder Road','16A','SFRC-BP-2026-24P82C85','active','May 31, 2027','2025-2026','2026-10-12 08:57:07');
+INSERT INTO "transport_allocations" VALUES('ta-stu-015','stu-p8-06b030','student','rt-03','st-106','Viswanatham Road','21A','SFRC-BP-2026-24P807E0','active','May 31, 2027','2025-2026','2026-10-12 08:57:07');
+INSERT INTO "transport_allocations" VALUES('ta-stu-016','171bdfba-4694-43dc-9eba-718f781921ea','student','rt-04','st-101','Sivakasi Old Bus Stand','04B','SFRC-BP-2026-26UCA998','active','May 31, 2027','2025-2026','2026-10-12 08:57:07');
+INSERT INTO "transport_allocations" VALUES('ta-stu-017','00000000-0000-0000-0000-000000000001','student','rt-01','st-103','Gandhi Nagar Corner','09A','SFRC-BP-2026-21UCSC01','active','May 31, 2027','2025-2026','2026-10-12 08:57:07');
+INSERT INTO "transport_allocations" VALUES('ta-stu-018','stu-phase6-92459a','student','rt-02','st-104','NRKR Road Junction','12B','SFRC-BP-2026-24UCS9245','active','May 31, 2027','2025-2026','2026-10-12 08:57:07');
+INSERT INTO "transport_allocations" VALUES('ta-stu-019','stu-phase6-a2003a','student','rt-03','st-105','Railway Feeder Road','16A','SFRC-BP-2026-24UCSA200','active','May 31, 2027','2025-2026','2026-10-12 08:57:07');
+INSERT INTO "transport_allocations" VALUES('ta-stu-020','stu-phase6-d88c27','student','rt-04','st-106','Viswanatham Road','21A','SFRC-BP-2026-24UCSD88C','active','May 31, 2027','2025-2026','2026-10-12 08:57:07');
+INSERT INTO "transport_allocations" VALUES('ta-stu-021','stu-phase6-03335b','student','rt-01','st-101','Sivakasi Old Bus Stand','04B','SFRC-BP-2026-24UCS0333','active','May 31, 2027','2025-2026','2026-10-12 08:57:07');
+INSERT INTO "transport_allocations" VALUES('ta-stu-022','stu-phase6-4f3a83','student','rt-02','st-103','Gandhi Nagar Corner','09A','SFRC-BP-2026-24UCS4F3A','active','May 31, 2027','2025-2026','2026-10-12 08:57:07');
+INSERT INTO "transport_allocations" VALUES('ta-stu-023','stu-phase6-64ecb7','student','rt-03','st-104','NRKR Road Junction','12B','SFRC-BP-2026-24UCS64EC','active','May 31, 2027','2025-2026','2026-10-12 08:57:07');
+INSERT INTO "transport_allocations" VALUES('ta-stu-024','stu-phase6-531b6e','student','rt-04','st-105','Railway Feeder Road','16A','SFRC-BP-2026-24UCS531B','active','May 31, 2027','2025-2026','2026-10-12 08:57:07');
+INSERT INTO "transport_allocations" VALUES('ta-stu-025','stu-phase6-a3d640','student','rt-01','st-106','Viswanatham Road','21A','SFRC-BP-2026-24UCSA3D6','active','May 31, 2027','2025-2026','2026-10-12 08:57:07');
+INSERT INTO "transport_allocations" VALUES('ta-stu-026','stu-phase6-28e486','student','rt-02','st-101','Sivakasi Old Bus Stand','04B','SFRC-BP-2026-24UCS28E4','active','May 31, 2027','2025-2026','2026-10-12 08:57:07');
+INSERT INTO "transport_allocations" VALUES('ta-stu-027','stu-phase6-527604','student','rt-03','st-103','Gandhi Nagar Corner','09A','SFRC-BP-2026-24UCS5276','active','May 31, 2027','2025-2026','2026-10-12 08:57:07');
+INSERT INTO "transport_allocations" VALUES('ta-stu-028','stu-phase6-0a2c94','student','rt-04','st-104','NRKR Road Junction','12B','SFRC-BP-2026-24UCS0A2C','active','May 31, 2027','2025-2026','2026-10-12 08:57:07');
+INSERT INTO "transport_allocations" VALUES('ta-fac-001','fac-phase6-e7a0d7','faculty','rt-05','st-501','Virudhunagar Collectorate','01A (Faculty Row)','SFRC-FP-2026-EMP-4aae7d','active','May 31, 2027','2025-2026','2026-10-12 08:57:07');
+INSERT INTO "transport_allocations" VALUES('ta-fac-002','fac-phase6-97e6fc','faculty','rt-05','st-502','Virudhunagar Old Bus Stand','02A (Faculty Row)','SFRC-FP-2026-EMP-919d60','active','May 31, 2027','2025-2026','2026-10-12 08:57:07');
+INSERT INTO "transport_allocations" VALUES('ta-fac-003','fac-phase6-a3a648','faculty','rt-05','st-503','Amathur','03A (Faculty Row)','SFRC-FP-2026-EMP-f0b52b','active','May 31, 2027','2025-2026','2026-10-12 08:57:07');
+INSERT INTO "transport_allocations" VALUES('ta-fac-004','fac-phase6-1c4ed1','faculty','rt-05','st-501','Virudhunagar Collectorate','01A (Faculty Row)','SFRC-FP-2026-EMP-0c11cb','active','May 31, 2027','2025-2026','2026-10-12 08:57:07');
+INSERT INTO "transport_allocations" VALUES('ta-fac-005','fac-phase6-9ca199','faculty','rt-05','st-502','Virudhunagar Old Bus Stand','02A (Faculty Row)','SFRC-FP-2026-EMP-8d8cdd','active','May 31, 2027','2025-2026','2026-10-12 08:57:07');
+INSERT INTO "transport_allocations" VALUES('ta-fac-006','fac-phase6-41f229','faculty','rt-05','st-503','Amathur','03A (Faculty Row)','SFRC-FP-2026-EMP-0b00c5','active','May 31, 2027','2025-2026','2026-10-12 08:57:07');
+INSERT INTO "transport_allocations" VALUES('ta-fac-007','fac-phase6-9a05d9','faculty','rt-05','st-501','Virudhunagar Collectorate','01A (Faculty Row)','SFRC-FP-2026-EMP-bfbd53','active','May 31, 2027','2025-2026','2026-10-12 08:57:07');
+INSERT INTO "transport_allocations" VALUES('ta-fac-008','fac-phase6-c7affc','faculty','rt-05','st-502','Virudhunagar Old Bus Stand','02A (Faculty Row)','SFRC-FP-2026-EMP-fbbbbb','active','May 31, 2027','2025-2026','2026-10-12 08:57:07');
+INSERT INTO "transport_allocations" VALUES('ta-fac-009','fac-phase6-b0f559','faculty','rt-05','st-503','Amathur','03A (Faculty Row)','SFRC-FP-2026-EMP-32f6b4','active','May 31, 2027','2025-2026','2026-10-12 08:57:07');
+INSERT INTO "transport_allocations" VALUES('ta-fac-010','fac-phase6-69a259','faculty','rt-05','st-501','Virudhunagar Collectorate','01A (Faculty Row)','SFRC-FP-2026-EMP-383e4b','active','May 31, 2027','2025-2026','2026-10-12 08:57:07');
+INSERT INTO "transport_allocations" VALUES('ta-fac-011','fac-phase6-33cf6a','faculty','rt-05','st-502','Virudhunagar Old Bus Stand','02A (Faculty Row)','SFRC-FP-2026-EMP-2b3d3e','active','May 31, 2027','2025-2026','2026-10-12 08:57:07');
+INSERT INTO "transport_allocations" VALUES('ta-fac-012','e4f1a0a2-b915-45c2-8de5-5c92784f80b1','faculty','rt-05','st-503','Amathur','03A (Faculty Row)','SFRC-FP-2026-FAC088','active','May 31, 2027','2025-2026','2026-10-12 08:57:07');
+CREATE TABLE transport_live_tracking (
+    route_id VARCHAR(100) PRIMARY KEY,
+    bus_registration VARCHAR(100) NOT NULL,
+    current_latitude REAL NOT NULL,
+    current_longitude REAL NOT NULL,
+    speed_kmh REAL DEFAULT 35.0,
+    heading_deg REAL DEFAULT 45.0,
+    current_stop_id VARCHAR(100),
+    current_stop_name VARCHAR(255),
+    next_stop_id VARCHAR(100),
+    next_stop_name VARCHAR(255),
+    eta_next_stop_minutes INTEGER DEFAULT 4,
+    distance_to_destination_km REAL DEFAULT 5.2,
+    trip_direction VARCHAR(50) DEFAULT 'morning_to_campus',
+    transit_status VARCHAR(50) DEFAULT 'in_transit',
+    last_ping_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    is_delay_reported BOOLEAN DEFAULT 0,
+    delay_reason TEXT,
+    FOREIGN KEY (route_id) REFERENCES transport_routes(id)
+);
+INSERT INTO "transport_live_tracking" VALUES('rt-01','TN 67 BB 1042',9.455,77.8,36.5,52.0,'st-102','Coronation Colony','st-103','Gandhi Nagar Corner',4,4.8,'morning_to_campus','approaching_stop','2026-10-12T08:57:07.148610+00:00',0,NULL);
+INSERT INTO "transport_live_tracking" VALUES('rt-02','TN 67 BB 1043',9.475,77.809,41.0,180.0,'st-202','Thiruthangal Bus Stand','st-203','Sengamalanagar',5,5.1,'morning_to_campus','in_transit','2026-10-12T08:57:07.148610+00:00',0,NULL);
+INSERT INTO "transport_live_tracking" VALUES('rt-03','TN 67 BB 1044',9.385,77.89,44.0,315.0,'st-302','Sattur Four Road','st-303','Nalli Junction',7,9.4,'morning_to_campus','in_transit','2026-10-12T08:57:07.148610+00:00',0,NULL);
+INSERT INTO "transport_live_tracking" VALUES('rt-04','TN 67 BB 1045',9.395,77.785,32.0,40.0,'st-402','Alangulam Arch','st-403','Thayilpatti',6,6.8,'morning_to_campus','in_transit','2026-10-12T08:57:07.148610+00:00',0,NULL);
+INSERT INTO "transport_live_tracking" VALUES('rt-05','TN 67 BB 1046',9.54,77.91,38.0,220.0,'st-502','Virudhunagar Old Bus Stand','st-503','Amathur',8,11.2,'morning_to_campus','in_transit','2026-10-12T08:57:07.148610+00:00',0,NULL);
 CREATE TABLE transport_routes (
     id VARCHAR(100) PRIMARY KEY,
     route_number VARCHAR(100) NOT NULL,

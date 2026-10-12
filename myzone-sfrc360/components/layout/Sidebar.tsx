@@ -58,6 +58,7 @@ const navByRole: Record<UserRole, NavItem[]> = {
     { label: 'Library', href: '/student/library', icon: Library, capability: 'library:search' },
     { label: 'Hostel', href: '/student/hostel', icon: Home, capability: 'courses:view' },
     { label: 'Facilities', href: '/student/facilities', icon: Building2 },
+    { label: 'Bus Tracking', href: '/student/transport', icon: Bus },
     { label: 'Sports & Athletics', href: '/student/sports', icon: Award },
     { label: 'Campus Care', href: '/student/campus-care', icon: LifeBuoy, capability: 'complaints:create' },
     { label: 'Events', href: '/student/events', icon: Calendar, capability: 'events:view' },
@@ -81,6 +82,7 @@ const navByRole: Record<UserRole, NavItem[]> = {
     { label: 'Events', href: '/faculty/events', icon: Calendar, capability: 'events:create' },
     { label: 'Research', href: '/faculty/research', icon: FlaskConical },
     { label: 'Facilities', href: '/faculty/facilities', icon: Building2 },
+    { label: 'Bus Tracking', href: '/faculty/transport', icon: Bus },
     { label: 'Pragya AI', href: '#pragya', icon: Sparkles, isPragya: true },
   ],
   parent: [

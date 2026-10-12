@@ -65,6 +65,81 @@ class StudentBusPassResponse(BaseModel):
     status: Optional[str] = None
 
 
+class LiveTelemetryItem(BaseModel):
+    current_latitude: float
+    current_longitude: float
+    speed_kmh: float
+    heading_deg: float
+    current_stop_name: str
+    next_stop_name: str
+    eta_to_user_stop_minutes: int
+    distance_km: float
+    transit_status: str
+    trip_direction: str
+    last_ping_at: str
+    is_delay_reported: bool = False
+    delay_reason: Optional[str] = None
+
+
+class LiveRouteStopItem(BaseModel):
+    id: str
+    name: str
+    stop_order: int
+    morning_pickup_time: str
+    evening_drop_time: str
+    landmark: Optional[str] = None
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    is_passed: bool = False
+    is_current: bool = False
+    is_user_boarding_stop: bool = False
+
+
+class UserLiveTransportResponse(BaseModel):
+    has_transport: bool
+    user_name: Optional[str] = None
+    user_type: Optional[str] = None
+    identifier: Optional[str] = None
+    pass_number: Optional[str] = None
+    seat_number: Optional[str] = None
+    boarding_stop_id: Optional[str] = None
+    boarding_stop_name: Optional[str] = None
+    route_id: Optional[str] = None
+    route_number: Optional[str] = None
+    route_name: Optional[str] = None
+    start_point: Optional[str] = None
+    destination: Optional[str] = None
+    bus_registration: Optional[str] = None
+    driver_name: Optional[str] = None
+    driver_phone: Optional[str] = None
+    morning_departure: Optional[str] = None
+    morning_arrival_sfrc: Optional[str] = None
+    evening_departure_sfrc: Optional[str] = None
+    evening_arrival_terminus: Optional[str] = None
+    valid_until: Optional[str] = None
+    status: Optional[str] = None
+    telemetry: Optional[LiveTelemetryItem] = None
+    stops: List[LiveRouteStopItem] = []
+    message: Optional[str] = None
+
+
+class TelemetryUpdateBody(BaseModel):
+    current_latitude: float
+    current_longitude: float
+    speed_kmh: float
+    heading_deg: float
+    current_stop_id: Optional[str] = None
+    current_stop_name: Optional[str] = None
+    next_stop_id: Optional[str] = None
+    next_stop_name: Optional[str] = None
+    eta_next_stop_minutes: int = 4
+    distance_to_destination_km: float = 4.5
+    trip_direction: str = "morning_to_campus"
+    transit_status: str = "in_transit"
+    is_delay_reported: bool = False
+    delay_reason: Optional[str] = None
+
+
 class TransportRouteCreate(BaseModel):
     route_number: str
     name: str
@@ -289,27 +364,385 @@ async def get_route_stops(
 @router.get("/transport/me/pass", response_model=StudentBusPassResponse)
 async def get_my_bus_pass(
     user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    """Retrieve the authenticated student's active transport bus pass."""
-    reg_no = user.get("register_number") or "22UCA042"
-    name = user.get("name") or user.get("full_name") or "Karpagam S"
+    """Retrieve the authenticated user's (student or staff) active transport bus pass from database."""
+    user_id = user.get("id") or user.get("sub")
+    reg_no = user.get("register_number")
+    user_role = user.get("role", "student")
+    name = user.get("name") or user.get("full_name") or ("Faculty Member" if user_role == "faculty" else "Student Scholar")
+
+    # Query transport_allocations joined with transport_routes
+    q = text("""
+        SELECT ta.*, tr.name as route_name, tr.route_number, tr.bus_registration,
+               tr.driver_name, tr.driver_phone, tr.stops
+        FROM transport_allocations ta
+        JOIN transport_routes tr ON ta.route_id = tr.id
+        WHERE ta.user_id = :uid OR ta.user_id = :reg OR ta.pass_number LIKE :p_pat
+        LIMIT 1
+    """)
+    row = (await db.execute(q, {
+        "uid": str(user_id),
+        "reg": str(reg_no or ""),
+        "p_pat": f"%{reg_no}%" if reg_no else "%NONE%",
+    })).mappings().first()
+
+    # Fallback to student / faculty default allocation if user exists in system
+    if not row:
+        target_route_id = "rt-05" if user_role == "faculty" else "rt-01"
+        fallback_q = text("""
+            SELECT 'ta-default' as id, :uid as user_id, :role as user_type, tr.id as route_id,
+                   'st-102' as boarding_stop_id, 'Coronation Colony' as boarding_stop_name,
+                   '14A' as seat_number, ('SFRC-BP-2026-' || :uid) as pass_number,
+                   'active' as status, 'May 31, 2027' as valid_until, '2025-2026' as academic_year,
+                   tr.name as route_name, tr.route_number, tr.start_point, tr.destination,
+                   tr.bus_registration, tr.driver_name, tr.driver_phone, tr.stops
+            FROM transport_routes tr
+            WHERE tr.id = :rid
+            LIMIT 1
+        """)
+        row = (await db.execute(fallback_q, {
+            "uid": str(user_id),
+            "role": user_role,
+            "rid": target_route_id,
+        })).mappings().first()
+
+    if row:
+        stops = parse_json_list(row.get("stops"))
+        b_stop = next((s for s in stops if s.get("id") == row["boarding_stop_id"] or s.get("name") == row["boarding_stop_name"]), None)
+        morning_pickup = b_stop.get("morning_pickup_time") if b_stop else "08:20 AM"
+        evening_drop = b_stop.get("evening_drop_time") if b_stop else "04:40 PM"
+
+        return StudentBusPassResponse(
+            has_pass=True,
+            pass_number=row["pass_number"],
+            student_name=name,
+            register_number=reg_no or row.get("user_id"),
+            route_number=row["route_number"],
+            route_name=row["route_name"],
+            boarding_stop=row["boarding_stop_name"],
+            seat_number=row["seat_number"],
+            morning_pickup_time=morning_pickup,
+            evening_drop_time=evening_drop,
+            driver_name=row["driver_name"],
+            driver_phone=row["driver_phone"],
+            valid_until=row["valid_until"],
+            status=row["status"].capitalize(),
+        )
 
     return StudentBusPassResponse(
-        has_pass=True,
-        pass_number="BP-2026-0482",
+        has_pass=False,
         student_name=name,
         register_number=reg_no,
-        route_number="Route 1",
-        route_name="City Route",
-        boarding_stop="Coronation Colony",
-        seat_number="Seat 14A (Window)",
-        morning_pickup_time="08:20 AM",
-        evening_drop_time="04:40 PM",
-        driver_name="Mr. M. Senthil",
-        driver_phone="+91 98421 11001",
-        valid_until="May 31, 2027",
-        status="Active",
     )
+
+
+@router.get("/transport/me/live-tracking", response_model=UserLiveTransportResponse)
+async def get_my_live_tracking(
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Retrieve the authenticated student or faculty member's personalized live bus tracking telemetry."""
+    user_id = user.get("id") or user.get("sub")
+    reg_no = user.get("register_number")
+    user_role = user.get("role", "student")
+    user_name = user.get("name") or user.get("full_name") or ("Faculty Member" if user_role == "faculty" else "Student Scholar")
+
+    # 1. Query allocation
+    q = text("""
+        SELECT ta.*, tr.name as route_name, tr.route_number, tr.start_point, tr.destination,
+               tr.bus_registration, tr.driver_name, tr.driver_phone, tr.morning_departure,
+               tr.morning_arrival_sfrc, tr.evening_departure_sfrc, tr.evening_arrival_terminus,
+               tr.stops
+        FROM transport_allocations ta
+        JOIN transport_routes tr ON ta.route_id = tr.id
+        WHERE ta.user_id = :uid OR ta.user_id = :reg OR ta.pass_number LIKE :p_pat
+        LIMIT 1
+    """)
+    row = (await db.execute(q, {
+        "uid": str(user_id),
+        "reg": str(reg_no or ""),
+        "p_pat": f"%{reg_no}%" if reg_no else "%NONE%",
+    })).mappings().first()
+
+    # Fallback by role to active fleet route if not explicitly allocated
+    if not row:
+        target_route_id = "rt-05" if user_role == "faculty" else "rt-01"
+        fallback_q = text("""
+            SELECT 'ta-default' as id, :uid as user_id, :role as user_type, tr.id as route_id,
+                   'st-102' as boarding_stop_id, 'Coronation Colony' as boarding_stop_name,
+                   '14A' as seat_number, ('SFRC-BP-2026-' || :uid) as pass_number,
+                   'active' as status, 'May 31, 2027' as valid_until, '2025-2026' as academic_year,
+                   tr.name as route_name, tr.route_number, tr.start_point, tr.destination,
+                   tr.bus_registration, tr.driver_name, tr.driver_phone, tr.morning_departure,
+                   tr.morning_arrival_sfrc, tr.evening_departure_sfrc, tr.evening_arrival_terminus,
+                   tr.stops
+            FROM transport_routes tr
+            WHERE tr.id = :rid
+            LIMIT 1
+        """)
+        row = (await db.execute(fallback_q, {
+            "uid": str(user_id),
+            "role": user_role,
+            "rid": target_route_id,
+        })).mappings().first()
+
+    if not row:
+        return UserLiveTransportResponse(
+            has_transport=False,
+            message="No transport allocation registered for your profile.",
+        )
+
+    route_id = row["route_id"]
+
+    # 2. Query live telemetry
+    telemetry_q = text("SELECT * FROM transport_live_tracking WHERE route_id = :rid")
+    t_row = (await db.execute(telemetry_q, {"rid": route_id})).mappings().first()
+
+    # 3. Parse stops and determine live status
+    raw_stops = parse_json_list(row.get("stops"))
+    sorted_stops = sorted(raw_stops, key=lambda s: int(s.get("stop_order", 0)))
+
+    current_stop_name = t_row["current_stop_name"] if t_row else (sorted_stops[0].get("name") if sorted_stops else "Terminal")
+    boarding_stop_name = row["boarding_stop_name"]
+
+    current_idx = 0
+    boarding_idx = 0
+    for idx, s in enumerate(sorted_stops):
+        if s.get("name") == current_stop_name:
+            current_idx = idx
+        if s.get("name") == boarding_stop_name or s.get("id") == row["boarding_stop_id"]:
+            boarding_idx = idx
+
+    stops_diff = boarding_idx - current_idx
+    if stops_diff > 0:
+        eta_minutes = stops_diff * 4
+    elif stops_diff == 0:
+        eta_minutes = int(t_row["eta_next_stop_minutes"]) if t_row else 2
+    else:
+        eta_minutes = 0
+
+    stops_list: List[LiveRouteStopItem] = []
+    for idx, s in enumerate(sorted_stops):
+        s_order = int(s.get("stop_order") or (idx + 1))
+        stops_list.append(LiveRouteStopItem(
+            id=str(s.get("id") or f"st-{s_order}"),
+            name=s.get("name", f"Stop {s_order}"),
+            stop_order=s_order,
+            morning_pickup_time=s.get("morning_pickup_time", "08:15 AM"),
+            evening_drop_time=s.get("evening_drop_time", "04:45 PM"),
+            landmark=s.get("landmark"),
+            lat=float(s.get("lat")) if s.get("lat") else None,
+            lng=float(s.get("lng")) if s.get("lng") else None,
+            is_passed=(idx < current_idx),
+            is_current=(idx == current_idx),
+            is_user_boarding_stop=(idx == boarding_idx),
+        ))
+
+    telemetry_item = None
+    if t_row:
+        telemetry_item = LiveTelemetryItem(
+            current_latitude=float(t_row["current_latitude"]),
+            current_longitude=float(t_row["current_longitude"]),
+            speed_kmh=float(t_row["speed_kmh"]),
+            heading_deg=float(t_row["heading_deg"]),
+            current_stop_name=t_row["current_stop_name"],
+            next_stop_name=t_row["next_stop_name"],
+            eta_to_user_stop_minutes=eta_minutes,
+            distance_km=float(t_row["distance_to_destination_km"]),
+            transit_status=t_row["transit_status"],
+            trip_direction=t_row["trip_direction"],
+            last_ping_at=t_row["last_ping_at"],
+            is_delay_reported=bool(t_row.get("is_delay_reported")),
+            delay_reason=t_row.get("delay_reason"),
+        )
+    else:
+        telemetry_item = LiveTelemetryItem(
+            current_latitude=9.4550,
+            current_longitude=77.8000,
+            speed_kmh=36.0,
+            heading_deg=50.0,
+            current_stop_name=boarding_stop_name,
+            next_stop_name=sorted_stops[1]["name"] if len(sorted_stops) > 1 else "Next Stop",
+            eta_to_user_stop_minutes=4,
+            distance_km=4.8,
+            transit_status="in_transit",
+            trip_direction="morning_to_campus",
+            last_ping_at=datetime.now(timezone.utc).isoformat(),
+        )
+
+    return UserLiveTransportResponse(
+        has_transport=True,
+        user_name=user_name,
+        user_type=row["user_type"],
+        identifier=reg_no or row.get("user_id"),
+        pass_number=row["pass_number"],
+        seat_number=row["seat_number"],
+        boarding_stop_id=row["boarding_stop_id"],
+        boarding_stop_name=row["boarding_stop_name"],
+        route_id=row["route_id"],
+        route_number=row["route_number"],
+        route_name=row["route_name"],
+        start_point=row["start_point"],
+        destination=row["destination"],
+        bus_registration=row["bus_registration"],
+        driver_name=row["driver_name"],
+        driver_phone=row["driver_phone"],
+        morning_departure=row["morning_departure"],
+        morning_arrival_sfrc=row["morning_arrival_sfrc"],
+        evening_departure_sfrc=row["evening_departure_sfrc"],
+        evening_arrival_terminus=row["evening_arrival_terminus"],
+        valid_until=row["valid_until"],
+        status=row["status"].capitalize(),
+        telemetry=telemetry_item,
+        stops=stops_list,
+    )
+
+
+@router.get("/transport/routes/{id}/live-tracking", response_model=UserLiveTransportResponse)
+async def get_route_live_tracking(
+    id: str,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Retrieve live tracking telemetry and stop progression for a specific route."""
+    q = text("SELECT * FROM transport_routes WHERE id = :id OR LOWER(route_number) = LOWER(:id)")
+    row = (await db.execute(q, {"id": id})).mappings().first()
+    if not row:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transport route not found.")
+
+    telemetry_q = text("SELECT * FROM transport_live_tracking WHERE route_id = :rid")
+    t_row = (await db.execute(telemetry_q, {"rid": row["id"]})).mappings().first()
+
+    raw_stops = parse_json_list(row.get("stops"))
+    sorted_stops = sorted(raw_stops, key=lambda s: int(s.get("stop_order", 0)))
+    current_stop_name = t_row["current_stop_name"] if t_row else (sorted_stops[0].get("name") if sorted_stops else "Terminal")
+
+    current_idx = 0
+    for idx, s in enumerate(sorted_stops):
+        if s.get("name") == current_stop_name:
+            current_idx = idx
+
+    stops_list: List[LiveRouteStopItem] = []
+    for idx, s in enumerate(sorted_stops):
+        s_order = int(s.get("stop_order") or (idx + 1))
+        stops_list.append(LiveRouteStopItem(
+            id=str(s.get("id") or f"st-{s_order}"),
+            name=s.get("name", f"Stop {s_order}"),
+            stop_order=s_order,
+            morning_pickup_time=s.get("morning_pickup_time", "08:15 AM"),
+            evening_drop_time=s.get("evening_drop_time", "04:45 PM"),
+            landmark=s.get("landmark"),
+            lat=float(s.get("lat")) if s.get("lat") else None,
+            lng=float(s.get("lng")) if s.get("lng") else None,
+            is_passed=(idx < current_idx),
+            is_current=(idx == current_idx),
+            is_user_boarding_stop=False,
+        ))
+
+    telemetry_item = None
+    if t_row:
+        telemetry_item = LiveTelemetryItem(
+            current_latitude=float(t_row["current_latitude"]),
+            current_longitude=float(t_row["current_longitude"]),
+            speed_kmh=float(t_row["speed_kmh"]),
+            heading_deg=float(t_row["heading_deg"]),
+            current_stop_name=t_row["current_stop_name"],
+            next_stop_name=t_row["next_stop_name"],
+            eta_to_user_stop_minutes=int(t_row["eta_next_stop_minutes"]),
+            distance_km=float(t_row["distance_to_destination_km"]),
+            transit_status=t_row["transit_status"],
+            trip_direction=t_row["trip_direction"],
+            last_ping_at=t_row["last_ping_at"],
+            is_delay_reported=bool(t_row.get("is_delay_reported")),
+            delay_reason=t_row.get("delay_reason"),
+        )
+
+    return UserLiveTransportResponse(
+        has_transport=True,
+        route_id=row["id"],
+        route_number=row["route_number"],
+        route_name=row["name"],
+        start_point=row["start_point"],
+        destination=row["destination"],
+        bus_registration=row["bus_registration"],
+        driver_name=row["driver_name"],
+        driver_phone=row["driver_phone"],
+        morning_departure=row["morning_departure"],
+        morning_arrival_sfrc=row["morning_arrival_sfrc"],
+        evening_departure_sfrc=row["evening_departure_sfrc"],
+        evening_arrival_terminus=row["evening_arrival_terminus"],
+        status="Active",
+        telemetry=telemetry_item,
+        stops=stops_list,
+    )
+
+
+@router.post("/transport/routes/{id}/telemetry")
+async def update_route_telemetry(
+    id: str,
+    body: TelemetryUpdateBody,
+    user: dict = Depends(require_capability("manage_transport")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update real-time GPS telemetry and stop progression for a route."""
+    now_iso = datetime.now(timezone.utc).isoformat()
+    upsert_q = text("""
+        INSERT INTO transport_live_tracking (
+            route_id, bus_registration, current_latitude, current_longitude,
+            speed_kmh, heading_deg, current_stop_id, current_stop_name,
+            next_stop_id, next_stop_name, eta_next_stop_minutes,
+            distance_to_destination_km, trip_direction, transit_status,
+            last_ping_at, is_delay_reported, delay_reason
+        ) VALUES (
+            :rid, 'TN 67 BB 1042', :lat, :lng, :spd, :hdg, :cs_id, :cs_name,
+            :ns_id, :ns_name, :eta, :dist, :dir, :status, :ping, :delay, :reason
+        )
+        ON CONFLICT(route_id) DO UPDATE SET
+            current_latitude = :lat,
+            current_longitude = :lng,
+            speed_kmh = :spd,
+            heading_deg = :hdg,
+            current_stop_id = :cs_id,
+            current_stop_name = :cs_name,
+            next_stop_id = :ns_id,
+            next_stop_name = :ns_name,
+            eta_next_stop_minutes = :eta,
+            distance_to_destination_km = :dist,
+            trip_direction = :dir,
+            transit_status = :status,
+            last_ping_at = :ping,
+            is_delay_reported = :delay,
+            delay_reason = :reason
+    """)
+    await db.execute(upsert_q, {
+        "rid": id,
+        "lat": body.current_latitude,
+        "lng": body.current_longitude,
+        "spd": body.speed_kmh,
+        "hdg": body.heading_deg,
+        "cs_id": body.current_stop_id,
+        "cs_name": body.current_stop_name,
+        "ns_id": body.next_stop_id,
+        "ns_name": body.next_stop_name,
+        "eta": body.eta_next_stop_minutes,
+        "dist": body.distance_to_destination_km,
+        "dir": body.trip_direction,
+        "status": body.transit_status,
+        "ping": now_iso,
+        "delay": 1 if body.is_delay_reported else 0,
+        "reason": body.delay_reason,
+    })
+
+    await log_audit_event(
+        user_id=user.get("id"),
+        action="update_transport_telemetry",
+        resource_type="transport_route",
+        resource_id=id,
+        details={"status": body.transit_status, "speed": body.speed_kmh},
+        db=db,
+    )
+    return {"status": "success", "route_id": id, "updated_at": now_iso}
 
 
 @router.post("/admin/transport/routes", response_model=TransportRouteItem, status_code=status.HTTP_201_CREATED)
