@@ -93,6 +93,9 @@ FACULTY_DATA = [
     {"id": 18, "department": "Geography", "faculty_name": "Dr. S. Rajeswari", "designation": "Assistant Professor & Head", "qualification": "M.Sc., M.Phil., Ph.D.", "email": "rajeswari-geo@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Head of Department of Geography"},
     {"id": 19, "department": "Physical Education", "faculty_name": "Dr. K. Stella", "designation": "Director of Physical Education", "qualification": "M.P.Ed., M.Phil., Ph.D.", "email": "stella-ped@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Director of Physical Education"},
     {"id": 20, "department": "Library", "faculty_name": "Dr. S. Umamaheswari", "designation": "College Librarian", "qualification": "M.L.I.Sc., M.Phil., Ph.D.", "email": "librarian@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Librarian & Head of Information Resource Centre"},
+    {"id": 21, "department": "Business Administration", "faculty_name": "Dr. M. Uma Devi", "designation": "Assistant Professor & Head", "qualification": "M.B.A., M.Phil., Ph.D.", "email": "umadevi-bba@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Head of Department of Business Administration (BBA)"},
+    {"id": 22, "department": "Commerce CA", "faculty_name": "Dr. T. Vasantha", "designation": "Assistant Professor & Head", "qualification": "M.Com., M.Phil., Ph.D.", "email": "vasantha-comca@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Head of Department of Commerce (Computer Applications)"},
+    {"id": 23, "department": "Commerce PA", "faculty_name": "Dr. K. Jansi Rani", "designation": "Assistant Professor & Head", "qualification": "M.Com., M.Phil., Ph.D.", "email": "jansirani-compa@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Head of Department of Commerce (Professional Accounting)"},
 ]
 
 FEES_DATA = [
@@ -294,14 +297,24 @@ FAQ_DATA = [
 def normalize(text: str) -> str:
     return re.sub(r"\s+", " ", (text or "").strip().lower())
 
+def phrase_in_text(phrase: str, text: str) -> bool:
+    """True if phrase occurs as a whole-word sequence in text (prevents 'bus' matching in 'business')."""
+    p = phrase.strip().lower()
+    t = text.lower()
+    if not p or not t:
+        return False
+    escaped = re.escape(p)
+    return bool(re.search(rf"\b{escaped}\b", t))
+
 def has_word(text: str, word: str) -> bool:
-    return bool(re.search(r'\b' + re.escape(word.lower()) + r'\b', text.lower()))
+    return phrase_in_text(word, text)
 
 def has_any_word(text: str, words: List[str]) -> bool:
-    return any(has_word(text, w) for w in words)
+    return any(phrase_in_text(w, text) for w in words)
 
 def contains_any(text: str, words: List[str]) -> bool:
-    return any(word in text for word in words)
+    """Word boundary matching across phrases."""
+    return any(phrase_in_text(w, text) for w in words)
 
 def best_match(user_text: str, options: List[str], cutoff: float = 0.55) -> Optional[str]:
     if not options:
@@ -313,6 +326,271 @@ def best_match(user_text: str, options: List[str], cutoff: float = 0.55) -> Opti
     for option in options:
         if normalize(option) in normalize(user_text) or normalize(user_text) in normalize(option):
             return option
+    return None
+
+DEPARTMENT_CANONICAL = {
+    "Department of Tamil": "Department of Tamil",
+    "Department of English": "Department of English",
+    "Department of History": "Department of History",
+    "Department of Commerce": "Department of Commerce",
+    "Department of Mathematics": "Department of Mathematics",
+    "Department of Physics": "Department of Physics",
+    "Department of Chemistry": "Department of Chemistry",
+    "Department of Botany": "Department of Botany",
+    "Department of Computer Science": "Department of Computer Science",
+    "Department of Data Science": "Department of Data Science",
+    "Department of Computer Applications": "Department of Computer Applications",
+    "Department of Commerce CA": "Department of Commerce CA",
+    "Department of Commerce PA": "Department of Commerce PA",
+    "Department of Business Administration": "Department of Business Administration",
+    "Department of Microbiology": "Department of Microbiology",
+    "Department of Nutrition and Dietetics": "Department of Nutrition and Dietetics",
+    "Department of Costume Design & Fashion": "Department of Costume Design & Fashion",
+    "Department of Psychology": "Department of Psychology",
+    "Department of Geography": "Department of Geography",
+    "Department of Physical Education": "Department of Physical Education",
+    "Department of Library and Information Science": "Department of Library and Information Science",
+}
+
+DEPARTMENT_ALIASES: Dict[str, str] = {
+    # Business Administration / BBA
+    "bba": "Department of Business Administration",
+    "b.b.a": "Department of Business Administration",
+    "b.b.a.": "Department of Business Administration",
+    "business administration": "Department of Business Administration",
+    "business admin": "Department of Business Administration",
+    "dept of business administration": "Department of Business Administration",
+    "department of business administration": "Department of Business Administration",
+
+    # Computer Applications / BCA / MCA
+    "bca": "Department of Computer Applications",
+    "b.c.a": "Department of Computer Applications",
+    "b.c.a.": "Department of Computer Applications",
+    "mca": "Department of Computer Applications",
+    "m.c.a": "Department of Computer Applications",
+    "m.c.a.": "Department of Computer Applications",
+    "computer applications": "Department of Computer Applications",
+    "computer application": "Department of Computer Applications",
+    "ca department": "Department of Computer Applications",
+    "dept of computer applications": "Department of Computer Applications",
+    "department of computer applications": "Department of Computer Applications",
+
+    # Computer Science / CS
+    "cs": "Department of Computer Science",
+    "cse": "Department of Computer Science",
+    "computer science": "Department of Computer Science",
+    "b.sc computer science": "Department of Computer Science",
+    "b.sc cs": "Department of Computer Science",
+    "bsc computer science": "Department of Computer Science",
+    "bsc cs": "Department of Computer Science",
+    "m.sc computer science": "Department of Computer Science",
+    "msc computer science": "Department of Computer Science",
+    "msc cs": "Department of Computer Science",
+    "dept of computer science": "Department of Computer Science",
+    "department of computer science": "Department of Computer Science",
+
+    # Data Science / DS
+    "ds": "Department of Data Science",
+    "data science": "Department of Data Science",
+    "b.sc data science": "Department of Data Science",
+    "bsc data science": "Department of Data Science",
+    "b.sc. data science": "Department of Data Science",
+    "dept of data science": "Department of Data Science",
+    "department of data science": "Department of Data Science",
+
+    # Commerce CA / PA / General
+    "commerce ca": "Department of Commerce CA",
+    "b.com ca": "Department of Commerce CA",
+    "bcom ca": "Department of Commerce CA",
+    "department of commerce ca": "Department of Commerce CA",
+
+    "commerce pa": "Department of Commerce PA",
+    "b.com pa": "Department of Commerce PA",
+    "bcom pa": "Department of Commerce PA",
+    "professional accounting": "Department of Commerce PA",
+    "department of commerce pa": "Department of Commerce PA",
+
+    "commerce": "Department of Commerce",
+    "b.com": "Department of Commerce",
+    "bcom": "Department of Commerce",
+    "m.com": "Department of Commerce",
+    "mcom": "Department of Commerce",
+    "department of commerce": "Department of Commerce",
+
+    # Mathematics
+    "maths": "Department of Mathematics",
+    "math": "Department of Mathematics",
+    "mathematics": "Department of Mathematics",
+    "b.sc maths": "Department of Mathematics",
+    "bsc maths": "Department of Mathematics",
+    "b.sc mathematics": "Department of Mathematics",
+    "m.sc mathematics": "Department of Mathematics",
+    "msc maths": "Department of Mathematics",
+    "department of mathematics": "Department of Mathematics",
+
+    # Physics
+    "physics": "Department of Physics",
+    "phy": "Department of Physics",
+    "b.sc physics": "Department of Physics",
+    "bsc physics": "Department of Physics",
+    "m.sc physics": "Department of Physics",
+    "department of physics": "Department of Physics",
+
+    # Chemistry
+    "chemistry": "Department of Chemistry",
+    "chem": "Department of Chemistry",
+    "b.sc chemistry": "Department of Chemistry",
+    "bsc chemistry": "Department of Chemistry",
+    "m.sc chemistry": "Department of Chemistry",
+    "department of chemistry": "Department of Chemistry",
+
+    # Botany
+    "botany": "Department of Botany",
+    "bot": "Department of Botany",
+    "b.sc botany": "Department of Botany",
+    "bsc botany": "Department of Botany",
+    "m.sc botany": "Department of Botany",
+    "department of botany": "Department of Botany",
+
+    # Microbiology
+    "microbiology": "Department of Microbiology",
+    "micro": "Department of Microbiology",
+    "b.sc microbiology": "Department of Microbiology",
+    "bsc microbiology": "Department of Microbiology",
+    "m.sc microbiology": "Department of Microbiology",
+    "department of microbiology": "Department of Microbiology",
+
+    # Nutrition and Dietetics
+    "nutrition": "Department of Nutrition and Dietetics",
+    "dietetics": "Department of Nutrition and Dietetics",
+    "nutrition and dietetics": "Department of Nutrition and Dietetics",
+    "b.sc nutrition": "Department of Nutrition and Dietetics",
+    "bsc nutrition": "Department of Nutrition and Dietetics",
+    "department of nutrition and dietetics": "Department of Nutrition and Dietetics",
+
+    # Costume Design & Fashion (CDF)
+    "cdf": "Department of Costume Design & Fashion",
+    "c.d.f": "Department of Costume Design & Fashion",
+    "c.d.f.": "Department of Costume Design & Fashion",
+    "costume design": "Department of Costume Design & Fashion",
+    "costume design & fashion": "Department of Costume Design & Fashion",
+    "costume design and fashion": "Department of Costume Design & Fashion",
+    "fashion design": "Department of Costume Design & Fashion",
+    "fashion": "Department of Costume Design & Fashion",
+    "b.sc cdf": "Department of Costume Design & Fashion",
+    "department of costume design & fashion": "Department of Costume Design & Fashion",
+
+    # Psychology
+    "psychology": "Department of Psychology",
+    "psych": "Department of Psychology",
+    "b.sc psychology": "Department of Psychology",
+    "bsc psychology": "Department of Psychology",
+    "department of psychology": "Department of Psychology",
+
+    # Geography
+    "geography": "Department of Geography",
+    "geo": "Department of Geography",
+    "b.sc geography": "Department of Geography",
+    "bsc geography": "Department of Geography",
+    "department of geography": "Department of Geography",
+
+    # Tamil
+    "tamil": "Department of Tamil",
+    "b.a tamil": "Department of Tamil",
+    "ba tamil": "Department of Tamil",
+    "m.a tamil": "Department of Tamil",
+    "ma tamil": "Department of Tamil",
+    "department of tamil": "Department of Tamil",
+
+    # English
+    "english": "Department of English",
+    "b.a english": "Department of English",
+    "ba english": "Department of English",
+    "m.a english": "Department of English",
+    "ma english": "Department of English",
+    "department of english": "Department of English",
+
+    # History
+    "history": "Department of History",
+    "b.a history": "Department of History",
+    "ba history": "Department of History",
+    "m.a history": "Department of History",
+    "ma history": "Department of History",
+    "department of history": "Department of History",
+
+    # Physical Education
+    "physical education": "Department of Physical Education",
+    "sports": "Department of Physical Education",
+    "gym": "Department of Physical Education",
+    "ped": "Department of Physical Education",
+    "department of physical education": "Department of Physical Education",
+
+    # Library
+    "library": "Department of Library and Information Science",
+    "irc": "Department of Library and Information Science",
+    "information resource centre": "Department of Library and Information Science",
+    "department of library and information science": "Department of Library and Information Science",
+}
+
+def resolve_department(query: str) -> Optional[str]:
+    """Resolves any acronym, programme name, or department text to canonical Department name."""
+    clean = normalize(query)
+    clean_no_punct = re.sub(r"[^\w\s]", " ", clean).strip()
+    clean_no_punct = re.sub(r"\s+", " ", clean_no_punct)
+
+    # 1. Exact or Alias map check (longest match first)
+    sorted_aliases = sorted(DEPARTMENT_ALIASES.keys(), key=lambda x: len(x), reverse=True)
+    for alias in sorted_aliases:
+        if phrase_in_text(alias, clean) or phrase_in_text(alias, clean_no_punct):
+            return DEPARTMENT_ALIASES[alias]
+
+    # 2. Check canonical department names directly
+    for dept_full in DEPARTMENT_CANONICAL.values():
+        norm_full = normalize(dept_full)
+        short_name = norm_full.replace("department of", "").strip()
+        if phrase_in_text(norm_full, clean) or phrase_in_text(short_name, clean):
+            return dept_full
+
+    # 3. Fuzzy matching on department names
+    match = best_match(query, list(DEPARTMENT_CANONICAL.values()), cutoff=0.7)
+    if match:
+        return match
+
+    return None
+
+def resolve_transport_route(query: str) -> Optional[dict]:
+    """Matches route number, bus number, stopping, or driver in TRANSPORT_DATA."""
+    clean = normalize(query)
+
+    # 1. Match route number e.g. "route 8", "route 08", "route8"
+    route_num_match = re.search(r'\broute\s*([0-9]{1,2})\b', clean)
+    if route_num_match:
+        r_num = int(route_num_match.group(1))
+        for row in TRANSPORT_DATA:
+            if row["id"] == r_num:
+                return row
+
+    # Match bus number e.g. "sfrc-08", "sfrc 08", "sfrc08"
+    bus_num_match = re.search(r'\bsfrc[-\s]?([0-9]{1,2})\b', clean)
+    if bus_num_match:
+        b_num = int(bus_num_match.group(1))
+        for row in TRANSPORT_DATA:
+            if row["id"] == b_num:
+                return row
+
+    # 2. Match exact route string, stoppings, or driver
+    for row in TRANSPORT_DATA:
+        norm_route = normalize(row["bus_route"])
+        if norm_route in clean or clean in norm_route:
+            return row
+        norm_driver = normalize(row["driver_name"])
+        if norm_driver in clean:
+            return row
+        stoppings = [normalize(s) for s in row["bus_stoppings"].split("\n") if s.strip()]
+        for st in stoppings:
+            if len(st) > 3 and st in clean:
+                return row
+
     return None
 
 
@@ -616,28 +894,77 @@ class PragyaService:
     # ── Deterministic Matching Engine ────────────────────────────────────────
 
     @classmethod
-    def _match_sfrc_assist_rules(cls, user_message: str) -> Optional[Tuple[str, List[str], List[str], str]]:
-        """Core institutional logic matching SFRC Assist."""
+    def _match_sfrc_assist_rules(
+        cls, user_message: str, conv_meta: Optional[dict] = None
+    ) -> Optional[Tuple[str, List[str], List[str], str]]:
+        """Core institutional logic matching SFRC Assist with context awareness."""
         msg = normalize(user_message)
         if not msg:
             return ("Please type your question.", MAIN_BUTTONS, ["SFRC Knowledge Base"], "general")
 
-        # 1. Departments category selection
-        if msg in ["department", "departments", "courses", "available courses"]:
-            return ("Please choose department category.", ["Aided", "Self", "Menu"], ["SFRC Academic Directory"], "department")
+        # ── 0. Check Multi-turn Conversational Context (awaiting state) ──────────
+        awaiting = (conv_meta or {}).get("awaiting")
 
-        if msg in ["aided", "ug aided", "aided departments", "aided courses"]:
-            aided_depts = [d["department_name"] for d in DEPARTMENTS_DATA if normalize(d["category"]) == "aided"]
-            reply = "Available Aided departments:<br>" + "<br>".join(aided_depts) if aided_depts else "No aided departments found."
-            return (reply, aided_depts[:8] + ["Menu"], ["SFRC Academic Directory"], "department")
+        # If previous turn was awaiting FEES department
+        if awaiting == "fees":
+            resolved_dept = resolve_department(user_message)
+            if resolved_dept:
+                if conv_meta is not None:
+                    conv_meta.pop("awaiting", None)
+                row = next((f for f in FEES_DATA if normalize(f["department_name"]) == normalize(resolved_dept)), None)
+                if row:
+                    reply = (
+                        f"💰 <b>{row['department_name']} — Official Fee Schedule</b>:<br><br>"
+                        f"• <b>Tuition Fee:</b> {row['tuition_fee']}<br>"
+                        f"• <b>Other Fee / Lab / Library:</b> {row.get('other_fee') or 'N/A'}<br><br>"
+                        f"Tuition fee can be paid online via the SFRC Portal Finance Gateway."
+                    )
+                    short_name = resolved_dept.replace("Department of", "").strip()
+                    buttons = [f"Faculty in {short_name}", "Admissions", "All Fees", "Menu"]
+                    return (reply, buttons, ["SFRC Fee Schedule", "College Finance Directorate"], "fees")
 
-        if msg in ["self", "self-finance", "self finance", "self departments", "sf courses"]:
-            self_depts = [d["department_name"] for d in DEPARTMENTS_DATA if "self" in normalize(d["category"])]
-            reply = "Available Self departments:<br>" + "<br>".join(self_depts) if self_depts else "No self departments found."
-            return (reply, self_depts[:8] + ["Menu"], ["SFRC Academic Directory"], "department")
+        # If previous turn was awaiting FACULTY department or name
+        if awaiting == "faculty":
+            resolved_dept = resolve_department(user_message)
+            if resolved_dept:
+                if conv_meta is not None:
+                    conv_meta.pop("awaiting", None)
+                dept_faculty = [
+                    f for f in FACULTY_DATA
+                    if normalize(f["department"]) in normalize(resolved_dept)
+                    or normalize(resolved_dept) in normalize(f["department"])
+                ]
+                if dept_faculty:
+                    lines = [
+                        f"• <b>{f['faculty_name']}</b> — {f['designation']}<br>"
+                        f"  <i>Qualification: {f['qualification']}</i><br>"
+                        f"  ✉ {f['email']} | 📞 {f['phone']}"
+                        for f in dept_faculty
+                    ]
+                    reply = f"👩‍🏫 <b>Faculty Members in {resolved_dept}</b>:<br><br>" + "<br><br>".join(lines)
+                    short_name = resolved_dept.replace("Department of", "").strip()
+                    return (reply, [f"Fees for {short_name}", "Departments", "Contact", "Menu"], ["SFRC Faculty Registry"], "faculty")
 
-        # 2. Greetings / Welcome (Whole word boundary check)
+        # If previous turn was awaiting TRANSPORT route
+        if awaiting == "transport":
+            route_row = resolve_transport_route(user_message)
+            if route_row:
+                if conv_meta is not None:
+                    conv_meta.pop("awaiting", None)
+                reply = (
+                    f"🚌 <b>{route_row['bus_route']}</b><br><br>"
+                    f"• <b>Bus Number:</b> {route_row['bus_number']}<br>"
+                    f"• <b>Driver Name:</b> {route_row['driver_name']}<br><br>"
+                    f"• <b>Bus Stoppings:</b><br>{route_row['bus_stoppings'].replace(chr(10), '<br>')}<br><br>"
+                    f"• <b>Bus Stop Timings:</b><br>{route_row['bus_stop_timings'].replace(chr(10), '<br>')}<br><br>"
+                    f"<i>Safety: GPS Monitored & Speed Governed. Contact Transport Desk: +91 4562 220389</i>"
+                )
+                return (reply, ["All Bus Routes", "Transport Fees", "Contact", "Menu"], ["SFRC Transport Directorate"], "transport")
+
+        # ── 1. Greetings / Menu ──────────────────────────────────────────────
         if has_any_word(msg, ["hi", "hello", "hey", "hii", "start", "menu", "home", "pragya", "vanakkam"]):
+            if conv_meta is not None:
+                conv_meta.pop("awaiting", None)
             welcome = (
                 "Hello 👋 <b>Welcome to The Standard Fireworks Rajaratnam College for Women!</b><br>"
                 "I'm <b>Pragya</b>, your AI guide.<br>"
@@ -652,7 +979,7 @@ class PragyaService:
             )
             return (welcome, MAIN_BUTTONS, ["SFRC System"], "greeting")
 
-        # 3. FAQ Lookup
+        # ── 2. Direct FAQ Lookup ─────────────────────────────────────────────
         faq_questions = [f["question"] for f in FAQ_DATA]
         matched_faq = best_match(user_message, faq_questions, cutoff=0.75)
         if matched_faq:
@@ -660,8 +987,8 @@ class PragyaService:
             if faq_item:
                 return (faq_item["answer"], MAIN_BUTTONS, ["SFRC FAQ"], "faq")
 
-        # 4. Contact & Address
-        if contains_any(msg, ["contact", "phone", "email", "address", "office", "admission office", "principal office"]):
+        # ── 3. Contact & Address Directory ───────────────────────────────────
+        if contains_any(msg, ["contact", "phone", "email", "address", "principal office", "admission office", "helpline", "enquiry"]):
             contact_text = []
             for row in CONTACT_DATA:
                 block = []
@@ -672,36 +999,82 @@ class PragyaService:
                 if block: contact_text.append("<br>".join(block))
             return ("<br><br>".join(contact_text), ["Admissions", "Transport", "Menu"], ["SFRC Contact Directory"], "contact")
 
-        # 5. Fees Lookups
+        # ── 4. Fees Lookup ───────────────────────────────────────────────────
         if contains_any(msg, ["fee", "fees", "tuition", "cost", "kattanam"]):
-            dept_names = [f["department_name"] for f in FEES_DATA]
-            matched_dept = None
-            for dept in dept_names:
-                clean_dept = normalize(dept).replace("department of", "").strip()
-                if clean_dept in msg or normalize(dept) in msg:
-                    matched_dept = dept
-                    break
-            if not matched_dept:
-                matched_dept = best_match(user_message, dept_names, cutoff=0.55)
-
-            if matched_dept:
-                row = next((f for f in FEES_DATA if normalize(f["department_name"]) == normalize(matched_dept)), None)
+            resolved = resolve_department(user_message)
+            if resolved:
+                row = next((f for f in FEES_DATA if normalize(f["department_name"]) == normalize(resolved)), None)
                 if row:
                     reply = (
-                        f"<b>Department:</b> {row['department_name']}<br>"
-                        f"<b>Tuition Fee:</b> {row['tuition_fee']}<br>"
-                        f"<b>Other Fee:</b> {row.get('other_fee') or 'N/A'}"
+                        f"💰 <b>{row['department_name']} — Official Fee Schedule</b>:<br><br>"
+                        f"• <b>Tuition Fee:</b> {row['tuition_fee']}<br>"
+                        f"• <b>Other Fee / Lab / Library:</b> {row.get('other_fee') or 'N/A'}<br><br>"
+                        f"Tuition fee can be paid online via the SFRC Portal Finance Gateway."
                     )
-                    return (reply, ["Admissions", "Departments", "Contact", "Menu"], ["SFRC Fee Schedule"], "fees")
+                    short_name = resolved.replace("Department of", "").strip()
+                    return (reply, [f"Faculty in {short_name}", "Admissions", "All Fees", "Menu"], ["SFRC Fee Schedule"], "fees")
 
+            if conv_meta is not None:
+                conv_meta["awaiting"] = "fees"
+            dept_suggestions = ["Data Science", "Computer Science", "BBA", "BCA", "Commerce", "Physics", "Chemistry", "Menu"]
             return (
-                "Please mention the department name to get fee details.<br>Example: <i>What is the fee for Data Science?</i>",
-                dept_names[:8] + ["Menu"],
+                "💰 <b>SFRC Programme Fee Schedule</b>:<br><br>"
+                "Please select or type the department name to get fee details.<br>"
+                "Example: <i>What is the fee for Data Science?</i> or choose below:",
+                dept_suggestions,
                 ["SFRC Fee Schedule"],
                 "fees"
             )
 
-        # 6. Ph.D Guides & Approved Research Centres
+        # ── 5. Faculty Members & Teachers ────────────────────────────────────
+        if contains_any(msg, ["faculty", "staff", "teacher", "professor", "lecturer", "ponni", "deepa", "meenakshi", "prescilla", "gangadevi", "jayanthi", "sivadevi", "leena benita", "uma devi"]):
+            # Check individual faculty name
+            for row in FACULTY_DATA:
+                f_name = normalize(row["faculty_name"])
+                surname = f_name.split()[-1] if f_name.split() else ""
+                if phrase_in_text(f_name, msg) or (len(surname) > 4 and phrase_in_text(surname, msg)):
+                    reply = (
+                        f"👩‍🏫 <b>{row['faculty_name']}</b><br><br>"
+                        f"• <b>Department:</b> {row['department']}<br>"
+                        f"• <b>Designation:</b> {row['designation']}<br>"
+                        f"• <b>Qualification:</b> {row['qualification'] or 'N/A'}<br>"
+                        f"• <b>Email:</b> {row['email'] or 'N/A'}<br>"
+                        f"• <b>Phone:</b> {row.get('phone') or 'N/A'}<br>"
+                        f"• <b>Description:</b> {row['description'] or 'N/A'}"
+                    )
+                    return (reply, ["Faculty", "Departments", "Contact", "Menu"], ["SFRC Faculty Registry"], "faculty")
+
+            # Check department
+            resolved = resolve_department(user_message)
+            if resolved:
+                dept_faculty = [
+                    f for f in FACULTY_DATA
+                    if normalize(f["department"]) in normalize(resolved)
+                    or normalize(resolved) in normalize(f["department"])
+                ]
+                if dept_faculty:
+                    lines = [
+                        f"• <b>{f['faculty_name']}</b> — {f['designation']}<br>"
+                        f"  <i>Qualification: {f['qualification']}</i><br>"
+                        f"  ✉ {f['email']} | 📞 {f['phone']}"
+                        for f in dept_faculty
+                    ]
+                    reply = f"👩‍🏫 <b>Faculty Members in {resolved}</b>:<br><br>" + "<br><br>".join(lines)
+                    short_name = resolved.replace("Department of", "").strip()
+                    return (reply, [f"Fees for {short_name}", "Departments", "Contact", "Menu"], ["SFRC Faculty Registry"], "faculty")
+
+            if conv_meta is not None:
+                conv_meta["awaiting"] = "faculty"
+            return (
+                "👩‍🏫 <b>SFRC Faculty Directory</b>:<br><br>"
+                "Please mention a faculty name or department.<br>"
+                "Example: <i>Show faculty in Botany</i> or <i>Mrs. P. Prescilla</i>:",
+                ["Computer Science", "Data Science", "Computer Applications", "Business Administration", "Commerce", "Botany", "Physics", "Menu"],
+                ["SFRC Faculty Registry"],
+                "faculty"
+            )
+
+        # ── 6. Ph.D Guides & Approved Research Centres ───────────────────────
         if contains_any(msg, ["guide", "guides", "phd guide", "ph.d guide", "research guide", "supervisor", "research department", "research departments", "research centre", "research centres", "phd centre", "phd centres", "recognized research"]):
             if contains_any(msg, ["centre", "centres", "recognized", "approved", "research departments", "research department"]):
                 reply = (
@@ -717,178 +1090,115 @@ class PragyaService:
                 )
                 return (reply, ["PhD Guides", "Admissions", "Departments", "Menu"], ["SFRC Research Directorate"], "guides")
 
-            guide_names = [g["guide_name"] for g in GUIDES_DATA]
-            departments = sorted(list(set(g["department"] for g in GUIDES_DATA)))
-
             for row in GUIDES_DATA:
-                if normalize(row["guide_name"]) in msg:
+                if phrase_in_text(row["guide_name"], user_message):
                     reply = (
-                        f"<b>Guide Name:</b> {row['guide_name']}<br>"
-                        f"<b>Department:</b> {row['department']}<br>"
-                        f"<b>Specialization:</b> {row['specialization'] or 'N/A'}<br>"
-                        f"<b>Qualification:</b> {row['qualification'] or 'N/A'}<br>"
-                        f"<b>Email:</b> {row['email'] or 'N/A'}<br>"
-                        f"<b>Phone:</b> {row.get('phone') or 'N/A'}<br>"
-                        f"<b>Description:</b> {row['description'] or 'N/A'}"
+                        f"👨‍🎓 <b>{row['guide_name']}</b><br><br>"
+                        f"• <b>Department:</b> {row['department']}<br>"
+                        f"• <b>Specialization:</b> {row['specialization'] or 'N/A'}<br>"
+                        f"• <b>Qualification:</b> {row['qualification'] or 'N/A'}<br>"
+                        f"• <b>Email:</b> {row['email'] or 'N/A'}<br>"
+                        f"• <b>Phone:</b> {row.get('phone') or 'N/A'}<br>"
+                        f"• <b>Description:</b> {row['description'] or 'N/A'}"
                     )
                     return (reply, ["PhD Guides", "Departments", "Contact", "Menu"], ["SFRC Research Directory"], "guides")
 
-            for dept in departments:
-                if normalize(dept) in msg:
-                    dept_guides = [g["guide_name"] for g in GUIDES_DATA if normalize(g["department"]) == normalize(dept)]
-                    return (f"Ph.D guides in {dept}:<br>" + "<br>".join(dept_guides), dept_guides[:8] + ["Menu"], ["SFRC Research Directory"], "guides")
+            resolved = resolve_department(user_message)
+            if resolved:
+                dept_short = resolved.replace("Department of", "").strip()
+                dept_guides = [g["guide_name"] for g in GUIDES_DATA if normalize(g["department"]) in normalize(dept_short)]
+                if dept_guides:
+                    return (
+                        f"👨‍🎓 <b>Approved Ph.D Guides in {resolved}</b>:<br><br>" + "<br>".join([f"• {g}" for g in dept_guides]),
+                        dept_guides[:6] + ["Menu"],
+                        ["SFRC Research Directory"],
+                        "guides"
+                    )
 
+            departments = sorted(list(set(g["department"] for g in GUIDES_DATA)))
             return (
                 "Please mention a guide name or department.<br>Example: <i>Show Ph.D guides in Tamil</i>",
-                departments[:8] + ["Menu"],
+                departments[:6] + ["Menu"],
                 ["SFRC Research Directory"],
                 "guides"
             )
 
-        # 7. Transport / Bus Routes
-        if contains_any(msg, ["transport", "bus", "bus route", "bus timing", "bus stop", "stopping", "driver", "perunthu"]):
-            routes = [t["bus_route"] for t in TRANSPORT_DATA]
-
-            for row in TRANSPORT_DATA:
-                if (
-                    normalize(row["bus_route"]) in msg
-                    or normalize(row["bus_number"]) in msg
-                    or (str(row["id"]) in msg and ("route" in msg or "bus" in msg))
-                    or ("route 1" in msg and row["id"] == 1)
-                    or ("route 2" in msg and row["id"] == 2)
-                    or ("route 3" in msg and row["id"] == 3)
-                ):
-                    reply = (
-                        f"<b>Bus Number:</b> {row['bus_number']}<br>"
-                        f"<b>Driver Name:</b> {row['driver_name']}<br>"
-                        f"<b>Route:</b> {row['bus_route']}<br>"
-                        f"<b>Bus Stoppings:</b><br>{row['bus_stoppings'].replace(chr(10), '<br>')}<br>"
-                        f"<b>Bus Stop Timings:</b><br>{row['bus_stop_timings'].replace(chr(10), '<br>')}"
-                    )
-                    return (reply, ["Transport", "Contact", "Menu"], ["SFRC Transport Directorate"], "transport")
-
-            matched_route = best_match(user_message, routes, cutoff=0.55)
-            if matched_route:
-                row = next((t for t in TRANSPORT_DATA if normalize(t["bus_route"]) == normalize(matched_route)), None)
-                if row:
-                    reply = (
-                        f"<b>Bus Number:</b> {row['bus_number']}<br>"
-                        f"<b>Driver Name:</b> {row['driver_name']}<br>"
-                        f"<b>Route:</b> {row['bus_route']}<br>"
-                        f"<b>Bus Stoppings:</b><br>{row['bus_stoppings'].replace(chr(10), '<br>')}<br>"
-                        f"<b>Bus Stop Timings:</b><br>{row['bus_stop_timings'].replace(chr(10), '<br>')}"
-                    )
-                    return (reply, ["Transport", "Contact", "Menu"], ["SFRC Transport Directorate"], "transport")
-
-            return (
-                "Please mention a bus route or bus number.<br>Example: <i>Show transport details for Route 1</i>",
-                routes[:8] + ["Menu"],
-                ["SFRC Transport Directorate"],
-                "transport"
+        # ── 7. Transport / Bus Routes ────────────────────────────────────────
+        # Check specific route resolution FIRST
+        route_row = resolve_transport_route(user_message)
+        if route_row:
+            reply = (
+                f"<b>Bus Number:</b> {route_row['bus_number']}<br>"
+                f"<b>Driver Name:</b> {route_row['driver_name']}<br>"
+                f"<b>Route:</b> {route_row['bus_route']}<br>"
+                f"<b>Bus Stoppings:</b><br>{route_row['bus_stoppings'].replace(chr(10), '<br>')}<br>"
+                f"<b>Bus Stop Timings:</b><br>{route_row['bus_stop_timings'].replace(chr(10), '<br>')}"
             )
+            return (reply, ["Transport", "Contact", "Menu"], ["SFRC Transport Directorate"], "transport")
 
-        # 8. Faculty Members & Teachers
-        if contains_any(msg, ["faculty", "staff", "teacher", "professor", "lecturer", "ponni", "deepa", "meenakshi", "prescilla", "gangadevi", "jayanthi"]):
-            faculty_names = [f["faculty_name"] for f in FACULTY_DATA]
-            departments = sorted(list(set(f["department"] for f in FACULTY_DATA)))
-
-            for row in FACULTY_DATA:
-                if normalize(row["faculty_name"]) in msg or (row["faculty_name"].split(".")[-1].lower() in msg and len(row["faculty_name"].split(".")[-1]) > 3):
-                    reply = (
-                        f"<b>Faculty Name:</b> {row['faculty_name']}<br>"
-                        f"<b>Department:</b> {row['department']}<br>"
-                        f"<b>Designation:</b> {row['designation']}<br>"
-                        f"<b>Qualification:</b> {row['qualification'] or 'N/A'}<br>"
-                        f"<b>Email:</b> {row['email'] or 'N/A'}<br>"
-                        f"<b>Phone:</b> {row.get('phone') or 'N/A'}<br>"
-                        f"<b>Description:</b> {row['description'] or 'N/A'}"
-                    )
-                    return (reply, ["Faculty", "Departments", "Contact", "Menu"], ["SFRC Faculty Registry"], "faculty")
-
-            matched_faculty = best_match(user_message, faculty_names, cutoff=0.65)
-            if matched_faculty:
-                row = next((f for f in FACULTY_DATA if normalize(f["faculty_name"]) == normalize(matched_faculty)), None)
-                if row:
-                    reply = (
-                        f"<b>Faculty Name:</b> {row['faculty_name']}<br>"
-                        f"<b>Department:</b> {row['department']}<br>"
-                        f"<b>Designation:</b> {row['designation']}<br>"
-                        f"<b>Qualification:</b> {row['qualification'] or 'N/A'}<br>"
-                        f"<b>Email:</b> {row['email'] or 'N/A'}<br>"
-                        f"<b>Phone:</b> {row.get('phone') or 'N/A'}<br>"
-                        f"<b>Description:</b> {row['description'] or 'N/A'}"
-                    )
-                    return (reply, ["Faculty", "Departments", "Contact", "Menu"], ["SFRC Faculty Registry"], "faculty")
-
-            for dept in departments:
-                if normalize(dept) in msg:
-                    dept_faculty = [f["faculty_name"] for f in FACULTY_DATA if normalize(f["department"]) == normalize(dept)]
-                    return (f"Faculty members in {dept}:<br>" + "<br>".join(dept_faculty), dept_faculty[:8] + ["Menu"], ["SFRC Faculty Registry"], "faculty")
-
-            return (
-                "Please mention a faculty name or department.<br>Example: <i>Show faculty in Botany</i>",
-                departments[:8] + ["Menu"],
-                ["SFRC Faculty Registry"],
-                "faculty"
+        if contains_any(msg, ["transport", "bus", "bus route", "bus routes", "bus routs", "bus timing", "bus stop", "stopping", "driver", "perunthu", "van"]):
+            if conv_meta is not None:
+                conv_meta["awaiting"] = "transport"
+            routes_preview = (
+                "🚌 <b>SFRC Dedicated Bus Transport Fleet (25+ Buses Across 11 Major Routes)</b>:<br><br>"
+                "Please select or type your bus route, destination, or route number:<br>"
+                "• <b>Route 1</b>: Sivakasi Town Loop<br>"
+                "• <b>Route 2</b>: Thiruthangal<br>"
+                "• <b>Route 3</b>: Sattur & Padanthal<br>"
+                "• <b>Route 4</b>: Vembakottai & Sevalpatti<br>"
+                "• <b>Route 5</b>: Virudhunagar Collectorate<br>"
+                "• <b>Route 6</b>: Srivilliputtur & Krishnankoil<br>"
+                "• <b>Route 7</b>: Rajapalayam<br>"
+                "• <b>Route 8</b>: Watrap & Maharajapuram<br>"
+                "• <b>Route 9</b>: Maraneri & Alangulam<br>"
+                "• <b>Route 10</b>: Mamsapuram & Sundarapandiam<br><br>"
+                "<i>All buses equipped with GPS, speed governors, and panic buttons.</i>"
             )
+            route_buttons = ["Route 1", "Route 2", "Route 3", "Route 5", "Route 7", "Route 8", "Menu"]
+            return (routes_preview, route_buttons, ["SFRC Transport Directorate"], "transport")
 
-        # 9. Specific Department / HOD lookups
-        if contains_any(msg, ["department", "departments", "hod", "head of department", "ug", "pg", "ph.d", "phd"]):
-            dept_names = [d["department_name"] for d in DEPARTMENTS_DATA]
-            matched_dept = None
-            for dept in dept_names:
-                clean_dept = normalize(dept).replace("department of", "").strip()
-                if clean_dept and (clean_dept in msg or normalize(dept) in msg):
-                    matched_dept = dept
-                    break
-            if not matched_dept:
-                matched_dept = best_match(user_message, dept_names, cutoff=0.55)
+        # ── 8. Standalone Department Selection / Direct Profile Card ─────────
+        resolved_dept = resolve_department(user_message)
+        if resolved_dept:
+            dept_row = next((d for d in DEPARTMENTS_DATA if normalize(d["department_name"]) == normalize(resolved_dept)), None)
+            fee_row = next((f for f in FEES_DATA if normalize(f["department_name"]) == normalize(resolved_dept)), None)
+            if dept_row:
+                short_name = resolved_dept.replace("Department of", "").strip()
+                reply = (
+                    f"<b>Department:</b> {dept_row['department_name']}<br>"
+                    f"<b>Level:</b> {dept_row['level']}<br>"
+                    f"<b>Category:</b> {dept_row['category']}<br>"
+                    f"<b>HOD:</b> {dept_row['hod']}<br>"
+                    f"<b>Description:</b> {dept_row['description'] or 'N/A'}"
+                )
+                buttons = [f"Faculty in {short_name}", f"Fees for {short_name}", "Admissions", "Menu"]
+                return (reply, buttons, ["SFRC Academic Directory"], "department")
 
-            if matched_dept:
-                row = next((d for d in DEPARTMENTS_DATA if normalize(d["department_name"]) == normalize(matched_dept)), None)
-                if row:
-                    reply = (
-                        f"<b>Department:</b> {row['department_name']}<br>"
-                        f"<b>Level:</b> {row['level']}<br>"
-                        f"<b>Category:</b> {row['category']}<br>"
-                        f"<b>HOD:</b> {row['hod']}<br>"
-                        f"<b>Description:</b> {row['description'] or 'N/A'}"
-                    )
-                    return (reply, ["Faculty", "PhD Guides", "Fees", "Menu"], ["SFRC Academic Directory"], "department")
+        # ── 9. Departments Category Explorer (Aided / Self-Finance) ──────────
+        if msg in ["department", "departments", "courses", "available courses", "academic departments", "all departments"]:
+            return ("Please choose department category.", ["Aided", "Self", "Menu"], ["SFRC Academic Directory"], "department")
 
-            filtered = DEPARTMENTS_DATA
-            if "ug" in msg:
-                filtered = [r for r in filtered if normalize(r["level"]) == "ug"]
-            elif "pg" in msg:
-                filtered = [r for r in filtered if normalize(r["level"]) == "pg"]
-            elif "ph.d" in msg or "phd" in msg:
-                filtered = [r for r in filtered if "ph" in normalize(r["level"])]
+        if msg in ["aided", "ug aided", "aided departments", "aided courses"]:
+            aided_depts = [d["department_name"] for d in DEPARTMENTS_DATA if normalize(d["category"]) == "aided"]
+            reply = "Available Aided departments:<br>" + "<br>".join(aided_depts) if aided_depts else "No aided departments found."
+            return (reply, aided_depts[:8] + ["Menu"], ["SFRC Academic Directory"], "department")
 
-            names = [r["department_name"] for r in filtered]
-            if names:
-                return ("Available departments:<br>" + "<br>".join(names), names[:8] + ["Menu"], ["SFRC Academic Directory"], "department")
+        if msg in ["self", "self-finance", "self finance", "self departments", "sf courses"]:
+            self_depts = [d["department_name"] for d in DEPARTMENTS_DATA if "self" in normalize(d["category"])]
+            reply = "Available Self departments:<br>" + "<br>".join(self_depts) if self_depts else "No self departments found."
+            return (reply, self_depts[:8] + ["Menu"], ["SFRC Academic Directory"], "department")
 
-        # 10. Admissions
-        if contains_any(msg, ["admission", "admissions", "apply", "application", "join", "eligibility", "cherkai"]):
-            dept_rows = DEPARTMENTS_DATA
-            filtered = dept_rows
-            if "ug" in msg:
-                filtered = [r for r in filtered if normalize(r["level"]) == "ug"]
-            elif "pg" in msg:
-                filtered = [r for r in filtered if normalize(r["level"]) == "pg"]
-            elif "ph.d" in msg or "phd" in msg:
-                filtered = [r for r in filtered if "ph" in normalize(r["level"])]
-
-            names = [r["department_name"] for r in filtered]
-            if names:
-                return ("Admissions-related departments:<br>" + "<br>".join(names), names[:8] + ["Fees", "Contact", "Menu"], ["SFRC Admissions Office"], "admissions")
-
-            return (
-                "You can ask about UG, PG, Ph.D, aided, or self-finance admissions.",
-                ["UG Admissions", "PG Admissions", "PhD Admissions", "Contact", "Menu"],
-                ["SFRC Admissions Office"],
-                "admissions"
+        # ── 10. Admissions Hub ───────────────────────────────────────────────
+        if contains_any(msg, ["admission", "admissions", "how to apply", "application form", "apply online", "cherkai"]):
+            reply = (
+                "Admissions for UG and PG programmes can be applied online through the SFRC portal "
+                "(www.sfrcollege.edu.in) or directly at the Admission Office in the Administrative Block.<br><br>"
+                "• <b>Undergraduate (UG) Aided</b>: B.A. (Tamil, English, History), B.Sc. (Maths, Physics, Chemistry, Botany, CS), B.Com.<br>"
+                "• <b>Undergraduate (UG) Self-Financing</b>: B.Sc. (Data Science, Microbiology, Nutrition & Dietetics, CDF, Psychology, Geography), B.C.A., B.B.A., B.Com (CA), B.Com (PA).<br>"
+                "• <b>Postgraduate (PG)</b>: M.A. (Tamil, English, History), M.Sc. (Maths, Physics, Chemistry, Botany, CS, Micro, Food & Nutrition), M.Com (CA), M.C.A. (AICTE Approved 2-Year).<br>"
+                "• <b>Eligibility</b>: Pass in Higher Secondary (+2) for UG; Bachelor's degree in relevant discipline for PG."
             )
+            return (reply, ["UG Admissions", "PG Admissions", "Fees", "Contact", "Menu"], ["SFRC Admissions Office"], "admissions")
 
         return None
 
@@ -1179,7 +1489,7 @@ class PragyaService:
             }
 
         # 5. Check Deterministic SFRC_Assist Rule Engine (Admissions, Fees, Departments, Faculty, Guides, Transport, Contacts, FAQ)
-        sfrc_result = cls._match_sfrc_assist_rules(user_message)
+        sfrc_result = cls._match_sfrc_assist_rules(user_message, conv_meta=conv_meta)
         if sfrc_result:
             reply, buttons, sources, intent = sfrc_result
             cls._record_messages(conv_id, user_message, reply, sources, intent)

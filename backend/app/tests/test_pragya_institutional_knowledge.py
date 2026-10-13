@@ -240,3 +240,97 @@ async def test_pragya_tanglish_query(auth_headers):
         assert res.status_code == 200
         reply = res.json()["reply"]
         assert "40 Programmes" in reply or "UG Aided" in reply
+
+
+@pytest.mark.asyncio
+async def test_pragya_bba_does_not_return_bus(auth_headers):
+    """Verifies Department of Business Administration returns department card, NOT bus route!"""
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        res = await ac.post("/api/v1/pragya/chat", json={"message": "Department of Business Administration"}, headers=auth_headers)
+        assert res.status_code == 200
+        reply = res.json()["reply"]
+        assert "Department of Business Administration" in reply
+        assert "Dr. M. Uma Devi" in reply or "B.B.A." in reply
+        assert "bus route" not in reply.lower()
+
+
+@pytest.mark.asyncio
+async def test_pragya_fee_of_bba_acronym(auth_headers):
+    """Verifies 'what is the fee of bba' resolves BBA to Business Administration fees."""
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        res = await ac.post("/api/v1/pragya/chat", json={"message": "what is the fee of bba"}, headers=auth_headers)
+        assert res.status_code == 200
+        reply = res.json()["reply"]
+        assert "₹14,000" in reply
+        assert "₹850" in reply
+
+
+@pytest.mark.asyncio
+async def test_pragya_multiturn_fees_flow(auth_headers):
+    """Verifies multi-turn context: user asks 'Fees', then clicks 'Department of Business Administration'."""
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        # Turn 1
+        res1 = await ac.post("/api/v1/pragya/chat", json={"message": "Fees"}, headers=auth_headers)
+        assert res1.status_code == 200
+        conv_id = res1.json()["conversation_id"]
+        assert "Fee Schedule" in res1.json()["reply"] or "fee details" in res1.json()["reply"].lower()
+
+        # Turn 2
+        res2 = await ac.post(
+            "/api/v1/pragya/chat",
+            json={"message": "Department of Business Administration", "conversation_id": conv_id},
+            headers=auth_headers,
+        )
+        assert res2.status_code == 200
+        reply2 = res2.json()["reply"]
+        assert "₹14,000" in reply2
+        assert "bus route" not in reply2.lower()
+
+
+@pytest.mark.asyncio
+async def test_pragya_multiturn_faculty_computer_applications(auth_headers):
+    """Verifies multi-turn context: user asks 'Faculty', then clicks 'Computer Applications'."""
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        # Turn 1
+        res1 = await ac.post("/api/v1/pragya/chat", json={"message": "Faculty"}, headers=auth_headers)
+        assert res1.status_code == 200
+        conv_id = res1.json()["conversation_id"]
+
+        # Turn 2
+        res2 = await ac.post(
+            "/api/v1/pragya/chat",
+            json={"message": "Computer Applications", "conversation_id": conv_id},
+            headers=auth_headers,
+        )
+        assert res2.status_code == 200
+        reply2 = res2.json()["reply"]
+        assert "Mrs. A. Leena Benita" in reply2
+        assert "Admissions-related departments" not in reply2
+
+
+@pytest.mark.asyncio
+async def test_pragya_computer_science_department_card(auth_headers):
+    """Verifies 'Computer Science' returns Department card, not generic PG Programmes dump."""
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        res = await ac.post("/api/v1/pragya/chat", json={"message": "Computer Science"}, headers=auth_headers)
+        assert res.status_code == 200
+        reply = res.json()["reply"]
+        assert "Department of Computer Science" in reply
+        assert "Mrs. P. Prescilla" in reply
+
+
+@pytest.mark.asyncio
+async def test_pragya_route8_watrap_transport(auth_headers):
+    """Verifies Route 8 returns exact driver Mr. P. Kaliraj and Watrap timings."""
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        res = await ac.post(
+            "/api/v1/pragya/chat",
+            json={"message": "Route 8: Watrap & Maharajapuram to SFRC Campus"},
+            headers=auth_headers,
+        )
+        assert res.status_code == 200
+        reply = res.json()["reply"]
+        assert "SFRC-08" in reply
+        assert "Mr. P. Kaliraj" in reply
+        assert "Watrap Bus Stand" in reply
+        assert "07:15 AM" in reply
