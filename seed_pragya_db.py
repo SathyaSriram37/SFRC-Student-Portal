@@ -4,10 +4,23 @@ import json
 import os
 import sys
 
-# Ensure backend app imports work
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "backend")))
+# Ensure backend directory is in sys.path for runtime execution
+backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "backend"))
+if backend_dir not in sys.path:
+    sys.path.insert(0, backend_dir)
 
-from app.ai.pragya_knowledge_seeds import SEED_PRAGYA_KNOWLEDGE
+try:
+    from app.ai.pragya_knowledge_seeds import SEED_PRAGYA_KNOWLEDGE  # type: ignore[import-not-found]  # noqa: E402
+except (ImportError, ModuleNotFoundError):
+    import importlib.util
+    seeds_file = os.path.join(backend_dir, "app", "ai", "pragya_knowledge_seeds.py")
+    spec = importlib.util.spec_from_file_location("pragya_knowledge_seeds", seeds_file)
+    if spec and spec.loader:
+        seeds_mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(seeds_mod)
+        SEED_PRAGYA_KNOWLEDGE = seeds_mod.SEED_PRAGYA_KNOWLEDGE  # type: ignore
+    else:
+        raise
 
 DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "college.db"))
 
