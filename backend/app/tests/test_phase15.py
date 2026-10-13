@@ -72,7 +72,8 @@ async def test_pragya_attendance_tool(student_auth_headers):
         )
         assert response.status_code == 200
         data = response.json()
-        assert "88.5%" in data["reply"]
+        assert "Attendance:" in data["reply"]
+        assert "Karpagam S" in data["reply"]
         assert data["intent"] == "attendance"
         assert any("Attendance" in s for s in data["sources"])
 

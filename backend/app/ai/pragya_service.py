@@ -46,107 +46,194 @@ AI_MESSAGES: List[Dict[str, Any]] = []
 MAIN_BUTTONS = ["Admissions", "Departments", "Fees", "Faculty", "PhD Guides", "Transport", "Contact"]
 
 DEPARTMENTS_DATA = [
-    # UG Aided
-    {"id": 1, "level": "UG", "category": "Aided", "department_name": "Department of Tamil", "hod": "Dr. B. Ponni M.A., M.Phil., Ph.D., C.G.T., Dip.in.M.S.Off.,", "description": "Duration: 3 years"},
-    {"id": 2, "level": "UG", "category": "Aided", "department_name": "Department of English", "hod": "Dr. K. Muthamil Selvi MA., M.Phil., B.Ed., Ph.D.", "description": "Duration: 3 years"},
-    {"id": 3, "level": "UG", "category": "Aided", "department_name": "Department of Mathematics", "hod": "Head of Department", "description": "Department of Mathematics"},
-    {"id": 4, "level": "UG", "category": "Aided", "department_name": "Department of Physics", "hod": "Dr. S. Jayanthi M.Sc., Ph.D", "description": "Duration: 3 years"},
-    {"id": 5, "level": "UG", "category": "Aided", "department_name": "Department of Chemistry", "hod": "Dr. M. Murugalakshmi M.Sc., M.Phil., Ph.D", "description": "Duration: 3 years"},
-    {"id": 6, "level": "UG", "category": "Aided", "department_name": "Department of Botany", "hod": "Dr.(Mrs). B. Deepa M.Sc., M.Phil., Ph.D.", "description": "Duration: 3 years"},
-    # UG Self-Finance
-    {"id": 7, "level": "UG", "category": "Self-Finance", "department_name": "Department of Computer Science", "hod": "Mrs. P. Prescilla MCA, M.Phil", "description": "Duration: 3 years"},
-    {"id": 8, "level": "UG", "category": "Self-Finance", "department_name": "Department of Data Science", "hod": "Mrs. D. Gangadevi, MCA., M.Phil., SET., NET.,", "description": "Duration: 3 years"},
-    {"id": 9, "level": "UG", "category": "Self", "department_name": "Department of Computer Applications", "hod": "Head of Department", "description": "Department of Computer Applications"},
-    {"id": 10, "level": "UG", "category": "Self", "department_name": "Department of Commerce", "hod": "Head of Department", "description": "Department of Commerce"},
-    {"id": 11, "level": "UG", "category": "Self", "department_name": "Department of Commerce CA", "hod": "Head of Department", "description": "Department of Commerce Computer Applications"},
-    # PG
-    {"id": 12, "level": "PG", "category": "Self", "department_name": "Department of M.Sc Computer Science", "hod": "Head of Department", "description": "Post Graduate Computer Science"},
-    {"id": 13, "level": "PG", "category": "Self", "department_name": "Department of M.Sc Data Science", "hod": "Head of Department", "description": "Post Graduate Data Science"},
-    {"id": 14, "level": "PG", "category": "Self", "department_name": "Department of M.Com", "hod": "Head of Department", "description": "Post Graduate Commerce"},
-    # PhD
-    {"id": 15, "level": "Ph.D", "category": "Research", "department_name": "Department of Tamil (Ph.D)", "hod": "Research Coordinator", "description": "Ph.D Research Programme"},
-    {"id": 16, "level": "Ph.D", "category": "Research", "department_name": "Department of Commerce (Ph.D)", "hod": "Research Coordinator", "description": "Ph.D Research Programme"},
-    {"id": 17, "level": "Ph.D", "category": "Research", "department_name": "Department of Computer Science (Ph.D)", "hod": "Research Coordinator", "description": "Ph.D Research Programme"},
+    # UG & PG Aided
+    {"id": 1, "level": "UG, Ph.D", "category": "Aided", "department_name": "Department of Tamil", "hod": "Dr. B. Ponni M.A., M.Phil., Ph.D., C.G.T., Dip.in.M.S.Off.,", "description": "UG Aided, PG SF, Ph.D Research Centre (Established 1968)"},
+    {"id": 2, "level": "UG, PG, Ph.D", "category": "Aided", "department_name": "Department of English", "hod": "Dr. K. Muthamil Selvi MA., M.Phil., B.Ed., Ph.D.", "description": "UG Aided, PG Aided, Ph.D Approved Research Centre"},
+    {"id": 3, "level": "UG, PG, Ph.D", "category": "Aided", "department_name": "Department of History", "hod": "Dr. R. Muthulakshmi M.A., M.Phil., Ph.D.", "description": "UG Aided, PG SF, Ph.D Approved Research Centre"},
+    {"id": 4, "level": "UG, PG, Ph.D", "category": "Aided", "department_name": "Department of Commerce", "hod": "Dr. V. Meenakshi M.Com., M.Phil., Ph.D.", "description": "UG Aided & SF, M.Com CA, Ph.D Approved Research Centre"},
+    {"id": 5, "level": "UG, PG, Ph.D", "category": "Aided", "department_name": "Department of Mathematics", "hod": "Dr. S. Sivadevi M.Sc., M.Phil., Ph.D.", "description": "UG Aided, PG Aided, Ph.D Approved Research Centre"},
+    {"id": 6, "level": "UG, PG, Ph.D", "category": "Aided", "department_name": "Department of Physics", "hod": "Dr. S. Jayanthi M.Sc., Ph.D", "description": "UG Aided, PG SF, Ph.D Approved Research Centre"},
+    {"id": 7, "level": "UG, PG, Ph.D", "category": "Aided", "department_name": "Department of Chemistry", "hod": "Dr. M. Murugalakshmi M.Sc., M.Phil., Ph.D", "description": "UG Aided, PG Aided, Ph.D Approved Research Centre"},
+    {"id": 8, "level": "UG, PG, Ph.D", "category": "Aided", "department_name": "Department of Botany", "hod": "Dr.(Mrs). B. Deepa M.Sc., M.Phil., Ph.D.", "description": "UG Aided, PG SF, Ph.D Approved Research Centre"},
+    {"id": 9, "level": "UG, PG", "category": "Aided", "department_name": "Department of Computer Science", "hod": "Mrs. P. Prescilla MCA, M.Phil", "description": "B.Sc CS (Aided & SF), M.Sc CS, Ph.D Research Centre"},
+
+    # UG & PG Self-Finance
+    {"id": 10, "level": "UG, PG", "category": "Self-Finance", "department_name": "Department of Data Science", "hod": "Mrs. D. Gangadevi, MCA., M.Phil., SET., NET.,", "description": "B.Sc Data Science & M.Sc Data Science with AI / ML specialization"},
+    {"id": 11, "level": "UG, PG", "category": "Self-Finance", "department_name": "Department of Computer Applications", "hod": "Mrs. A. Leena Benita MCA, M.Phil", "description": "BCA (Bachelor of Computer Applications) & MCA (AICTE Approved)"},
+    {"id": 12, "level": "UG, PG", "category": "Self-Finance", "department_name": "Department of Commerce CA", "hod": "Dr. T. Vasantha M.Com., M.Phil., Ph.D.", "description": "B.Com (Computer Applications) & M.Com (Computer Applications)"},
+    {"id": 13, "level": "UG", "category": "Self-Finance", "department_name": "Department of Commerce PA", "hod": "Dr. K. Jansi Rani M.Com., M.Phil., Ph.D.", "description": "B.Com (Professional Accounting) aligned with CA/CMA"},
+    {"id": 14, "level": "UG", "category": "Self-Finance", "department_name": "Department of Business Administration", "hod": "Dr. M. Uma Devi M.B.A., M.Phil., Ph.D.", "description": "B.B.A. (Bachelor of Business Administration)"},
+    {"id": 15, "level": "UG, PG", "category": "Self-Finance", "department_name": "Department of Microbiology", "hod": "Dr. K. Subbulakshmi M.Sc., M.Phil., Ph.D.", "description": "B.Sc. Microbiology & M.Sc. Microbiology"},
+    {"id": 16, "level": "UG, PG", "category": "Self-Finance", "department_name": "Department of Nutrition and Dietetics", "hod": "Dr. J. Porkodi M.Sc., M.Phil., Ph.D.", "description": "B.Sc. Nutrition & Dietetics, M.Sc. Food & Nutrition"},
+    {"id": 17, "level": "UG, Diploma", "category": "Self-Finance", "department_name": "Department of Costume Design & Fashion", "hod": "Mrs. M. Mohammed Rihana M.Sc., M.Phil.", "description": "B.Sc CDF & Diploma in Costume Design and Garment Production"},
+    {"id": 18, "level": "UG, PG", "category": "Self-Finance", "department_name": "Department of Psychology", "hod": "Dr. P. Suganthi M.Sc., M.Phil., Ph.D.", "description": "B.Sc. Psychology & M.Sc. Psychology"},
+    {"id": 19, "level": "UG", "category": "Self-Finance", "department_name": "Department of Geography", "hod": "Dr. S. Rajeswari M.Sc., M.Phil., Ph.D.", "description": "B.Sc. Geography with GIS and Remote Sensing"},
+    {"id": 20, "level": "All", "category": "Support", "department_name": "Department of Physical Education", "hod": "Dr. K. Stella M.P.Ed., M.Phil., Ph.D.", "description": "Physical Education, 400m Track, Indoor Stadium & Gym"},
+    {"id": 21, "level": "All", "category": "Support", "department_name": "Department of Library and Information Science", "hod": "Dr. S. Umamaheswari M.L.I.Sc., M.Phil., Ph.D.", "description": "Information Resource Centre (IRC), 64,795+ Volumes"},
 ]
 
 FACULTY_DATA = [
-    {"id": 1, "department": "Tamil", "faculty_name": "Dr.B.Ponni", "designation": "Associate Professor & Head", "qualification": "M.A.,M.Phil.,Ph.D", "email": "ponni-tam@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Head of Department of Tamil"},
-    {"id": 2, "department": "Botany", "faculty_name": "Dr.(Mrs.)B.Deepa", "designation": "Associate Professor & Head", "qualification": "M.Sc.,M.Phil.,Ph.D", "email": "deepa-bot@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Head of Department of Botany"},
-    {"id": 3, "department": "Commerce", "faculty_name": "Dr.V.Meenakshi", "designation": "Assistant Professor & Head", "qualification": "M.Com.,M.Phil.", "email": "meenakshi-com@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Assistant Professor & Head of Commerce"},
-    {"id": 4, "department": "English", "faculty_name": "Dr. K. Muthamil Selvi", "designation": "Associate Professor & Head", "qualification": "MA., M.Phil., B.Ed., Ph.D.", "email": "muthamil-eng@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Head of Department of English"},
-    {"id": 5, "department": "Physics", "faculty_name": "Dr. S. Jayanthi", "designation": "Associate Professor & Head", "qualification": "M.Sc., Ph.D", "email": "jayanthi-phy@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Head of Department of Physics"},
-    {"id": 6, "department": "Chemistry", "faculty_name": "Dr. M. Murugalakshmi", "designation": "Associate Professor & Head", "qualification": "M.Sc., M.Phil., Ph.D", "email": "murugalakshmi-chem@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Head of Department of Chemistry"},
-    {"id": 7, "department": "Computer Science", "faculty_name": "Mrs. P. Prescilla", "designation": "Assistant Professor & Head", "qualification": "MCA, M.Phil", "email": "prescilla-cs@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Head of Department of Computer Science"},
-    {"id": 8, "department": "Data Science", "faculty_name": "Mrs. D. Gangadevi", "designation": "Assistant Professor & Head", "qualification": "MCA., M.Phil., SET., NET.,", "email": "gangadevi-ds@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Head of Department of Data Science"},
+    {"id": 1, "department": "Administration", "faculty_name": "Dr. T. Palaneeswari", "designation": "Principal & Ex-officio Chief Warden", "qualification": "M.Com., M.Phil., Ph.D.", "email": "principal@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Head of Institution & Research Supervisor in Commerce"},
+    {"id": 2, "department": "Tamil", "faculty_name": "Dr. B. Ponni", "designation": "Associate Professor & Head", "qualification": "M.A., M.Phil., Ph.D., C.G.T., Dip.in.M.S.Off.,", "email": "ponni-tam@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Head of Department of Tamil & Ph.D Guide"},
+    {"id": 3, "department": "English", "faculty_name": "Dr. K. Muthamil Selvi", "designation": "Associate Professor & Head", "qualification": "MA., M.Phil., B.Ed., Ph.D.", "email": "muthamil-eng@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Head of Department of English & Ph.D Guide"},
+    {"id": 4, "department": "Commerce", "faculty_name": "Dr. V. Meenakshi", "designation": "Associate Professor & Head", "qualification": "M.Com., M.Phil., Ph.D.", "email": "meenakshi-com@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Associate Professor & Head of Commerce & Ph.D Guide"},
+    {"id": 5, "department": "Physics", "faculty_name": "Dr. S. Jayanthi", "designation": "Associate Professor & Head", "qualification": "M.Sc., Ph.D.", "email": "jayanthi-phy@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Head of Department of Physics & Ph.D Guide"},
+    {"id": 6, "department": "Chemistry", "faculty_name": "Dr. M. Murugalakshmi", "designation": "Associate Professor & Head", "qualification": "M.Sc., M.Phil., Ph.D.", "email": "murugalakshmi-chem@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Head of Department of Chemistry & Ph.D Guide"},
+    {"id": 7, "department": "Botany", "faculty_name": "Dr.(Mrs.) B. Deepa", "designation": "Associate Professor & Head", "qualification": "M.Sc., M.Phil., Ph.D.", "email": "deepa-bot@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Head of Department of Botany & Ph.D Guide"},
+    {"id": 8, "department": "Computer Science", "faculty_name": "Mrs. P. Prescilla", "designation": "Assistant Professor & Head", "qualification": "MCA, M.Phil.", "email": "prescilla-cs@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Head of Department of Computer Science"},
+    {"id": 9, "department": "Data Science", "faculty_name": "Mrs. D. Gangadevi", "designation": "Assistant Professor & Head", "qualification": "MCA., M.Phil., SET., NET.,", "email": "gangadevi-ds@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Head of Department of Data Science"},
+    {"id": 10, "department": "Mathematics", "faculty_name": "Dr. S. Sivadevi", "designation": "Associate Professor & Head", "qualification": "M.Sc., M.Phil., Ph.D.", "email": "sivadevi-mat@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Head of Department of Mathematics & Ph.D Guide"},
+    {"id": 11, "department": "Mathematics", "faculty_name": "Dr. R. Malini Devi", "designation": "Associate Professor", "qualification": "M.Sc., M.Phil., Ph.D.", "email": "malinidevi-mat@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Associate Professor of Mathematics & Ph.D Guide"},
+    {"id": 12, "department": "History", "faculty_name": "Dr. R. Muthulakshmi", "designation": "Associate Professor & Head", "qualification": "M.A., M.Phil., Ph.D.", "email": "muthulakshmi-his@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Head of Department of History & Ph.D Guide"},
+    {"id": 13, "department": "Microbiology", "faculty_name": "Dr. K. Subbulakshmi", "designation": "Associate Professor & Head", "qualification": "M.Sc., M.Phil., Ph.D.", "email": "subbulakshmi-mbio@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Head of Department of Microbiology"},
+    {"id": 14, "department": "Nutrition and Dietetics", "faculty_name": "Dr. J. Porkodi", "designation": "Associate Professor & Head", "qualification": "M.Sc., M.Phil., Ph.D.", "email": "porkodi-nd@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Head of Department of Nutrition and Dietetics"},
+    {"id": 15, "department": "Computer Applications", "faculty_name": "Mrs. A. Leena Benita", "designation": "Assistant Professor & Head", "qualification": "MCA, M.Phil.", "email": "leenabenita-ca@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Head of Department of Computer Applications (BCA & MCA)"},
+    {"id": 16, "department": "Costume Design & Fashion", "faculty_name": "Mrs. M. Mohammed Rihana", "designation": "Assistant Professor & Head", "qualification": "M.Sc., M.Phil.", "email": "rihana-cdf@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Head of Department of Costume Design & Fashion"},
+    {"id": 17, "department": "Psychology", "faculty_name": "Dr. P. Suganthi", "designation": "Assistant Professor & Head", "qualification": "M.Sc., M.Phil., Ph.D.", "email": "suganthi-psy@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Head of Department of Psychology"},
+    {"id": 18, "department": "Geography", "faculty_name": "Dr. S. Rajeswari", "designation": "Assistant Professor & Head", "qualification": "M.Sc., M.Phil., Ph.D.", "email": "rajeswari-geo@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Head of Department of Geography"},
+    {"id": 19, "department": "Physical Education", "faculty_name": "Dr. K. Stella", "designation": "Director of Physical Education", "qualification": "M.P.Ed., M.Phil., Ph.D.", "email": "stella-ped@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Director of Physical Education"},
+    {"id": 20, "department": "Library", "faculty_name": "Dr. S. Umamaheswari", "designation": "College Librarian", "qualification": "M.L.I.Sc., M.Phil., Ph.D.", "email": "librarian@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Librarian & Head of Information Resource Centre"},
 ]
 
 FEES_DATA = [
     {"id": 1, "department_name": "Department of Data Science", "tuition_fee": "₹19,000", "other_fee": "₹970"},
-    {"id": 2, "department_name": "Department of Computer Science", "tuition_fee": "₹18,500", "other_fee": "₹950"},
-    {"id": 3, "department_name": "Department of English", "tuition_fee": "₹2,500", "other_fee": "₹650"},
-    {"id": 4, "department_name": "Department of Tamil", "tuition_fee": "₹2,200", "other_fee": "₹650"},
-    {"id": 5, "department_name": "Department of Physics", "tuition_fee": "₹3,200", "other_fee": "₹850"},
-    {"id": 6, "department_name": "Department of Chemistry", "tuition_fee": "₹3,200", "other_fee": "₹850"},
-    {"id": 7, "department_name": "Department of Botany", "tuition_fee": "₹3,000", "other_fee": "₹800"},
-    {"id": 8, "department_name": "Department of Mathematics", "tuition_fee": "₹2,800", "other_fee": "₹700"},
-    {"id": 9, "department_name": "Department of Commerce", "tuition_fee": "₹14,000", "other_fee": "₹850"},
+    {"id": 2, "department_name": "Department of Computer Science", "tuition_fee": "₹18,500 (SF) / ₹3,500 (Aided)", "other_fee": "₹950"},
+    {"id": 3, "department_name": "Department of Computer Applications", "tuition_fee": "₹18,000 (BCA) / ₹24,000 (MCA)", "other_fee": "₹900"},
+    {"id": 4, "department_name": "Department of Commerce", "tuition_fee": "₹14,000 (SF) / ₹2,400 (Aided)", "other_fee": "₹850"},
+    {"id": 5, "department_name": "Department of Commerce CA", "tuition_fee": "₹14,500", "other_fee": "₹850"},
+    {"id": 6, "department_name": "Department of Commerce PA", "tuition_fee": "₹14,500", "other_fee": "₹850"},
+    {"id": 7, "department_name": "Department of Business Administration", "tuition_fee": "₹14,000", "other_fee": "₹850"},
+    {"id": 8, "department_name": "Department of English", "tuition_fee": "₹2,500 (Aided) / ₹12,000 (SF)", "other_fee": "₹650"},
+    {"id": 9, "department_name": "Department of Tamil", "tuition_fee": "₹2,200 (Aided) / ₹10,000 (SF)", "other_fee": "₹650"},
+    {"id": 10, "department_name": "Department of History", "tuition_fee": "₹2,200 (Aided)", "other_fee": "₹650"},
+    {"id": 11, "department_name": "Department of Physics", "tuition_fee": "₹3,200 (Aided) / ₹16,000 (SF)", "other_fee": "₹850"},
+    {"id": 12, "department_name": "Department of Chemistry", "tuition_fee": "₹3,200 (Aided) / ₹16,000 (SF)", "other_fee": "₹850"},
+    {"id": 13, "department_name": "Department of Botany", "tuition_fee": "₹3,000 (Aided) / ₹15,000 (SF)", "other_fee": "₹800"},
+    {"id": 14, "department_name": "Department of Mathematics", "tuition_fee": "₹2,800 (Aided) / ₹14,000 (SF)", "other_fee": "₹700"},
+    {"id": 15, "department_name": "Department of Microbiology", "tuition_fee": "₹16,000", "other_fee": "₹900"},
+    {"id": 16, "department_name": "Department of Nutrition and Dietetics", "tuition_fee": "₹16,000", "other_fee": "₹900"},
+    {"id": 17, "department_name": "Department of Costume Design & Fashion", "tuition_fee": "₹16,500", "other_fee": "₹900"},
+    {"id": 18, "department_name": "Department of Psychology", "tuition_fee": "₹14,500", "other_fee": "₹800"},
+    {"id": 19, "department_name": "Department of Geography", "tuition_fee": "₹14,500", "other_fee": "₹800"},
 ]
 
 GUIDES_DATA = [
-    {"id": 1, "guide_name": "Dr. B. Ponni", "department": "Tamil", "specialization": "Modern Literature, Sangam Literature", "qualification": "M.A., M.Phil., Ph.D.", "email": "ponni-tam@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Research Supervisor in Tamil"},
-    {"id": 2, "guide_name": "Dr. V. Meenakshi", "department": "Commerce", "specialization": "Banking & Financial Services", "qualification": "M.Com., M.Phil., Ph.D.", "email": "meenakshi-com@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Research Supervisor in Commerce"},
-    {"id": 3, "guide_name": "Dr. K. Muthamil Selvi", "department": "English", "specialization": "Indian Writing in English, ELT", "qualification": "MA., M.Phil., B.Ed., Ph.D.", "email": "muthamil-eng@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Research Supervisor in English"},
-    {"id": 4, "guide_name": "Dr. S. Jayanthi", "department": "Physics", "specialization": "Crystal Growth & Thin Films", "qualification": "M.Sc., Ph.D.", "email": "jayanthi-phy@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Research Supervisor in Physics"},
+    {"id": 1, "guide_name": "Dr. B. Ponni", "department": "Tamil", "specialization": "Modern Literature, Sangam Literature, Epigraphy", "qualification": "M.A., M.Phil., Ph.D.", "email": "ponni-tam@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Research Supervisor in Department of Tamil"},
+    {"id": 2, "guide_name": "Dr. V. Meenakshi", "department": "Commerce", "specialization": "Banking, Financial Services & Women Entrepreneurship", "qualification": "M.Com., M.Phil., Ph.D.", "email": "meenakshi-com@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Research Supervisor in Department of Commerce"},
+    {"id": 3, "guide_name": "Dr. T. Palaneeswari", "department": "Commerce", "specialization": "Corporate Finance, Financial Markets & Higher Education", "qualification": "M.Com., M.Phil., Ph.D.", "email": "principal@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Principal & Research Supervisor in Commerce"},
+    {"id": 4, "guide_name": "Dr. K. Muthamil Selvi", "department": "English", "specialization": "Indian Writing in English, ELT, Post-Colonial Literature", "qualification": "MA., M.Phil., B.Ed., Ph.D.", "email": "muthamil-eng@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Research Supervisor in Department of English"},
+    {"id": 5, "guide_name": "Dr. S. Jayanthi", "department": "Physics", "specialization": "Crystal Growth, Thin Films & Material Science", "qualification": "M.Sc., Ph.D.", "email": "jayanthi-phy@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Research Supervisor in Department of Physics"},
+    {"id": 6, "guide_name": "Dr. M. Murugalakshmi", "department": "Chemistry", "specialization": "Coordination Chemistry, Corrosion Inhibition & Environmental Chemistry", "qualification": "M.Sc., M.Phil., Ph.D.", "email": "murugalakshmi-chem@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Research Supervisor in Department of Chemistry"},
+    {"id": 7, "guide_name": "Dr.(Mrs.) B. Deepa", "department": "Botany", "specialization": "Medicinal Plants, Phytochemistry & Plant Physiology", "qualification": "M.Sc., M.Phil., Ph.D.", "email": "deepa-bot@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Research Supervisor in Department of Botany"},
+    {"id": 8, "guide_name": "Dr. S. Sivadevi", "department": "Mathematics", "specialization": "Topology, Fuzzy Sets & Mathematical Modeling", "qualification": "M.Sc., M.Phil., Ph.D.", "email": "sivadevi-mat@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Research Supervisor in Department of Mathematics"},
+    {"id": 9, "guide_name": "Dr. R. Malini Devi", "department": "Mathematics", "specialization": "Graph Theory, Domination & Algorithms", "qualification": "M.Sc., M.Phil., Ph.D.", "email": "malinidevi-mat@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Research Supervisor in Department of Mathematics"},
+    {"id": 10, "guide_name": "Dr. R. Muthulakshmi", "department": "History", "specialization": "Socio-Economic History of South India, Women Empowerment", "qualification": "M.A., M.Phil., Ph.D.", "email": "muthulakshmi-his@sfrcollege.edu.in", "phone": "+91 4562 220389", "description": "Research Supervisor in Department of History"},
 ]
 
 TRANSPORT_DATA = [
     {
         "id": 1,
         "bus_number": "SFRC-01",
-        "driver_name": "Mr. Murugan",
-        "bus_route": "Thiruthangal to SFRC Campus",
-        "bus_stoppings": "Thiruthangal Bus Stand\nSivakasi New Bus Stand\nSFRC Main Gate",
-        "bus_stop_timings": "07:45 AM\n08:00 AM\n08:20 AM"
+        "driver_name": "Mr. M. Senthil",
+        "bus_route": "Route 1: Sivakasi Town Loop to SFRC Campus",
+        "bus_stoppings": "Sivakasi Old Bus Stand\nCoronation Colony\nRailway Feeder Road\nSFRC Main Gate",
+        "bus_stop_timings": "07:50 AM\n08:05 AM\n08:15 AM\n08:20 AM"
     },
     {
         "id": 2,
         "bus_number": "SFRC-02",
-        "driver_name": "Mr. Ramasamy",
-        "bus_route": "Sattur to SFRC Campus",
-        "bus_stoppings": "Sattur Bus Stand\nThayilpatti Junction\nSFRC Main Gate",
-        "bus_stop_timings": "07:30 AM\n07:50 AM\n08:25 AM"
+        "driver_name": "Mr. K. Pandian",
+        "bus_route": "Route 2: Thiruthangal to SFRC Campus",
+        "bus_stoppings": "Thiruthangal Railway Station\nEB Office Junction\nHousing Board\nSFRC Main Gate",
+        "bus_stop_timings": "07:45 AM\n07:55 AM\n08:05 AM\n08:20 AM"
     },
     {
         "id": 3,
         "bus_number": "SFRC-03",
-        "driver_name": "Mr. Selvam",
-        "bus_route": "Srivilliputhur & Rajapalayam to SFRC Campus",
-        "bus_stoppings": "Srivilliputhur Tower\nRajapalayam Bus Stand\nSFRC Main Gate",
-        "bus_stop_timings": "07:20 AM\n07:45 AM\n08:25 AM"
+        "driver_name": "Mr. P. Murugan",
+        "bus_route": "Route 3: Sattur & Padanthal to SFRC Campus",
+        "bus_stoppings": "Sattur Old Bus Stand\nPadanthal Junction\nThayilpatti\nSFRC Main Gate",
+        "bus_stop_timings": "07:30 AM\n07:45 AM\n08:00 AM\n08:25 AM"
+    },
+    {
+        "id": 4,
+        "bus_number": "SFRC-04",
+        "driver_name": "Mr. R. Kumar",
+        "bus_route": "Route 4: Vembakottai & Sevalpatti to SFRC Campus",
+        "bus_stoppings": "Vembakottai Bus Stand\nSevalpatti\nAlangulam Gate\nSFRC Main Gate",
+        "bus_stop_timings": "07:35 AM\n07:50 AM\n08:05 AM\n08:25 AM"
+    },
+    {
+        "id": 5,
+        "bus_number": "SFRC-05",
+        "driver_name": "Mr. A. Selvam",
+        "bus_route": "Route 5: Virudhunagar Collectorate to SFRC Campus",
+        "bus_stoppings": "Virudhunagar Collectorate\nSulakkarai\nSivakasi Bypass\nSFRC Main Gate",
+        "bus_stop_timings": "07:20 AM\n07:35 AM\n08:05 AM\n08:20 AM"
+    },
+    {
+        "id": 6,
+        "bus_number": "SFRC-06",
+        "driver_name": "Mr. S. Ganesan",
+        "bus_route": "Route 6: Srivilliputtur & Krishnankoil to SFRC Campus",
+        "bus_stoppings": "Srivilliputtur Tower Junction\nKrishnankoil\nKoomapatti Cross\nSFRC Main Gate",
+        "bus_stop_timings": "07:25 AM\n07:45 AM\n08:05 AM\n08:25 AM"
+    },
+    {
+        "id": 7,
+        "bus_number": "SFRC-07",
+        "driver_name": "Mr. M. Ramar",
+        "bus_route": "Route 7: Rajapalayam to SFRC Campus",
+        "bus_stoppings": "Rajapalayam New Bus Stand\nChatrapatti\nSamsigapuram Junction\nSFRC Main Gate",
+        "bus_stop_timings": "07:20 AM\n07:40 AM\n08:00 AM\n08:25 AM"
+    },
+    {
+        "id": 8,
+        "bus_number": "SFRC-08",
+        "driver_name": "Mr. P. Kaliraj",
+        "bus_route": "Route 8: Watrap & Maharajapuram to SFRC Campus",
+        "bus_stoppings": "Watrap Bus Stand\nMaharajapuram\nW. Pudupatti\nSFRC Main Gate",
+        "bus_stop_timings": "07:15 AM\n07:35 AM\n07:55 AM\n08:25 AM"
+    },
+    {
+        "id": 9,
+        "bus_number": "SFRC-09",
+        "driver_name": "Mr. T. Velmurugan",
+        "bus_route": "Route 9: Maraneri & Alangulam to SFRC Campus",
+        "bus_stoppings": "Maraneri Bus Stop\nKeelarajakularaman\nVilampatti\nSFRC Main Gate",
+        "bus_stop_timings": "07:30 AM\n07:50 AM\n08:05 AM\n08:25 AM"
+    },
+    {
+        "id": 10,
+        "bus_number": "SFRC-10",
+        "driver_name": "Mr. K. Muthu",
+        "bus_route": "Route 10: Mamsapuram & Sundarapandiam to SFRC Campus",
+        "bus_stoppings": "Mamsapuram Bus Stand\nSundarapandiam\nKombadi\nSFRC Main Gate",
+        "bus_stop_timings": "07:20 AM\n07:40 AM\n08:05 AM\n08:25 AM"
     }
 ]
 
 CONTACT_DATA = [
     {
         "id": 1,
-        "office": "Admission Office",
-        "phone": "+91 4562 220389",
-        "email": "sfrc@sfrcollege.edu.in",
-        "address": "Thiruthangal Road, Sivakasi - 626123, Tamil Nadu, India"
+        "office": "Admission Office Helpdesk",
+        "phone": "+91 4562 220389 (Ext: 102)",
+        "email": "admissions@sfrcollege.edu.in",
+        "address": "Administrative Block Room 4, SFRC Campus"
     },
     {
         "id": 2,
         "office": "Principal Office",
         "phone": "+91 4562 220389",
         "email": "principal@sfrcollege.edu.in",
-        "address": "Main Administrative Block, SFRC Sivakasi"
+        "address": "Main Administrative Block, SFRC Sivakasi - 626123"
     },
     {
         "id": 3,
         "office": "Controller of Examinations (COE)",
         "phone": "+91 4562 220389 (Ext: 104)",
         "email": "coe@sfrcollege.edu.in",
-        "address": "Autonomous Examination Building, SFRC"
+        "address": "Autonomous Examination Building, SFRC Campus"
     },
     {
         "id": 4,
@@ -154,21 +241,50 @@ CONTACT_DATA = [
         "phone": "+91 4562 220389 (Ext: 112)",
         "email": "scholarships@sfrcollege.edu.in",
         "address": "Administrative Block Room 12"
+    },
+    {
+        "id": 5,
+        "office": "Training & Placement Cell",
+        "phone": "+91 4562 220389 (Ext: 115)",
+        "email": "placements@sfrcollege.edu.in",
+        "address": "Placement & Career Guidance Wing, SFRC"
+    },
+    {
+        "id": 6,
+        "office": "Residential Hostels & Chief Warden",
+        "phone": "+91 4562 220389 (Ext: 120)",
+        "email": "hostel@sfrcollege.edu.in",
+        "address": "Chief Warden Office, Main Hostel Block, SFRC"
+    },
+    {
+        "id": 7,
+        "office": "General Campus Enquiries",
+        "phone": "+91 4562 220386",
+        "email": "sfrc@sfrcollege.edu.in",
+        "address": "Thiruthangal Road, Sivakasi - 626 123, Virudhunagar District, Tamil Nadu"
     }
 ]
 
 FAQ_DATA = [
     {
         "question": "What are the college working hours?",
-        "answer": "College working hours are from 8:30 AM to 1:30 PM (Regular Shift) and 1:45 PM to 6:00 PM (Evening Shift)."
+        "answer": "College working hours are: Regular / Aided Shift (Shift I): 8:30 AM to 1:30 PM | Self-Financed Shift (Shift II): 1:45 PM to 6:00 PM. Administrative office is open 8:30 AM to 5:00 PM."
     },
     {
         "question": "How to apply for admissions?",
-        "answer": "Admissions for UG and PG programmes can be applied online through the SFRC portal or directly at the Admission Office in the Administrative Block."
+        "answer": "Admissions for UG and PG programmes can be applied online through the SFRC portal (www.sfrcollege.edu.in) or directly at the Admission Office in the Administrative Block."
     },
     {
         "question": "What is the dress code?",
-        "answer": "Students are required to adhere to the designated college uniform / formal attire reflecting academic decorum."
+        "answer": "Students are required to wear formal decent attire adhering to institutional decorum. Uniform salwars are designated on specific scheduled days."
+    },
+    {
+        "question": "What is the passing minimum marks in exams?",
+        "answer": "For UG: Minimum 21 out of 60 marks (35%) in End-Semester Exam and 40 out of 100 aggregate marks. For PG: Minimum 27 out of 60 marks (45%) in End-Semester Exam and 50 out of 100 aggregate marks."
+    },
+    {
+        "question": "What is the attendance requirement?",
+        "answer": "Minimum 75% attendance (68 out of 90 working days) is mandatory to appear for examinations. Shortage between 65% and 74% requires Principal condonation upon genuine medical grounds."
     }
 ]
 
@@ -585,8 +701,22 @@ class PragyaService:
                 "fees"
             )
 
-        # 6. Ph.D Guides
-        if contains_any(msg, ["guide", "guides", "phd guide", "ph.d guide", "research guide", "supervisor"]):
+        # 6. Ph.D Guides & Approved Research Centres
+        if contains_any(msg, ["guide", "guides", "phd guide", "ph.d guide", "research guide", "supervisor", "research department", "research departments", "research centre", "research centres", "phd centre", "phd centres", "recognized research"]):
+            if contains_any(msg, ["centre", "centres", "recognized", "approved", "research departments", "research department"]):
+                reply = (
+                    "🔬 <b>8 Approved Ph.D Research Centres at SFRC (Madurai Kamaraj University)</b>:<br><br>"
+                    "1. <b>Department of Tamil</b> (Modern & Sangam Literature)<br>"
+                    "2. <b>Department of Commerce</b> (Banking, Finance & Entrepreneurship)<br>"
+                    "3. <b>Department of English</b> (Indian Writing, ELT, Post-Colonial Literature)<br>"
+                    "4. <b>Department of Chemistry</b> (Coordination & Environmental Chemistry)<br>"
+                    "5. <b>Department of Mathematics</b> (Topology, Fuzzy Sets & Graph Theory)<br>"
+                    "6. <b>Department of History</b> (Modern & Socio-Economic History)<br>"
+                    "7. <b>Department of Physics</b> (Crystal Growth, Thin Films & Material Science)<br>"
+                    "8. <b>Department of Botany</b> (Medicinal Plants & Phytochemistry)"
+                )
+                return (reply, ["PhD Guides", "Admissions", "Departments", "Menu"], ["SFRC Research Directorate"], "guides")
+
             guide_names = [g["guide_name"] for g in GUIDES_DATA]
             departments = sorted(list(set(g["department"] for g in GUIDES_DATA)))
 
