@@ -518,10 +518,14 @@ export default function AdminUsersPage() {
         setEditSelectedWards([]);
       }
 
+      const matchedDept = departmentsList.find(
+        (d) => d.id === details.department_id || d.name === details.department_name || d.name === details.department_id
+      );
+
       resetEdit({
         full_name: details.full_name,
         phone: details.phone || '',
-        department_id: details.department_id || '',
+        department_id: matchedDept?.id || details.department_id || '',
         programme_id: details.programme_id || '',
         register_number: details.register_number || '',
         current_semester: details.current_semester || 1,
@@ -1536,7 +1540,7 @@ export default function AdminUsersPage() {
                   >
                     <option value="">Select Department</option>
                     {departmentsList.map((d) => (
-                      <option key={d.code} value={d.name}>
+                      <option key={d.code} value={d.id || d.name}>
                         {d.name}
                       </option>
                     ))}
@@ -1832,7 +1836,7 @@ export default function AdminUsersPage() {
                     >
                       <option value="">Select Department</option>
                       {departmentsList.map((d) => (
-                        <option key={d.code} value={d.name}>
+                        <option key={d.code} value={d.id || d.name}>
                           {d.name}
                         </option>
                       ))}

@@ -82,6 +82,12 @@ interface PrincipalOverviewData {
     naac_grade: string;
     nirf_band: string;
   };
+  profile?: {
+    full_name: string;
+    designation: string;
+    employee_id: string;
+    department_name: string;
+  };
   departments: Array<{
     id: string;
     name: string;
@@ -338,7 +344,7 @@ export default function FacultyDashboardPage() {
   };
 
   const profile = teachingData?.profile;
-  const userName = user?.fullName || profile?.full_name || 'Faculty Member';
+  const userName = principalData?.profile?.full_name || profile?.full_name || user?.fullName || 'Faculty Member';
 
   if (isLoading && !teachingData && !principalData && !hodData && !labData) {
     return (
@@ -381,7 +387,7 @@ export default function FacultyDashboardPage() {
                     Office of the Principal • Executive Governance
                   </div>
                   <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white">
-                    {greeting}, Dr. M. Pushpavalli
+                    {greeting}, {userName}
                   </h1>
                   <p className="text-sm text-sfrc-200 mt-2 max-w-2xl leading-relaxed">
                     Head of the Institution • Autonomous Academic Council & Quality Assurance Cell. Monitor institutional KPIs, department performance, BOS approvals, and statutory governance.
@@ -810,7 +816,7 @@ export default function FacultyDashboardPage() {
                   {greeting}, {userName}! 👋
                 </h1>
                 <p className="text-xs sm:text-sm text-sfrc-600 mt-1">
-                  {profile?.department_name || 'Department of Data Science'}
+                  {profile?.department_name || 'Autonomous Academic Faculty'}
                 </p>
               </div>
 

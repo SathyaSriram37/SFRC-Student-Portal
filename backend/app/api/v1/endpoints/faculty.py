@@ -558,6 +558,17 @@ async def get_principal_executive_overview(
         FROM student_leaves WHERE status = 'pending' ORDER BY created_at DESC LIMIT 5
     """))).mappings().all()
 
+    # 6. Authoritative Principal profile from database
+    user_id = str(user.get("id") or user.get("sub") or "")
+    p_info = (await db.execute(text("""
+        SELECT up.full_name, up.email, up.phone, f.employee_id, f.designation, d.name as department_name
+        FROM user_profiles up
+        LEFT JOIN faculty f ON f.user_id = up.id
+        LEFT JOIN departments d ON f.department_id = d.id
+        WHERE up.id = :user_id
+    """), {"user_id": user_id})).mappings().first()
+    principal_name = p_info["full_name"] if p_info and p_info["full_name"] else "Principal"
+
     return {
         "kpi": {
             "total_students": tot_stds,
@@ -568,6 +579,12 @@ async def get_principal_executive_overview(
             "overall_pass_pct": overall_pass,
             "naac_grade": "A++ (Cycle 4, CGPA 3.68)",
             "nirf_band": "Top 50 Autonomous Colleges",
+        },
+        "profile": {
+            "full_name": principal_name,
+            "designation": p_info["designation"] if p_info and p_info["designation"] else "Principal",
+            "employee_id": p_info["employee_id"] if p_info and p_info["employee_id"] else "EMP-PRI-001",
+            "department_name": p_info["department_name"] if p_info and p_info["department_name"] else "Office of the Principal",
         },
         "departments": departments_summary,
         "pending_approvals": [dict(l) for l in leaves_pending],

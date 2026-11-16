@@ -1071,10 +1071,16 @@ async def get_user_details(
     """Retrieve full authoritative profile details for a Student, Faculty, Parent, or Admin."""
     user_sql = text("""
         SELECT up.id, up.email, up.role, up.full_name, up.phone, up.avatar_url,
-               up.department_id, d.name as department_name, up.is_active,
+               COALESCE(up.department_id, f.department_id, s.department_id) as department_id,
+               COALESCE(d.name, up.department_name) as department_name, up.is_active,
                up.created_at, up.updated_at
         FROM user_profiles up
-        LEFT JOIN departments d ON up.department_id = d.id
+        LEFT JOIN faculty f ON f.user_id = up.id
+        LEFT JOIN students s ON s.user_id = up.id
+        LEFT JOIN departments d ON (
+            d.id = up.department_id OR d.id = f.department_id OR d.id = s.department_id
+            OR d.code = up.department_id OR d.name = up.department_id
+        )
         WHERE up.id = :user_id
     """)
     user_row = (await db.execute(user_sql, {"user_id": user_id})).mappings().first()
@@ -1227,6 +1233,21 @@ async def update_user(
 
     user_role = (body.role or existing["role"]).lower()
 
+    # Resolve department from database if provided
+    resolved_dept_id = None
+    resolved_dept_name = None
+    if body.department_id:
+        d_val = body.department_id.strip()
+        dept_match = (await db.execute(
+            text("SELECT id, name FROM departments WHERE id = :d OR code = :d OR name = :d OR LOWER(name) = LOWER(:d) LIMIT 1"),
+            {"d": d_val}
+        )).mappings().first()
+        if dept_match:
+            resolved_dept_id = str(dept_match["id"])
+            resolved_dept_name = str(dept_match["name"])
+        else:
+            resolved_dept_id = d_val
+
     # 1. Update user_profiles
     updates = ["updated_at = CURRENT_TIMESTAMP"]
     params: dict[str, Any] = {"user_id": user_id}
@@ -1242,7 +1263,10 @@ async def update_user(
         params["role"] = body.role
     if body.department_id is not None:
         updates.append("department_id = :department_id")
-        params["department_id"] = body.department_id if body.department_id else None
+        params["department_id"] = resolved_dept_id
+        if resolved_dept_name:
+            updates.append("department_name = :department_name")
+            params["department_name"] = resolved_dept_name
     if body.is_active is not None:
         updates.append("is_active = :is_active")
         params["is_active"] = body.is_active
@@ -1264,7 +1288,7 @@ async def update_user(
                 st_params["prog_id"] = body.programme_id
             if body.department_id is not None:
                 st_updates.append("department_id = :dept_id")
-                st_params["dept_id"] = body.department_id
+                st_params["dept_id"] = resolved_dept_id
             if body.current_semester is not None:
                 st_updates.append("current_semester = :sem")
                 st_params["sem"] = body.current_semester
@@ -1302,7 +1326,7 @@ async def update_user(
                 "id": new_st_id, "uid": user_id,
                 "reg": body.register_number or f"26UCA{user_id[:4].upper()}",
                 "sem": body.current_semester or 1,
-                "dept": body.department_id,
+                "dept": resolved_dept_id,
                 "prog": body.programme_id,
                 "sec": body.section or "A",
                 "batch": body.batch or "2026-2029",
@@ -1321,7 +1345,7 @@ async def update_user(
                 fac_params["desig"] = body.designation
             if body.department_id is not None:
                 fac_updates.append("department_id = :dept_id")
-                fac_params["dept_id"] = body.department_id
+                fac_params["dept_id"] = resolved_dept_id
             if body.is_active is not None:
                 fac_updates.append("is_active = :is_active")
                 fac_params["is_active"] = body.is_active
@@ -1337,7 +1361,7 @@ async def update_user(
                 "id": new_fac_id, "uid": user_id,
                 "emp": body.employee_id or f"FAC{user_id[:4].upper()}",
                 "desig": body.designation or "Assistant Professor",
-                "dept": body.department_id,
+                "dept": resolved_dept_id,
             })
 
     elif user_role == "parent":
@@ -1408,6 +1432,12 @@ async def update_user(
                 meta_update["employee_id"] = body.employee_id
             if body.phone:
                 meta_update["phone"] = body.phone
+            if resolved_dept_id:
+                meta_update["department_id"] = resolved_dept_id
+            if resolved_dept_name:
+                meta_update["department_name"] = resolved_dept_name
+            if getattr(body, "designation", None):
+                meta_update["designation"] = body.designation
 
             if meta_update:
                 payload = {"user_metadata": meta_update}
