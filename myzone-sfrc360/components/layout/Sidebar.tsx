@@ -48,10 +48,11 @@ interface NavItem {
 
 const principalNav: NavItem[] = [
   { label: 'Executive Overview', href: '/faculty/dashboard', icon: LayoutDashboard },
-  { label: 'All Departments Oversight', href: '/admin/academics', icon: Building2 },
-  { label: 'Academic Governance & BOS', href: '/admin/academics', icon: FileCheck },
-  { label: 'Faculty Workload Oversight', href: '/admin/users', icon: Users },
-  { label: 'Student Risk Vigilance', href: '/admin/analytics', icon: BarChart3 },
+  { label: 'All Departments Oversight', href: '/faculty/departments', icon: Building2 },
+  { label: 'Institutional Approvals', href: '/faculty/approvals', icon: FileCheck },
+  { label: 'Official Circulars', href: '/faculty/circulars', icon: Bell },
+  { label: 'Curriculum & Courses', href: '/faculty/courses', icon: BookOpen },
+  { label: 'Student Performance & Marks', href: '/hod/marks-report', icon: BarChart3 },
   { label: 'Campus Venues & Ops', href: '/faculty/facilities', icon: Home },
   { label: 'Pragya AI', href: '#pragya', icon: Sparkles, isPragya: true },
 ];
@@ -63,16 +64,15 @@ const hodNav: NavItem[] = [
   { label: 'Curriculum & Courses', href: '/faculty/courses', icon: BookOpen },
   { label: 'Attendance Report', href: '/hod/attendance-report', icon: ClipboardList },
   { label: 'Marks & CIA Report', href: '/hod/marks-report', icon: BarChart3 },
-  { label: 'Student Leave Endorsement', href: '/faculty/attendance', icon: FileCheck },
+  { label: 'Student Leave Endorsement', href: '/faculty/approvals', icon: FileCheck },
   { label: 'Pragya AI', href: '#pragya', icon: Sparkles, isPragya: true },
 ];
 
 const labAssistantNav: NavItem[] = [
-  { label: 'Lab Operations Dashboard', href: '/faculty/dashboard', icon: LayoutDashboard },
-  { label: 'Lab Inventory & Systems', href: '/faculty/lab/inventory', icon: FlaskConical },
-  { label: 'Practical Session Logbook', href: '/faculty/lab/logbook', icon: ClipboardList },
-  { label: 'Equipment Maintenance', href: '/faculty/lab/maintenance', icon: Settings },
-  { label: 'Consumables & Stock', href: '/faculty/lab/consumables', icon: Building2 },
+  { label: 'Lab Operations Hub', href: '/faculty/dashboard', icon: LayoutDashboard },
+  { label: 'Campus Venues & Facilities', href: '/faculty/facilities', icon: Building2 },
+  { label: 'Events & Workshops', href: '/faculty/events', icon: Calendar },
+  { label: 'My Profile', href: '/faculty/profile', icon: User },
   { label: 'Pragya AI', href: '#pragya', icon: Sparkles, isPragya: true },
 ];
 

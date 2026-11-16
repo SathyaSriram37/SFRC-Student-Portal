@@ -517,13 +517,13 @@ export default function FacultyDashboardPage() {
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                   <Link
-                    href="/faculty/attendance-report"
+                    href="/hod/attendance-report"
                     className="px-4 py-2.5 rounded-xl text-xs font-bold bg-sfrc-gold text-sfrc-950 hover:bg-yellow-400 transition-all shadow-md flex items-center gap-2"
                   >
                     <ClipboardList className="w-4 h-4" /> Attendance Report
                   </Link>
                   <Link
-                    href="/faculty/marks-report"
+                    href="/hod/marks-report"
                     className="px-4 py-2.5 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-all flex items-center gap-2"
                   >
                     <BarChart3 className="w-4 h-4" /> CIA Marks Report
