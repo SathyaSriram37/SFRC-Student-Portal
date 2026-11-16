@@ -48,24 +48,22 @@ interface NavItem {
 
 const principalNav: NavItem[] = [
   { label: 'Executive Overview', href: '/faculty/dashboard', icon: LayoutDashboard },
-  { label: 'All Departments Oversight', href: '/faculty/departments', icon: Building2 },
-  { label: 'Academic Governance & BOS', href: '/faculty/governance', icon: FileCheck },
-  { label: 'Faculty Workload Oversight', href: '/faculty/faculty-roster', icon: Users },
-  { label: 'Student Risk Vigilance', href: '/faculty/student-risk', icon: BarChart3 },
-  { label: 'Institutional Approvals', href: '/faculty/approvals', icon: ClipboardList },
-  { label: 'College Circulars', href: '/faculty/circulars', icon: Bell },
+  { label: 'All Departments Oversight', href: '/admin/academics', icon: Building2 },
+  { label: 'Academic Governance & BOS', href: '/admin/academics', icon: FileCheck },
+  { label: 'Faculty Workload Oversight', href: '/admin/users', icon: Users },
+  { label: 'Student Risk Vigilance', href: '/admin/analytics', icon: BarChart3 },
   { label: 'Campus Venues & Ops', href: '/faculty/facilities', icon: Home },
   { label: 'Pragya AI', href: '#pragya', icon: Sparkles, isPragya: true },
 ];
 
 const hodNav: NavItem[] = [
-  { label: 'Department Overview', href: '/faculty/dashboard', icon: LayoutDashboard },
-  { label: 'Department Faculty', href: '/faculty/faculty-roster', icon: Users },
-  { label: 'Department Students', href: '/faculty/students-roster', icon: GraduationCap },
+  { label: 'Department Overview', href: '/hod/dashboard', icon: LayoutDashboard },
+  { label: 'Department Faculty', href: '/hod/faculty', icon: Users },
+  { label: 'Department Students', href: '/hod/students', icon: GraduationCap },
   { label: 'Curriculum & Courses', href: '/faculty/courses', icon: BookOpen },
-  { label: 'Attendance Report', href: '/faculty/attendance-report', icon: ClipboardList },
-  { label: 'Marks & CIA Report', href: '/faculty/marks-report', icon: BarChart3 },
-  { label: 'Student Leave Endorsement', href: '/faculty/leave-approvals', icon: FileCheck },
+  { label: 'Attendance Report', href: '/hod/attendance-report', icon: ClipboardList },
+  { label: 'Marks & CIA Report', href: '/hod/marks-report', icon: BarChart3 },
+  { label: 'Student Leave Endorsement', href: '/faculty/attendance', icon: FileCheck },
   { label: 'Pragya AI', href: '#pragya', icon: Sparkles, isPragya: true },
 ];
 
