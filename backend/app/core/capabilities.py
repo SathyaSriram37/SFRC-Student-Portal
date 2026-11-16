@@ -12,6 +12,9 @@ CAPABILITIES: Dict[str, List[str]] = {
     "admin": [
         "*",
     ],
+    "hod": [
+        "*",
+    ],
     "faculty": [
         "attendance:mark",
         "attendance:view",
