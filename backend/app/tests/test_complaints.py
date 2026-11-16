@@ -66,7 +66,7 @@ async def test_create_complaint_with_ai_classification_and_duplicate_check(monke
     def execute_side_effect(statement, params=None):
         sql = str(statement)
         m = MagicMock()
-        if "FROM public.complaints c" in sql and "INTERVAL '30 days'" in sql:
+        if "FROM complaints c" in sql or "FROM public.complaints c" in sql:
             # Duplicate check found an existing similar open complaint
             m.mappings.return_value.all.return_value = [
                 {
@@ -79,7 +79,7 @@ async def test_create_complaint_with_ai_classification_and_duplicate_check(monke
                     "created_at": "2026-09-28 10:00:00",
                 }
             ]
-        elif "SELECT COUNT(*) FROM public.complaints" in sql:
+        elif "COUNT(*)" in sql and "complaints" in sql:
             m.scalar.return_value = 0
         else:
             m.mappings.return_value.all.return_value = []

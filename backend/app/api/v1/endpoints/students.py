@@ -368,7 +368,7 @@ async def get_student_detailed_profile(
     att_pct = 85.0
     if student_row:
         try:
-            att_q = text("SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE status IN ('present', 'od')) as attended FROM attendance_records WHERE student_id = :sid")
+            att_q = text("SELECT COUNT(*) as total, SUM(CASE WHEN status IN ('present', 'od') THEN 1 ELSE 0 END) as attended FROM attendance_records WHERE student_id = :sid")
             att_res = (await db.execute(att_q, {"sid": st_id})).mappings().first()
             if att_res and att_res.get("total", 0) > 0:
                 att_pct = round((att_res.get("attended", 0) / att_res["total"]) * 100.0, 1)
@@ -738,7 +738,7 @@ async def get_student_dashboard(
             att_query = text("""
                 SELECT 
                     COUNT(*) as total,
-                    COUNT(*) FILTER (WHERE status IN ('present', 'od')) as attended
+                    SUM(CASE WHEN status IN ('present', 'od') THEN 1 ELSE 0 END) as attended
                 FROM attendance_records
                 WHERE student_id = :student_id
             """)
@@ -895,7 +895,7 @@ async def get_student_attendance(
             c.code as course_code,
             c.title as course_title,
             COUNT(ar.id) as classes_held,
-            COUNT(ar.id) FILTER (WHERE ar.status IN ('present', 'od')) as classes_attended
+            SUM(CASE WHEN ar.status IN ('present', 'od') THEN 1 ELSE 0 END) as classes_attended
         FROM enrollments e
         JOIN courses c ON e.course_id = c.id
         LEFT JOIN attendance_records ar ON ar.course_id = c.id AND ar.student_id = :student_id
@@ -1210,7 +1210,7 @@ async def get_student_exam_schedule(
             c.code as course_code,
             c.title as course_title,
             COUNT(ar.id) as classes_held,
-            COUNT(ar.id) FILTER (WHERE ar.status IN ('present', 'od')) as classes_attended
+            SUM(CASE WHEN ar.status IN ('present', 'od') THEN 1 ELSE 0 END) as classes_attended
         FROM enrollments e
         JOIN courses c ON e.course_id = c.id
         LEFT JOIN attendance_records ar ON ar.course_id = c.id AND ar.student_id = :student_id

@@ -51,6 +51,7 @@ export function getRoleLabel(role: UserRole): string {
     faculty: 'Faculty',
     parent: 'Parent',
     admin: 'Administrator',
+    hod: 'Head of Department',
   };
   return labels[role] ?? role;
 }
@@ -61,6 +62,7 @@ export function getRoleDashboardPath(role: UserRole): string {
     faculty: '/faculty/dashboard',
     parent: '/parent/dashboard',
     admin: '/admin/dashboard',
+    hod: '/hod/dashboard',
   };
   return paths[role] ?? '/';
 }

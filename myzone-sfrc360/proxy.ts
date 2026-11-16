@@ -41,6 +41,7 @@ export async function proxy(request: NextRequest) {
     { prefix: '/faculty', allowedRoles: ['faculty', 'admin'] },
     { prefix: '/parent',  allowedRoles: ['parent', 'admin'] },
     { prefix: '/admin',   allowedRoles: ['admin'] },
+    { prefix: '/hod',     allowedRoles: ['hod', 'admin'] },
   ];
 
   const matchedProtectedPath = roleProtectedPaths.find((item) =>

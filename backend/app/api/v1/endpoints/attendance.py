@@ -122,6 +122,21 @@ async def mark_bulk_attendance(
     )
 
 
+@router.get("/my")
+async def get_my_attendance_summary(
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
+    """Convenience endpoint for logged-in student to retrieve their own attendance."""
+    user_id = user.get("id") or user.get("sub")
+    stu_q = text("SELECT id FROM students WHERE user_id = :uid")
+    stu_row = (await db.execute(stu_q, {"uid": user_id})).mappings().first()
+    if not stu_row:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student profile not found")
+    student_id = str(stu_row["id"])
+    return await get_attendance_summary(student_id=student_id, db=db, user=user)
+
+
 @router.get("/summary/{student_id}")
 async def get_attendance_summary(
     student_id: str,
@@ -141,8 +156,12 @@ async def get_attendance_summary(
         GROUP BY c.id, c.code, c.title
     """)
     rows = (await db.execute(query, {"student_id": student_id})).mappings().all()
+    total_classes = sum(r["total"] for r in rows)
+    total_attended = sum((r["attended"] or 0) for r in rows)
+    overall_pct = round((total_attended / total_classes * 100.0), 1) if total_classes > 0 else 100.0
     return {
         "student_id": student_id,
+        "overall_percentage": overall_pct,
         "courses": [
             {
                 "course_code": r["course_code"],

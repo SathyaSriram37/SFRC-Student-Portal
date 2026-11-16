@@ -30,12 +30,14 @@ from app.api.v1.endpoints import (
     fees,
     integrations,
     search,
+    hod,
 )
 
 api_router = APIRouter()
 
 api_router.include_router(auth.router,          prefix="/auth",          tags=["Auth"])
 api_router.include_router(admin.router,         prefix="/admin",         tags=["Admin"])
+api_router.include_router(hod.router,           prefix="/hod",           tags=["HOD"])
 api_router.include_router(users.router,         prefix="/users",         tags=["Users"])
 api_router.include_router(students.router,      prefix="/students",      tags=["Students"])
 api_router.include_router(fees.router,          prefix="/fees",          tags=["Student Fees"])

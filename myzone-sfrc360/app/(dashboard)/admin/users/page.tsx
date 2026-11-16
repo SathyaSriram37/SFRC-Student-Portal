@@ -342,11 +342,17 @@ export default function AdminUsersPage() {
   });
 
   // Load summary stats from authoritative backend
+  // Load summary stats from authoritative backend
   const loadStats = useCallback(async () => {
     try {
       setIsStatsLoading(true);
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
+      let session = (await supabase.auth.getSession()).data.session;
+      let token = session?.access_token;
+      if (!token) {
+        await new Promise((r) => setTimeout(r, 150));
+        session = (await supabase.auth.getSession()).data.session;
+        token = session?.access_token;
+      }
       const res = await apiGet<UserCounts>('/api/v1/admin/users/stats', token);
       if (res) {
         setStats(res);
@@ -363,8 +369,13 @@ export default function AdminUsersPage() {
     const effectiveTab = targetTab !== undefined ? targetTab : activeTab;
     try {
       setIsLoading(true);
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
+      let session = (await supabase.auth.getSession()).data.session;
+      let token = session?.access_token;
+      if (!token) {
+        await new Promise((r) => setTimeout(r, 150));
+        session = (await supabase.auth.getSession()).data.session;
+        token = session?.access_token;
+      }
 
       let roleParam = '';
       let statusParam = '';
@@ -408,6 +419,10 @@ export default function AdminUsersPage() {
 
       if (error) {
         console.error('Supabase query error:', error);
+        setFeedbackMsg({
+          type: 'error',
+          text: 'Unable to reach backend user service. Please verify that the backend server is active on port 8000.'
+        });
         setUsers([]);
         setTotal(0);
       } else if (profiles) {
@@ -439,7 +454,18 @@ export default function AdminUsersPage() {
   useEffect(() => {
     loadStats();
     loadUsers(1);
-  }, [loadStats, loadUsers]);
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.access_token) {
+        loadStats();
+        loadUsers(1);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [loadStats, loadUsers, supabase]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1083,7 +1109,18 @@ export default function AdminUsersPage() {
                 <tr>
                   <td colSpan={6} className="py-12 text-center text-sfrc-500 font-medium">
                     <Users className="w-8 h-8 text-sfrc-300 mx-auto mb-2" />
-                    No authoritative user records matched your criteria.
+                    <p className="font-bold text-sfrc-800">No authoritative user records matched your criteria.</p>
+                    <p className="text-[11px] text-sfrc-500 mt-1">If the directory failed to load, ensure the backend API is active.</p>
+                    <button
+                      onClick={() => {
+                        loadStats();
+                        loadUsers(1);
+                      }}
+                      className="mt-3 px-3 py-1.5 rounded-xl bg-sfrc-700 hover:bg-sfrc-800 text-white text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      Retry Sync
+                    </button>
                   </td>
                 </tr>
               ) : (
@@ -1600,11 +1637,20 @@ export default function AdminUsersPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-semibold text-sfrc-700 mb-1">Designation</label>
-                      <input
+                      <label className="block text-[11px] font-semibold text-sfrc-700 mb-1">Designation / Hierarchy *</label>
+                      <select
                         {...registerEdit('designation')}
-                        className="w-full px-3 py-1.5 rounded-xl border border-sfrc-200 bg-white"
-                      />
+                        className="w-full px-3 py-1.5 rounded-xl border border-sfrc-200 bg-white font-semibold text-sfrc-800 text-xs"
+                      >
+                        <option value="Assistant Professor">Assistant Professor (Teaching Staff)</option>
+                        <option value="Associate Professor">Associate Professor (Teaching Staff)</option>
+                        <option value="Professor">Professor (Teaching Staff)</option>
+                        <option value="Head of Department">Head of Department (HOD)</option>
+                        <option value="Principal">Principal (Head of Institution)</option>
+                        <option value="Lab Assistant">Lab Assistant (Lab Operations)</option>
+                        <option value="Technical Assistant">Technical Assistant</option>
+                        <option value="Librarian">Librarian</option>
+                      </select>
                     </div>
                   </div>
                 </div>
@@ -1865,12 +1911,20 @@ export default function AdminUsersPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-semibold text-sfrc-700 mb-1">Designation</label>
-                      <input
+                      <label className="block text-[11px] font-semibold text-sfrc-700 mb-1">Designation / Role Hierarchy *</label>
+                      <select
                         {...registerCreate('designation')}
-                        placeholder="Assistant Professor"
-                        className="w-full px-3 py-1.5 rounded-xl border border-sfrc-200 bg-white"
-                      />
+                        className="w-full px-3 py-1.5 rounded-xl border border-sfrc-200 bg-white font-semibold text-sfrc-800 text-xs"
+                      >
+                        <option value="Assistant Professor">Assistant Professor (Teaching Staff)</option>
+                        <option value="Associate Professor">Associate Professor (Teaching Staff)</option>
+                        <option value="Professor">Professor (Teaching Staff)</option>
+                        <option value="Head of Department">Head of Department (HOD - Department Governance)</option>
+                        <option value="Principal">Principal (Head of Institution)</option>
+                        <option value="Lab Assistant">Lab Assistant (Laboratory & Technical Systems)</option>
+                        <option value="Technical Assistant">Technical Assistant</option>
+                        <option value="Librarian">Librarian (Library Information Center)</option>
+                      </select>
                     </div>
                   </div>
                 </div>

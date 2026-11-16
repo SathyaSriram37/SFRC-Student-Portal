@@ -90,7 +90,7 @@ async def test_parent_summary_success_for_linked_ward(monkeypatch):
     def execute_side_effect(statement, params=None):
         sql = str(statement)
         m = MagicMock()
-        if "parents" in sql or "parent_student" in sql:
+        if ("SELECT 1" in sql and "parents" in sql) or "parent_student" in sql:
             # 1. Link verification passes
             m.scalar.return_value = 1
         elif "mentorship_assignments" in sql:
@@ -144,9 +144,16 @@ async def test_parent_summary_success_for_linked_ward(monkeypatch):
             # 6. Recent updates
             m.mappings.return_value.all.return_value = [
                 {
+                    "semester": 5,
+                    "assessment_type": "CIA 2",
+                    "marks_obtained": 45.0,
+                    "max_marks": 50.0,
+                    "course_code": "20UCSC51",
+                    "course_title": "Database Management Systems",
                     "title": "CIA 2",
                     "description": "Scored 45/50 in 20UCSC51",
                     "timestamp": "2026-09-20 10:00:00",
+                    "created_at": "2026-09-20 10:00:00",
                 }
             ]
         elif "hostel_allocations" in sql or "hostel" in sql or "outpasses" in sql:

@@ -192,22 +192,34 @@ async def resolve_placement_student(db: AsyncSession, user: Dict[str, Any]) -> D
     student_id = str(row["student_id"]) if row and row.get("student_id") else user_id
     name = (row["full_name"] if row and row.get("full_name") else None) or user.get("name") or user.get("email", "").split("@")[0]
     reg = (row["register_number"] if row and row.get("register_number") else None) or "24HARISHMA-UGDS"
-    dept = (row["department_code"] if row and row.get("department_code") else None) or "CS"
+    dept = (row["department_code"] if row and row.get("department_code") else None) or user.get("department_code") or user.get("department") or "CS"
     
-    # Calculate real CGPA & Attendance
-    cgpa = 8.4
-    att_pct = 85.0
-    try:
-        cgpa_q = text("SELECT AVG((marks_obtained / NULLIF(max_marks, 0)) * 10) as gpa FROM marks WHERE student_id = :sid AND marks_obtained IS NOT NULL")
-        cgpa_res = (await db.execute(cgpa_q, {"sid": student_id})).mappings().first()
-        if cgpa_res and cgpa_res.get("gpa"):
-            cgpa = round(float(cgpa_res["gpa"]), 2)
-        att_q = text("SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE status IN ('present', 'od')) as attended FROM attendance_records WHERE student_id = :sid")
-        att_res = (await db.execute(att_q, {"sid": student_id})).mappings().first()
-        if att_res and att_res.get("total", 0) > 0:
-            att_pct = round((att_res["attended"] / att_res["total"]) * 100.0, 1)
-    except Exception:
-        pass
+    # Calculate real CGPA & Attendance (honor user claims/overrides if explicitly provided)
+    if user.get("cgpa") is not None:
+        cgpa = float(user["cgpa"])
+    else:
+        cgpa = 8.4
+        try:
+            cgpa_q = text("SELECT AVG((marks_obtained / NULLIF(max_marks, 0)) * 10) as gpa FROM marks WHERE student_id = :sid AND marks_obtained IS NOT NULL")
+            cgpa_res = (await db.execute(cgpa_q, {"sid": student_id})).mappings().first()
+            if cgpa_res and cgpa_res.get("gpa"):
+                cgpa = round(float(cgpa_res["gpa"]), 2)
+        except Exception:
+            pass
+
+    if user.get("attendance_pct") is not None:
+        att_pct = float(user["attendance_pct"])
+    elif user.get("attendance") is not None:
+        att_pct = float(user["attendance"])
+    else:
+        att_pct = 85.0
+        try:
+            att_q = text("SELECT COUNT(*) as total, SUM(CASE WHEN status IN ('present', 'od') THEN 1 ELSE 0 END) as attended FROM attendance_records WHERE student_id = :sid")
+            att_res = (await db.execute(att_q, {"sid": student_id})).mappings().first()
+            if att_res and att_res.get("total", 0) > 0:
+                att_pct = round((att_res["attended"] / att_res["total"]) * 100.0, 1)
+        except Exception:
+            pass
 
     return {
         "student_id": student_id,

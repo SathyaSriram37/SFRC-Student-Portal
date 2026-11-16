@@ -334,10 +334,16 @@ async def get_policy_detail(
     q = text("SELECT * FROM policies WHERE id = :id")
     row = (await db.execute(q, {"id": id})).mappings().first()
     if not row:
-        raise HTTPException(status_code=404, detail="Policy document not found")
+        def_p = next((p for p in DB_POLICIES if p["id"] == id), None)
+        if def_p:
+            if user_role != "admin" and def_p.get("status") != "published":
+                raise HTTPException(status_code=403, detail="Policy is currently under review / draft status")
+            row = def_p
+        else:
+            raise HTTPException(status_code=404, detail="Policy document not found")
 
     policy = dict(row)
-    if user_role != "admin" and policy["status"] != "published":
+    if user_role != "admin" and policy.get("status") != "published":
         raise HTTPException(status_code=403, detail="Policy is currently under review / draft status")
 
     ack_q = text("SELECT acknowledged_at FROM policy_acknowledgements WHERE policy_id = :pid AND user_id = :uid")
@@ -557,9 +563,10 @@ async def get_admin_policies(
 async def create_policy(
     payload: PolicyCreate,
     admin: dict = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
 ):
     """
-    Create a new compliance policy document.
+    Create a new compliance policy document and persist to database.
     """
     new_id = f"pol-{uuid.uuid4().hex[:6]}"
     now_iso = datetime.now(timezone.utc).isoformat()
@@ -568,17 +575,42 @@ async def create_policy(
         "id": new_id,
         "title": payload.title,
         "category": payload.category,
-        "version": payload.version,
-        "audience": payload.audience,
+        "version": payload.version or "1.0",
+        "audience": payload.audience or "all",
         "requires_acknowledgement": payload.requires_acknowledgement,
-        "effective_date": payload.effective_date,
+        "effective_date": payload.effective_date or "2026-06-01",
         "description": payload.description,
         "content": payload.content,
         "document_url": payload.document_url,
-        "status": payload.status,
+        "status": payload.status or "draft",
         "created_at": now_iso,
         "updated_at": now_iso,
     }
+
+    insert_q = text("""
+        INSERT INTO policies (
+            id, title, category, version, audience, requires_acknowledgement,
+            effective_date, description, content, document_url, status, created_at, updated_at
+        ) VALUES (
+            :id, :title, :category, :version, :audience, :requires_acknowledgement,
+            :effective_date, :description, :content, :document_url, :status, :created_at, :updated_at
+        )
+    """)
+    await db.execute(insert_q, {
+        "id": new_id,
+        "title": payload.title,
+        "category": payload.category,
+        "version": payload.version or "1.0",
+        "audience": payload.audience or "all",
+        "requires_acknowledgement": 1 if payload.requires_acknowledgement else 0,
+        "effective_date": payload.effective_date or "2026-06-01",
+        "description": payload.description,
+        "content": payload.content,
+        "document_url": payload.document_url,
+        "status": payload.status or "draft",
+        "created_at": now_iso,
+        "updated_at": now_iso,
+    })
 
     DB_POLICIES.append(new_policy)
     return new_policy
@@ -589,20 +621,35 @@ async def update_policy(
     id: str,
     payload: PolicyUpdate,
     admin: dict = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
 ):
     """
-    Update or re-version an existing compliance policy.
+    Update or re-version an existing compliance policy in database.
     """
-    policy = next((p for p in DB_POLICIES if p["id"] == id), None)
-    if not policy:
-        raise HTTPException(status_code=404, detail="Policy not found")
+    now_iso = datetime.now(timezone.utc).isoformat()
+    q = text("SELECT * FROM policies WHERE id = :id")
+    row = (await db.execute(q, {"id": id})).mappings().first()
+    if not row:
+        policy = next((p for p in DB_POLICIES if p["id"] == id), None)
+        if not policy:
+            raise HTTPException(status_code=404, detail="Policy not found")
+    else:
+        policy = dict(row)
 
     update_data = payload.model_dump(exclude_unset=True)
+    if update_data:
+        set_clauses = [f"{k} = :{k}" for k in update_data.keys()]
+        set_clauses.append("updated_at = :updated_at")
+        up_q = text(f"UPDATE policies SET {', '.join(set_clauses)} WHERE id = :id")
+        params = {**update_data, "id": id, "updated_at": now_iso}
+        if "requires_acknowledgement" in params:
+            params["requires_acknowledgement"] = 1 if params["requires_acknowledgement"] else 0
+        await db.execute(up_q, params)
+
     for k, v in update_data.items():
         if v is not None:
             policy[k] = v
-
-    policy["updated_at"] = datetime.now(timezone.utc).isoformat()
+    policy["updated_at"] = now_iso
     return policy
 
 
@@ -610,16 +657,26 @@ async def update_policy(
 async def publish_policy(
     id: str,
     admin: dict = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Publish a draft policy so it becomes immediately active for student/institutional visibility.
     """
+    now_iso = datetime.now(timezone.utc).isoformat()
+    pub_q = text("UPDATE policies SET status = 'published', updated_at = :updated_at WHERE id = :id")
+    res = await db.execute(pub_q, {"id": id, "updated_at": now_iso})
+    
+    q = text("SELECT * FROM policies WHERE id = :id")
+    row = (await db.execute(q, {"id": id})).mappings().first()
+    if row:
+        return dict(row)
+
     policy = next((p for p in DB_POLICIES if p["id"] == id), None)
     if not policy:
         raise HTTPException(status_code=404, detail="Policy not found")
 
     policy["status"] = "published"
-    policy["updated_at"] = datetime.now(timezone.utc).isoformat()
+    policy["updated_at"] = now_iso
     return policy
 
 

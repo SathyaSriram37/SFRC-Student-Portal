@@ -1,5 +1,5 @@
 // ── Role Types ────────────────────────────────────────────────────────────────
-export type UserRole = 'student' | 'faculty' | 'parent' | 'admin';
+export type UserRole = 'student' | 'faculty' | 'parent' | 'admin' | 'hod';
 
 export type Capability =
   | '*'
@@ -41,6 +41,18 @@ export type Capability =
 
 export const ROLE_CAPABILITIES: Record<UserRole, Capability[]> = {
   admin: ['*'],
+  hod: [
+    'attendance:view',
+    'marks:view',
+    'reports:view',
+    'courses:view',
+    'courses:manage',
+    'announcements:view',
+    'announcements:create',
+    'events:view',
+    'complaints:view',
+    'ai:chat',
+  ],
   faculty: [
     'attendance:mark',
     'attendance:view',
@@ -94,6 +106,8 @@ export interface AuthUser {
   email: string;
   role: UserRole;
   fullName: string;
+  designation?: string;
+  employeeId?: string;
   avatarUrl?: string;
   departmentId?: string;
   capabilities: string[];

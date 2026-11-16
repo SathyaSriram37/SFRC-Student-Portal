@@ -10,6 +10,7 @@ Validates:
 7. Student direct access to draft policy is forbidden (403/404)
 """
 
+import uuid
 import pytest
 from httpx import AsyncClient, ASGITransport
 from datetime import datetime, timezone, timedelta
@@ -80,7 +81,7 @@ async def test_policy_acknowledgement_and_pending_flow():
     """Verify policy acknowledgement workflow and pending banner calculation."""
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        user_id = "student-ack-user-99"
+        user_id = f"student-ack-user-{uuid.uuid4().hex[:8]}"
         student_token = create_test_token("student", user_id=user_id)
         headers = {"Authorization": f"Bearer {student_token}"}
 

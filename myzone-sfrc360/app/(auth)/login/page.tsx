@@ -43,7 +43,7 @@ const roleConfig: Record<
     label: 'Faculty',
     icon: BookOpen,
     color: 'bg-sfrc-600',
-    badge: 'Class Management & Grading',
+    badge: 'Academics, Labs & Administration',
   },
   parent: {
     label: 'Parent',
@@ -57,6 +57,12 @@ const roleConfig: Record<
     color: 'bg-sfrc-950',
     badge: 'System Governance & RBAC',
   },
+  hod: {
+    label: 'HOD',
+    icon: BookOpen,
+    color: 'bg-sfrc-800',
+    badge: 'Department Governance',
+  },
 };
 
 const VALID_ROLES: UserRole[] = ['student', 'faculty', 'parent', 'admin'];
@@ -65,9 +71,9 @@ function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const rawRole = searchParams.get('role') ?? 'student';
-  const role: UserRole = VALID_ROLES.includes(rawRole as UserRole)
-    ? (rawRole as UserRole)
-    : 'student';
+  const role: UserRole = rawRole === 'hod' 
+    ? 'faculty' 
+    : (VALID_ROLES.includes(rawRole as UserRole) ? (rawRole as UserRole) : 'student');
 
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -167,8 +173,11 @@ function LoginContent() {
         if (portalRole === 'admin') {
           return ['admin', 'super_admin', 'administrator'].includes(userRole);
         }
+        if (portalRole === 'hod') {
+          return ['hod', 'admin', 'faculty'].includes(userRole);
+        }
         if (portalRole === 'faculty') {
-          return ['faculty', 'teacher', 'staff', 'hod', 'dean', 'mentor'].includes(userRole);
+          return ['faculty', 'teacher', 'staff', 'hod', 'dean', 'mentor', 'principal', 'lab_assistant', 'librarian'].includes(userRole);
         }
         if (portalRole === 'parent') {
           return ['parent', 'guardian'].includes(userRole);

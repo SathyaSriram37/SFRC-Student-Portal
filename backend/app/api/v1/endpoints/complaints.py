@@ -155,7 +155,7 @@ async def list_facilities(
     """Retrieve campus facilities with active open complaint counts for location selection."""
     query = text("""
         SELECT f.id, f.name, f.code, f.building, f.floor,
-               COUNT(c.id) FILTER (WHERE c.status NOT IN ('resolved', 'closed')) as open_count
+               SUM(CASE WHEN c.status NOT IN ('resolved', 'closed') THEN 1 ELSE 0 END) as open_count
         FROM public.facilities f
         LEFT JOIN public.complaints c ON c.facility_id = f.id
         GROUP BY f.id, f.name, f.code, f.building, f.floor

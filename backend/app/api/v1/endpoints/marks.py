@@ -127,6 +127,22 @@ async def enter_marks(
     )
 
 
+@router.get("/my")
+async def get_my_marks(
+    semester: Optional[int] = None,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
+    """Convenience endpoint for logged-in student to retrieve their own assessment marks."""
+    user_id = user.get("id") or user.get("sub")
+    stu_q = text("SELECT id FROM students WHERE user_id = :uid")
+    stu_row = (await db.execute(stu_q, {"uid": user_id})).mappings().first()
+    if not stu_row:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student profile not found")
+    student_id = str(stu_row["id"])
+    return await get_student_marks(student_id=student_id, semester=semester, db=db, user=user)
+
+
 @router.get("/student/{student_id}")
 async def get_student_marks(
     student_id: str,

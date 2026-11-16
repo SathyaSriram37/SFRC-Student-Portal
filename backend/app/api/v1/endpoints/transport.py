@@ -156,6 +156,15 @@ class TransportRouteCreate(BaseModel):
     stops: List[Dict[str, Any]] = []
 
 
+class AdminAllocateTransportRequest(BaseModel):
+    user_id: str
+    route_id: str
+    boarding_stop_id: str
+    seat_number: Optional[str] = "12A"
+    academic_year: Optional[str] = "2025-2026"
+
+
+
 # ── Seed 5 Transport Routes (Synthetic / Demo labeled) ────────────────────────
 
 SEED_TRANSPORT_ROUTES: List[Dict[str, Any]] = [
@@ -802,3 +811,148 @@ async def create_transport_route(
     fetch_q = text("SELECT * FROM transport_routes WHERE id = :id")
     row = (await db.execute(fetch_q, {"id": new_id})).mappings().first()
     return row_to_route(dict(row))
+
+
+@router.get("/admin/transport/allocations")
+async def list_transport_allocations(
+    user: dict = Depends(require_capability("manage_transport")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Retrieve all student and staff transport pass allocations from database."""
+    q = text("""
+        SELECT ta.id, ta.user_id, ta.user_type, ta.route_id, ta.boarding_stop_id,
+               ta.boarding_stop_name, ta.seat_number, ta.pass_number, ta.status,
+               ta.valid_until, ta.academic_year, ta.created_at,
+               tr.name as route_name, tr.route_number, tr.bus_registration,
+               up.full_name as user_name, up.email as user_email,
+               s.register_number, f.employee_id
+        FROM transport_allocations ta
+        JOIN transport_routes tr ON ta.route_id = tr.id
+        LEFT JOIN user_profiles up ON ta.user_id = up.id
+        LEFT JOIN students s ON s.user_id = up.id OR s.id = ta.user_id
+        LEFT JOIN faculty f ON f.user_id = up.id OR f.id = ta.user_id
+        ORDER BY ta.created_at DESC
+    """)
+    rows = (await db.execute(q)).mappings().all()
+    return [dict(r) for r in rows]
+
+
+@router.post("/admin/transport/allocations", status_code=status.HTTP_201_CREATED)
+async def allocate_user_transport(
+    body: AdminAllocateTransportRequest,
+    user: dict = Depends(require_capability("manage_transport")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Allocate or reassign campus transport route, stop and seat to student or faculty."""
+    # Find user profile
+    u_q = text("""
+        SELECT up.id, up.full_name, up.role, s.register_number, f.employee_id
+        FROM user_profiles up
+        LEFT JOIN students s ON s.user_id = up.id OR s.id = up.id
+        LEFT JOIN faculty f ON f.user_id = up.id OR f.id = up.id
+        WHERE up.id = :uid OR s.register_number = :uid OR f.employee_id = :uid OR s.id = :uid OR f.id = :uid
+        LIMIT 1
+    """)
+    u_row = (await db.execute(u_q, {"uid": body.user_id})).mappings().first()
+    if not u_row:
+        raise HTTPException(status_code=404, detail=f"User '{body.user_id}' not found.")
+    actual_user_id = str(u_row["id"])
+    user_role = u_row["role"] or "student"
+    identifier = u_row["register_number"] or u_row["employee_id"] or actual_user_id[:8].upper()
+
+    # Find route and stop
+    r_q = text("SELECT * FROM transport_routes WHERE id = :rid OR route_number = :rid")
+    r_row = (await db.execute(r_q, {"rid": body.route_id})).mappings().first()
+    if not r_row:
+        raise HTTPException(status_code=404, detail=f"Route '{body.route_id}' not found.")
+    actual_route_id = str(r_row["id"])
+
+    stops = parse_json_list(r_row.get("stops"))
+    target_stop = next((s for s in stops if str(s.get("id")) == str(body.boarding_stop_id) or s.get("name") == body.boarding_stop_id), None)
+    stop_name = target_stop.get("name") if target_stop else body.boarding_stop_id
+    stop_id = target_stop.get("id") if target_stop else body.boarding_stop_id
+
+    pass_number = f"SFRC-BP-2026-{identifier}"
+    alloc_id = f"ta-{uuid.uuid4().hex[:8]}"
+
+    # Delete existing allocation for this user if any
+    await db.execute(text("DELETE FROM transport_allocations WHERE user_id = :uid"), {"uid": actual_user_id})
+
+    # Insert new allocation
+    ins_q = text("""
+        INSERT INTO transport_allocations (
+            id, user_id, user_type, route_id, boarding_stop_id, boarding_stop_name,
+            seat_number, pass_number, status, valid_until, academic_year, created_at
+        ) VALUES (
+            :id, :user_id, :user_type, :route_id, :stop_id, :stop_name,
+            :seat, :pass_no, 'active', 'May 31, 2027', :ay, CURRENT_TIMESTAMP
+        )
+    """)
+    await db.execute(ins_q, {
+        "id": alloc_id,
+        "user_id": actual_user_id,
+        "user_type": user_role,
+        "route_id": actual_route_id,
+        "stop_id": str(stop_id),
+        "stop_name": str(stop_name),
+        "seat": body.seat_number or "12A",
+        "pass_no": pass_number,
+        "ay": body.academic_year or "2025-2026",
+    })
+
+    # Update occupied count
+    await db.execute(text("""
+        UPDATE transport_routes
+        SET occupied_seats = (SELECT COUNT(*) FROM transport_allocations WHERE route_id = :rid)
+        WHERE id = :rid
+    """), {"rid": actual_route_id})
+
+    await log_audit_event(
+        user_id=user.get("id"),
+        action="ADMIN_ALLOCATE_TRANSPORT",
+        resource_type="transport_allocations",
+        resource_id=alloc_id,
+        details={
+            "user_name": u_row["full_name"],
+            "route_number": r_row["route_number"],
+            "boarding_stop": stop_name,
+            "pass_number": pass_number,
+        },
+        session=db,
+    )
+    return {
+        "status": "success",
+        "message": f"Transport allocated successfully for {u_row['full_name']} on {r_row['route_number']}.",
+        "allocation_id": alloc_id,
+        "pass_number": pass_number,
+    }
+
+
+@router.delete("/admin/transport/allocations/{id}")
+async def deallocate_user_transport(
+    id: str,
+    user: dict = Depends(require_capability("manage_transport")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Revoke user transport bus pass allocation."""
+    alloc = (await db.execute(text("SELECT id, route_id, user_id FROM transport_allocations WHERE id = :id"), {"id": id})).mappings().first()
+    if not alloc:
+        raise HTTPException(status_code=404, detail="Allocation not found.")
+
+    await db.execute(text("DELETE FROM transport_allocations WHERE id = :id"), {"id": id})
+    await db.execute(text("""
+        UPDATE transport_routes
+        SET occupied_seats = (SELECT COUNT(*) FROM transport_allocations WHERE route_id = :rid)
+        WHERE id = :rid
+    """), {"rid": alloc["route_id"]})
+
+    await log_audit_event(
+        user_id=user.get("id"),
+        action="ADMIN_REVOKE_TRANSPORT",
+        resource_type="transport_allocations",
+        resource_id=id,
+        details={"route_id": alloc["route_id"], "user_id": alloc["user_id"]},
+        session=db,
+    )
+    return {"status": "success", "message": "Transport allocation revoked."}
+

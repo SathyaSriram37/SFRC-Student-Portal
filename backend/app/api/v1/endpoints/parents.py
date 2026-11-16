@@ -234,9 +234,9 @@ async def get_ward_full_summary(
         WHERE student_id = :student_id OR student_id = :student_user_id OR student_id = :reg_no
     """)
     att_sum = (await db.execute(att_summary_query, {"student_id": student_db_id, "student_user_id": student_user_id, "reg_no": reg_no})).mappings().first()
-    total_classes = int(att_sum.get("total_classes") or 0) if att_sum else 0
-    attended_classes = int(att_sum.get("attended_classes") or 0) if att_sum else 0
-    absent_classes = int(att_sum.get("absent_classes") or max(0, total_classes - attended_classes)) if att_sum else 0
+    total_classes = int(att_sum.get("total_classes") or att_sum.get("total") or 0) if att_sum else 0
+    attended_classes = int(att_sum.get("attended_classes") or att_sum.get("attended") or 0) if att_sum else 0
+    absent_classes = int(att_sum.get("absent_classes") or att_sum.get("absent") or max(0, total_classes - attended_classes)) if att_sum else 0
     attendance_pct = round((attended_classes / total_classes) * 100.0, 1) if total_classes > 0 else 0.0
     attendance_status = "good" if attendance_pct >= 75.0 else ("risk" if attendance_pct >= 65.0 else "danger")
 

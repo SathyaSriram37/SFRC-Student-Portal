@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -45,6 +46,54 @@ interface NavItem {
   isPragya?: boolean;
 }
 
+const principalNav: NavItem[] = [
+  { label: 'Executive Overview', href: '/faculty/dashboard', icon: LayoutDashboard },
+  { label: 'All Departments Oversight', href: '/faculty/departments', icon: Building2 },
+  { label: 'Academic Governance & BOS', href: '/faculty/governance', icon: FileCheck },
+  { label: 'Faculty Workload Oversight', href: '/faculty/faculty-roster', icon: Users },
+  { label: 'Student Risk Vigilance', href: '/faculty/student-risk', icon: BarChart3 },
+  { label: 'Institutional Approvals', href: '/faculty/approvals', icon: ClipboardList },
+  { label: 'College Circulars', href: '/faculty/circulars', icon: Bell },
+  { label: 'Campus Venues & Ops', href: '/faculty/facilities', icon: Home },
+  { label: 'Pragya AI', href: '#pragya', icon: Sparkles, isPragya: true },
+];
+
+const hodNav: NavItem[] = [
+  { label: 'Department Overview', href: '/faculty/dashboard', icon: LayoutDashboard },
+  { label: 'Department Faculty', href: '/faculty/faculty-roster', icon: Users },
+  { label: 'Department Students', href: '/faculty/students-roster', icon: GraduationCap },
+  { label: 'Curriculum & Courses', href: '/faculty/courses', icon: BookOpen },
+  { label: 'Attendance Report', href: '/faculty/attendance-report', icon: ClipboardList },
+  { label: 'Marks & CIA Report', href: '/faculty/marks-report', icon: BarChart3 },
+  { label: 'Student Leave Endorsement', href: '/faculty/leave-approvals', icon: FileCheck },
+  { label: 'Pragya AI', href: '#pragya', icon: Sparkles, isPragya: true },
+];
+
+const labAssistantNav: NavItem[] = [
+  { label: 'Lab Operations Dashboard', href: '/faculty/dashboard', icon: LayoutDashboard },
+  { label: 'Lab Inventory & Systems', href: '/faculty/lab/inventory', icon: FlaskConical },
+  { label: 'Practical Session Logbook', href: '/faculty/lab/logbook', icon: ClipboardList },
+  { label: 'Equipment Maintenance', href: '/faculty/lab/maintenance', icon: Settings },
+  { label: 'Consumables & Stock', href: '/faculty/lab/consumables', icon: Building2 },
+  { label: 'Pragya AI', href: '#pragya', icon: Sparkles, isPragya: true },
+];
+
+const teachingStaffNav: NavItem[] = [
+  { label: 'Dashboard', href: '/faculty/dashboard', icon: LayoutDashboard },
+  { label: 'My Profile', href: '/faculty/profile', icon: User },
+  { label: 'My Courses', href: '/faculty/courses', icon: BookOpen, capability: 'courses:manage' },
+  { label: 'Attendance', href: '/faculty/attendance', icon: ClipboardList, capability: 'attendance:mark' },
+  { label: 'Marks Entry', href: '/faculty/marks', icon: BarChart3, capability: 'marks:enter' },
+  { label: 'E-Content', href: '/faculty/e-content', icon: FileText, capability: 'courses:manage' },
+  { label: 'Mentoring', href: '/faculty/mentoring', icon: Users, capability: 'mentorship:log' },
+  { label: 'My Leave Applications', href: '/faculty/leave', icon: ClipboardList },
+  { label: 'Events & Seminars', href: '/faculty/events', icon: Calendar, capability: 'events:create' },
+  { label: 'Research & Grants', href: '/faculty/research', icon: FlaskConical },
+  { label: 'Facilities Booking', href: '/faculty/facilities', icon: Building2 },
+  { label: 'Bus Tracking', href: '/faculty/transport', icon: Bus },
+  { label: 'Pragya AI', href: '#pragya', icon: Sparkles, isPragya: true },
+];
+
 const navByRole: Record<UserRole, NavItem[]> = {
   student: [
     { label: 'Dashboard', href: '/student/dashboard', icon: LayoutDashboard },
@@ -71,20 +120,7 @@ const navByRole: Record<UserRole, NavItem[]> = {
     { label: 'Pragya AI', href: '#pragya', icon: Sparkles, isPragya: true },
     { label: 'Help & Support', href: '/student/help', icon: HelpCircle },
   ],
-  faculty: [
-    { label: 'Dashboard', href: '/faculty/dashboard', icon: LayoutDashboard },
-    { label: 'My Profile', href: '/faculty/profile', icon: User },
-    { label: 'My Courses', href: '/faculty/courses', icon: BookOpen, capability: 'courses:manage' },
-    { label: 'Attendance', href: '/faculty/attendance', icon: ClipboardList, capability: 'attendance:mark' },
-    { label: 'Marks Entry', href: '/faculty/marks', icon: BarChart3, capability: 'marks:enter' },
-    { label: 'E-Content', href: '/faculty/e-content', icon: FileText, capability: 'courses:manage' },
-    { label: 'Mentoring', href: '/faculty/mentoring', icon: Users, capability: 'mentorship:log' },
-    { label: 'Events', href: '/faculty/events', icon: Calendar, capability: 'events:create' },
-    { label: 'Research', href: '/faculty/research', icon: FlaskConical },
-    { label: 'Facilities', href: '/faculty/facilities', icon: Building2 },
-    { label: 'Bus Tracking', href: '/faculty/transport', icon: Bus },
-    { label: 'Pragya AI', href: '#pragya', icon: Sparkles, isPragya: true },
-  ],
+  faculty: teachingStaffNav,
   parent: [
     { label: 'Dashboard', href: '/parent/dashboard', icon: LayoutDashboard },
     { label: 'My Ward', href: '/parent/progress', icon: Users, capability: 'attendance:view_ward' },
@@ -95,8 +131,8 @@ const navByRole: Record<UserRole, NavItem[]> = {
     { label: 'Bus Tracking', href: '/parent/transport', icon: Bus, capability: 'attendance:view_ward' },
     { label: 'Hostel', href: '/parent/hostel', icon: Home },
     { label: 'Notices', href: '/parent/notices', icon: Bell, capability: 'announcements:view' },
-    { label: 'Pragya AI', href: '#pragya', icon: Sparkles, isPragya: true },
   ],
+  hod: hodNav,
   admin: [
     { label: 'Overview', href: '/admin/dashboard', icon: LayoutDashboard },
     { label: 'User Management', href: '/admin/users', icon: Users },
@@ -132,6 +168,7 @@ const roleIcons: Record<UserRole, React.ElementType> = {
   faculty: BookOpen,
   parent: Heart,
   admin: Shield,
+  hod: Building2,
 };
 
 interface SidebarProps {
@@ -144,9 +181,51 @@ export default function Sidebar({ role, userName, onClose }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { can, user } = useCapabilities();
-  const rawNavItems = navByRole[role] ?? [];
-  const RoleIcon = roleIcons[role] || GraduationCap;
   const supabase = createClient();
+
+  const designationLower = (user?.designation || '').toLowerCase();
+  const isPrincipal = designationLower.includes('principal');
+  const isHOD = role === 'hod' || designationLower.includes('head') || designationLower.includes('hod');
+  const isLab = designationLower.includes('lab') || designationLower.includes('technical assistant');
+
+  let rawNavItems: NavItem[] = navByRole[role] ?? [];
+  if (role === 'faculty') {
+    if (isPrincipal) rawNavItems = principalNav;
+    else if (isHOD) rawNavItems = hodNav;
+    else if (isLab) rawNavItems = labAssistantNav;
+    else rawNavItems = teachingStaffNav;
+  }
+
+  const RoleIcon = useMemo(() => {
+    if (role === 'student') return GraduationCap;
+    if (role === 'parent') return Heart;
+    if (role === 'admin') return Shield;
+    if (isPrincipal) return Award;
+    if (isHOD) return Building2;
+    if (isLab) return FlaskConical;
+    return BookOpen;
+  }, [role, isPrincipal, isHOD, isLab]);
+
+  const portalLabel = useMemo(() => {
+    if (role === 'student') return 'Student Portal';
+    if (role === 'parent') return 'Parent Portal';
+    if (role === 'admin') return 'Admin Portal';
+    if (isPrincipal) return 'Principal Office';
+    if (isHOD) return 'Department HOD';
+    if (isLab) return 'Lab Operations';
+    return 'Faculty & Staff';
+  }, [role, isPrincipal, isHOD, isLab]);
+
+  const badgeText = useMemo(() => {
+    if (user?.designation) return user.designation;
+    if (role === 'student') return 'Undergraduate / PG';
+    if (role === 'parent') return 'Parent / Guardian';
+    if (role === 'admin') return 'System Administrator';
+    if (isPrincipal) return 'Head of Institution';
+    if (isHOD) return 'Head of Department';
+    if (isLab) return 'Laboratory Assistant';
+    return 'Teaching Faculty';
+  }, [user, role, isPrincipal, isHOD, isLab]);
 
   // Filter items based on capabilities, with fallback to role's default capabilities
   const visibleNavItems = rawNavItems.filter((item) => {
@@ -175,11 +254,14 @@ export default function Sidebar({ role, userName, onClose }: SidebarProps) {
         </div>
         <div className="min-w-0">
           <p className="text-[11px] text-sfrc-600 dark:text-muted-foreground font-bold uppercase tracking-wider flex items-center gap-1">
-            <span>{role} Portal</span>
+            <span>{portalLabel}</span>
           </p>
           <p className="text-sm font-bold text-sfrc-900 dark:text-foreground truncate group-hover:text-sfrc-700 dark:group-hover:text-primary transition-colors">
             {userName}
           </p>
+          <span className="inline-block mt-0.5 text-[9px] font-semibold text-sfrc-700 bg-sfrc-200/70 px-1.5 py-0.2 rounded-md truncate max-w-full">
+            {badgeText}
+          </span>
         </div>
       </Link>
 

@@ -199,7 +199,7 @@ const DEFAULT_COURSES: CourseItem[] = [
 ];
 
 export default function AdminAcademicsPage() {
-  const [activeTab, setActiveTab] = useState<'programmes' | 'courses' | 'bos' | 'curriculum'>('programmes');
+  const [activeTab, setActiveTab] = useState<'programmes' | 'courses' | 'assignments' | 'bos' | 'curriculum'>('programmes');
   const [searchTerm, setSearchTerm] = useState('');
   const [degreeFilter, setDegreeFilter] = useState('ALL');
   const [programmes, setProgrammes] = useState<ProgrammeItem[]>(DEFAULT_PROGRAMMES);
@@ -229,18 +229,38 @@ export default function AdminAcademicsPage() {
     course_type: 'Major Core',
   });
 
+  // Module 2.5: Academic Assignment Management State
+  const [departmentsList, setDepartmentsList] = useState<Array<{ id: string; name: string; code: string }>>([]);
+  const [facultyList, setFacultyList] = useState<Array<{ id: string; full_name: string; employee_id?: string; department_name?: string }>>([]);
+  const [assignForm, setAssignForm] = useState({
+    department: 'Department of Data Science',
+    academic_year: '2025-2026',
+    semester: 4,
+    course_code: '',
+    faculty_id: '',
+  });
+
+  const [assignments, setAssignments] = useState([
+    { id: 'asgn-1', code: '24UDS41', title: 'Python for Data Science & Numerical Computing', department: 'Department of Data Science', semester: 4, faculty_name: 'Mrs. P. Subbulakshmi', academic_year: '2025-2026', hours: 5, status: 'Active' },
+    { id: 'asgn-2', code: '24UDS42', title: 'Machine Learning & Statistical Models', department: 'Department of Data Science', semester: 4, faculty_name: 'Dr. K. Anitha', academic_year: '2025-2026', hours: 5, status: 'Active' },
+    { id: 'asgn-3', code: '24UDS43', title: 'Big Data Analytics & Database Architectures', department: 'Department of Data Science', semester: 4, faculty_name: 'Mr. M. Senthil', academic_year: '2025-2026', hours: 5, status: 'Active' },
+    { id: 'asgn-4', code: '24UDS4P', title: 'Data Science & Advanced ML Practical Lab', department: 'Department of Data Science', semester: 4, faculty_name: 'Dr. K. Anitha', academic_year: '2025-2026', hours: 4, status: 'Active' },
+  ]);
+
   const supabase = useMemo(() => createClient(), []);
 
-  // Fetch live programmes & courses from DB
+  // Fetch live programmes & courses & departments & faculty from DB
   const loadAcademics = async () => {
     try {
       setLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
 
-      const [progRes, courseRes] = await Promise.allSettled([
+      const [progRes, courseRes, deptRes, facRes] = await Promise.allSettled([
         apiGet<ProgrammeItem[]>('/api/v1/admin/academics/programmes', token),
         apiGet<CourseItem[]>('/api/v1/admin/academics/courses', token),
+        apiGet<Array<{ id: string; name: string; code: string }>>('/api/v1/admin/departments', token),
+        apiGet<{ data: Array<any> }>('/api/v1/admin/users?role=faculty&limit=100', token),
       ]);
 
       if (progRes.status === 'fulfilled' && progRes.value && progRes.value.length > 0) {
@@ -248,6 +268,30 @@ export default function AdminAcademicsPage() {
       }
       if (courseRes.status === 'fulfilled' && courseRes.value && courseRes.value.length > 0) {
         setCourses(courseRes.value);
+        if (courseRes.value.length > 0) {
+          const mapped = courseRes.value
+            .filter((c: any) => c.faculty_name && c.faculty_name !== 'Allocated Faculty' && c.faculty_name !== 'Unassigned')
+            .map((c: any) => ({
+              id: `asgn-${c.id}`,
+              code: c.code,
+              title: c.title,
+              department: c.department,
+              semester: c.semester,
+              faculty_name: c.faculty_name,
+              academic_year: '2025-2026',
+              hours: c.hours_per_week || 5,
+              status: 'Active',
+            }));
+          if (mapped.length > 0) {
+            setAssignments(mapped);
+          }
+        }
+      }
+      if (deptRes.status === 'fulfilled' && deptRes.value) {
+        setDepartmentsList(deptRes.value);
+      }
+      if (facRes.status === 'fulfilled' && facRes.value?.data) {
+        setFacultyList(facRes.value.data);
       }
     } catch (err) {
       console.error('Failed to load academic data from DB:', err);
@@ -255,6 +299,31 @@ export default function AdminAcademicsPage() {
       setLoading(false);
     }
   };
+
+  const handleAssignFaculty = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!assignForm.course_code || !assignForm.faculty_id) {
+      toast.error('Please select both a course code and a faculty member.');
+      return;
+    }
+    try {
+      setSubmitting(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const res: any = await apiPost('/api/v1/admin/academics/courses/assign', {
+        course_id: assignForm.course_code,
+        faculty_id: assignForm.faculty_id,
+        academic_year: assignForm.academic_year,
+      }, token);
+      toast.success(res?.message || 'Faculty assigned to course successfully!');
+      await loadAcademics();
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to assign faculty to course');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
 
   useEffect(() => {
     loadAcademics();
@@ -419,6 +488,7 @@ export default function AdminAcademicsPage() {
         {[
           { id: 'programmes', label: 'Programmes & Sanctioned Intake', icon: GraduationCap },
           { id: 'courses', label: 'Course Catalogue & Allocations', icon: BookOpen },
+          { id: 'assignments', label: 'Faculty–Subject Allocations (2.5)', icon: Users },
           { id: 'bos', label: 'Board of Studies (BOS) Approvals', icon: FileCheck },
           { id: 'curriculum', label: 'Academic Regulations & Credits', icon: Layers },
         ].map((tab) => {
@@ -596,6 +666,195 @@ export default function AdminAcademicsPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── TAB: FACULTY–SUBJECT ASSIGNMENT MANAGEMENT (MODULE 2.5) ────────── */}
+      {activeTab === 'assignments' && (
+        <div className="space-y-6">
+          {/* Allocation Form Card */}
+          <div className="bg-white p-6 sm:p-8 rounded-3xl border border-sfrc-200 shadow-sm space-y-6">
+            <div className="border-b border-sfrc-200 pb-4">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sfrc-100 text-sfrc-700 text-xs font-bold uppercase tracking-wider mb-2">
+                <Users className="w-3.5 h-3.5" />
+                Academic Assignment Governance (Module 2.5)
+              </div>
+              <h3 className="text-xl font-black text-sfrc-900">
+                Allocate Subject to Faculty Member
+              </h3>
+              <p className="text-xs sm:text-sm text-sfrc-600 mt-1">
+                Assign curriculum subjects to eligible department faculty. Automatically validates departmental eligibility, academic period, and prevents duplicate allocations.
+              </p>
+            </div>
+
+            <form onSubmit={handleAssignFaculty} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+              <div>
+                <label className="block text-xs font-bold text-sfrc-800 uppercase tracking-wider mb-1.5">
+                  Department*
+                </label>
+                <select
+                  value={assignForm.department}
+                  onChange={(e) => setAssignForm({ ...assignForm, department: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-sfrc-200 text-xs font-medium bg-sfrc-50 text-sfrc-900 focus:outline-none focus:ring-2 focus:ring-sfrc-700"
+                >
+                  <option value="Department of Data Science">Department of Data Science</option>
+                  <option value="Department of Computer Science">Department of Computer Science</option>
+                  <option value="Department of Computer Applications">Department of Computer Applications</option>
+                  <option value="Department of Commerce">Department of Commerce</option>
+                  <option value="Department of Mathematics">Department of Mathematics</option>
+                  <option value="Department of Physics">Department of Physics</option>
+                  {departmentsList.map((d) => (
+                    <option key={d.id} value={d.name}>
+                      {d.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-sfrc-800 uppercase tracking-wider mb-1.5">
+                  Academic Year*
+                </label>
+                <select
+                  value={assignForm.academic_year}
+                  onChange={(e) => setAssignForm({ ...assignForm, academic_year: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-sfrc-200 text-xs font-medium bg-sfrc-50 text-sfrc-900 focus:outline-none focus:ring-2 focus:ring-sfrc-700"
+                >
+                  <option value="2025-2026">2025 - 2026 (Active)</option>
+                  <option value="2026-2027">2026 - 2027 (Upcoming)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-sfrc-800 uppercase tracking-wider mb-1.5">
+                  Semester*
+                </label>
+                <select
+                  value={assignForm.semester}
+                  onChange={(e) => setAssignForm({ ...assignForm, semester: Number(e.target.value) })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-sfrc-200 text-xs font-medium bg-sfrc-50 text-sfrc-900 focus:outline-none focus:ring-2 focus:ring-sfrc-700"
+                >
+                  <option value={1}>Semester I</option>
+                  <option value={2}>Semester II</option>
+                  <option value={3}>Semester III</option>
+                  <option value={4}>Semester IV</option>
+                  <option value={5}>Semester V</option>
+                  <option value={6}>Semester VI</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-sfrc-800 uppercase tracking-wider mb-1.5">
+                  Subject (Filtered)*
+                </label>
+                <select
+                  value={assignForm.course_code}
+                  onChange={(e) => setAssignForm({ ...assignForm, course_code: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-sfrc-200 text-xs font-medium bg-sfrc-50 text-sfrc-900 focus:outline-none focus:ring-2 focus:ring-sfrc-700 font-mono"
+                >
+                  <option value="">-- Choose Course --</option>
+                  {courses
+                    .filter((c) =>
+                      assignForm.department === 'ALL' ||
+                      c.department.toLowerCase().includes(assignForm.department.toLowerCase().slice(0, 5)) ||
+                      (assignForm.department.includes('Data') && c.code.includes('UDS'))
+                    )
+                    .map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.code} — {c.title.slice(0, 30)}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-sfrc-800 uppercase tracking-wider mb-1.5">
+                  Faculty Member*
+                </label>
+                <select
+                  value={assignForm.faculty_id}
+                  onChange={(e) => setAssignForm({ ...assignForm, faculty_id: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-sfrc-200 text-xs font-medium bg-sfrc-50 text-sfrc-900 focus:outline-none focus:ring-2 focus:ring-sfrc-700"
+                >
+                  <option value="">-- Select Faculty --</option>
+                  {facultyList.length > 0 ? (
+                    facultyList.map((f: any) => (
+                      <option key={f.id} value={f.id}>
+                        {f.full_name} ({f.employee_id || f.department_name || 'Faculty'})
+                      </option>
+                    ))
+                  ) : (
+                    <>
+                      <option value="fac-emp-ds-001">Dr. K. Anitha (EMP-DS-001 - Data Science)</option>
+                      <option value="fac-emp-ds-002">Mrs. P. Subbulakshmi (EMP-DS-002 - Data Science)</option>
+                      <option value="fac-emp-ds-003">Mr. M. Senthil (EMP-DS-003 - Data Science)</option>
+                    </>
+                  )}
+                </select>
+              </div>
+
+
+              <div className="sm:col-span-2 lg:col-span-5 flex justify-end">
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 rounded-xl bg-sfrc-700 text-white font-bold text-xs hover:bg-sfrc-800 transition-colors shadow-sm cursor-pointer flex items-center gap-2"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  <span>Confirm Faculty Allocation</span>
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Current Allocations Table */}
+          <div className="bg-white rounded-3xl border border-sfrc-200 shadow-sm overflow-hidden">
+            <div className="p-5 border-b border-sfrc-200 flex items-center justify-between">
+              <div>
+                <h4 className="font-bold text-base text-sfrc-900">Active Course-Faculty Allocations</h4>
+                <p className="text-xs text-sfrc-600">Committed teaching workload for the autonomous curriculum session</p>
+              </div>
+              <span className="text-xs font-bold px-3 py-1 rounded-full bg-sfrc-100 text-sfrc-800">
+                {assignments.length} Allocated Subjects
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-sfrc-200 bg-sfrc-50/70 font-bold text-sfrc-700 uppercase tracking-wider">
+                    <th className="py-3 px-5">Course Code</th>
+                    <th className="py-3 px-5">Course Title</th>
+                    <th className="py-3 px-5">Department</th>
+                    <th className="py-3 px-5 text-center">Semester</th>
+                    <th className="py-3 px-5">Allocated Faculty</th>
+                    <th className="py-3 px-5 text-center">Workload Hours</th>
+                    <th className="py-3 px-5 text-right">Allocation Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-sfrc-200/60 font-medium">
+                  {assignments.map((a) => (
+                    <tr key={a.id} className="hover:bg-sfrc-50/40 transition-colors">
+                      <td className="py-3 px-5 font-mono font-bold text-sfrc-900">{a.code}</td>
+                      <td className="py-3 px-5 font-semibold text-sfrc-950">{a.title}</td>
+                      <td className="py-3 px-5 text-sfrc-700">{a.department}</td>
+                      <td className="py-3 px-5 text-center font-bold text-sfrc-900">Sem {a.semester}</td>
+                      <td className="py-3 px-5 font-bold text-sfrc-900 flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5 text-sfrc-500" />
+                        {a.faculty_name}
+                      </td>
+                      <td className="py-3 px-5 text-center font-mono text-sfrc-700">{a.hours} hrs/wk</td>
+                      <td className="py-3 px-5 text-right">
+                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px] inline-flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" />
+                          {a.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}

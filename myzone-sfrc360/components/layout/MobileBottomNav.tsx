@@ -36,6 +36,13 @@ const roleBottomNav: Record<UserRole, BottomNavItem[]> = {
     { label: 'Notices', href: '/parent/notices', icon: Bell },
     { label: 'Pragya AI', href: '#pragya', icon: Sparkles, isPragya: true },
   ],
+  hod: [
+    { label: 'Overview', href: '/hod/dashboard', icon: LayoutDashboard },
+    { label: 'Faculty', href: '/hod/faculty', icon: Users },
+    { label: 'Students', href: '/hod/students', icon: GraduationCap },
+    { label: 'Reports', href: '/hod/attendance-report', icon: ClipboardList },
+    { label: 'Pragya AI', href: '#pragya', icon: Sparkles, isPragya: true },
+  ],
   admin: [
     { label: 'Overview', href: '/admin/dashboard', icon: LayoutDashboard },
     { label: 'Users', href: '/admin/users', icon: Users },
