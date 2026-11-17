@@ -528,13 +528,13 @@ async def get_my_mentor(
     ]
 
     return StudentMentorView(
-        mentor_name=m_row["mentor_name"] if m_row else "Dr. K. Anitha",
-        designation=m_row["designation"] if m_row else "Associate Professor",
-        department_name=m_row["department_name"] if m_row else "Computer Science",
-        email=m_row["email"] if m_row else "anitha.k@sfrc.ac.in",
-        phone=m_row["phone"] if m_row else "04562-220389",
-        office_room="Staff Room 2 (Science Block)",
-        office_hours="Mon - Fri, 2:30 PM - 4:30 PM",
+        mentor_name=m_row["mentor_name"] if m_row else "Not Assigned",
+        designation=m_row["designation"] if m_row else None,
+        department_name=m_row["department_name"] if m_row else None,
+        email=m_row["email"] if m_row else None,
+        phone=m_row["phone"] if m_row else None,
+        office_room="Staff Room (Science Block)" if m_row else None,
+        office_hours="Mon - Fri, 2:30 PM - 4:30 PM" if m_row else None,
         recent_meetings=recent_meetings,
     )
 

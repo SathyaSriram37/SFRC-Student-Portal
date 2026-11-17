@@ -50,7 +50,7 @@ const DEFAULT_FACILITIES: FacilityItem[] = [
     capacity: 250,
     status: 'Occupied',
     features: ['High-Lumen Projector', 'Surround Audio', 'Stage Lighting', 'Podium Mic'],
-    incharge_faculty: 'Dr. K. Anitha',
+    incharge_faculty: 'Faculty In-Charge',
   },
   {
     id: 'fac-3',
@@ -61,7 +61,7 @@ const DEFAULT_FACILITIES: FacilityItem[] = [
     capacity: 75,
     status: 'Available',
     features: ['Gigabit LAN', 'i7 16GB Terminals', 'Smart Board', 'UPS Backup (10kVA)'],
-    incharge_faculty: 'Mrs. P. Subbulakshmi',
+    incharge_faculty: 'Faculty In-Charge',
   },
   {
     id: 'fac-4',
@@ -389,7 +389,7 @@ export default function AdminFacilitiesPage() {
                   onChange={(e) => setBookForm({ ...bookForm, facility_name: e.target.value })}
                   className="w-full px-4 py-2.5 rounded-xl border border-sfrc-200 text-xs font-medium focus:ring-2 focus:ring-sfrc-700 focus:outline-hidden"
                 >
-                  {DEFAULT_FACILITIES.map((f) => (
+                  {facilities.map((f) => (
                     <option key={f.id} value={f.name}>{f.name} ({f.block})</option>
                   ))}
                 </select>
@@ -439,7 +439,7 @@ export default function AdminFacilitiesPage() {
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Dr. K. Anitha"
+                    placeholder="e.g. Faculty In-Charge"
                     value={bookForm.organizer_name}
                     onChange={(e) => setBookForm({ ...bookForm, organizer_name: e.target.value })}
                     className="w-full px-4 py-2.5 rounded-xl border border-sfrc-200 text-xs font-medium focus:ring-2 focus:ring-sfrc-700 focus:outline-hidden"

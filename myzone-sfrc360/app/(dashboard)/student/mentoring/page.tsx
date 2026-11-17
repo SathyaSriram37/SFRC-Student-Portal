@@ -164,9 +164,9 @@ export default function StudentMentoringPage() {
                 <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-sfrc-100 text-sfrc-800 uppercase tracking-wider mb-1">
                   Assigned Faculty Mentor
                 </span>
-                <h2 className="text-xl font-black text-sfrc-900">{mentor?.mentor_name || 'Dr. K. Anitha'}</h2>
+                <h2 className="text-xl font-black text-sfrc-900">{mentor?.mentor_name || 'Assigned Faculty Mentor'}</h2>
                 <p className="text-xs text-sfrc-600 font-medium">
-                  {mentor?.designation || 'Associate Professor'} • {mentor?.department_name || 'Computer Science'}
+                  {[mentor?.designation, mentor?.department_name].filter(Boolean).join(' • ') || 'Faculty Mentor'}
                 </p>
               </div>
             </div>
@@ -175,22 +175,22 @@ export default function StudentMentoringPage() {
               <div className="p-3 rounded-2xl bg-sfrc-surface border border-sfrc-200 text-xs text-sfrc-700 space-y-1">
                 <div className="flex items-center gap-2">
                   <Mail className="w-3.5 h-3.5 text-sfrc-500" />
-                  <span>{mentor?.email || 'anitha.k@sfrc.ac.in'}</span>
+                  <span>{mentor?.email || 'Contact via Department'}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Phone className="w-3.5 h-3.5 text-sfrc-500" />
-                  <span>{mentor?.phone || '04562-220389'}</span>
+                  <span>{mentor?.phone || 'Department Extension'}</span>
                 </div>
               </div>
 
               <div className="p-3 rounded-2xl bg-sfrc-surface border border-sfrc-200 text-xs text-sfrc-700 space-y-1">
                 <div className="flex items-center gap-2">
                   <Building2 className="w-3.5 h-3.5 text-sfrc-500" />
-                  <span>{mentor?.office_room || 'Staff Room 2 (Science Block)'}</span>
+                  <span>{mentor?.office_room || 'Department Faculty Chamber'}</span>
                 </div>
                 <div className="flex items-center gap-2 font-bold text-sfrc-900">
                   <Clock className="w-3.5 h-3.5 text-sfrc-700" />
-                  <span>{mentor?.office_hours || 'Mon-Fri 2:30 PM - 4:30 PM'}</span>
+                  <span>{mentor?.office_hours || 'During Office Hours'}</span>
                 </div>
               </div>
             </div>

@@ -211,12 +211,12 @@ export default function FacultyDashboardPage() {
   const [ticketPriority, setTicketPriority] = useState('Medium');
 
   // New Logbook Form state
-  const [logCourseCode, setLogCourseCode] = useState('24UDS4P');
-  const [logCourseTitle, setLogCourseTitle] = useState('Data Science & Advanced ML Practical Lab');
-  const [logBatch, setLogBatch] = useState('Batch A (24UDS001 - 24UDS010)');
+  const [logCourseCode, setLogCourseCode] = useState('');
+  const [logCourseTitle, setLogCourseTitle] = useState('');
+  const [logBatch, setLogBatch] = useState('');
   const [logSession, setLogSession] = useState('FN');
-  const [logStudentsCount, setLogStudentsCount] = useState(10);
-  const [logFaculty, setLogFaculty] = useState('Dr. K. Anitha');
+  const [logStudentsCount, setLogStudentsCount] = useState(0);
+  const [logFaculty, setLogFaculty] = useState('');
   const [logExpTitle, setLogExpTitle] = useState('');
   const [logRemarks, setLogRemarks] = useState('');
 
@@ -257,16 +257,12 @@ export default function FacultyDashboardPage() {
         if (hOv) {
           setHodData({
             ...hOv,
-            faculty_workload: hCh?.faculty_workload || [
-              { employee_id: 'EMP-DS-001', name: 'Dr. K. Anitha', designation: 'Head of Department', assigned_courses_count: 2 },
-              { employee_id: 'EMP-DS-002', name: 'Mrs. P. Subbulakshmi', designation: 'Assistant Professor', assigned_courses_count: 1 },
-              { employee_id: 'EMP-DS-003', name: 'Mr. M. Senthil', designation: 'Assistant Professor', assigned_courses_count: 1 },
-            ],
+            faculty_workload: hCh?.faculty_workload || [],
             students_summary: hCh?.chart1_attendance_per_student?.slice(0, 5)?.map((s: any) => ({
-              register_number: s.register_number || '24UDS001',
+              register_number: s.register_number,
               name: s.student_name,
               attendance_pct: s.attendance_pct,
-              marks_avg: 82.5,
+              marks_avg: s.marks_avg ?? s.attendance_pct,
               risk_level: s.attendance_pct < 75 ? 'Critical' : 'Good Standing',
             })) || [],
           });
@@ -515,7 +511,7 @@ export default function FacultyDashboardPage() {
                     Department Governance • Active Session
                   </div>
                   <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white">
-                    {hodData?.department.name || 'Department of Data Science'} ({hodData?.department.code || 'DS'})
+                    {hodData?.department?.name || user?.department_name || 'Department Oversight'} {hodData?.department?.code ? `(${hodData.department.code})` : ''}
                   </h1>
                   <p className="text-sm text-sfrc-200 mt-2 max-w-2xl leading-relaxed">
                     Head of Department Administration & Quality Portal. Supervise curriculum delivery, assigned staff workloads, internal assessment audits, and student attendance vigilance.

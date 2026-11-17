@@ -1700,8 +1700,8 @@ async def get_attendance_analytics(
         FROM attendance_records
     """)
     ov_row = (await db.execute(ov_sql)).mappings().first()
-    tot = (ov_row["total_classes"] or 0) if ov_row else 0
-    att = (ov_row["attended_classes"] or 0) if ov_row else 0
+    tot = (ov_row.get("total_classes") or 0) if ov_row else 0
+    att = (ov_row.get("attended_classes") or 0) if ov_row else 0
     overall_pct = round((att / tot * 100.0), 1) if tot > 0 else 92.3
 
     # 2. Monthly Trends from attendance_records

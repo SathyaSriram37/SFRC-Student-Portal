@@ -110,6 +110,8 @@ export interface AuthUser {
   employeeId?: string;
   avatarUrl?: string;
   departmentId?: string;
+  departmentName?: string;
+  department_name?: string;
   capabilities: string[];
 }
 

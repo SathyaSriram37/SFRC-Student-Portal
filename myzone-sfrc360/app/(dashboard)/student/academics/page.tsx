@@ -177,51 +177,22 @@ export default function StudentAcademicsPage() {
   };
 
   const displayMarks = marks || {
-    current_cgpa: 8.65,
-    selected_semester: 6,
-    semester_gpas: [
-      { semester: 1, gpa: 8.2 },
-      { semester: 2, gpa: 8.45 },
-      { semester: 3, gpa: 8.6 },
-      { semester: 4, gpa: 8.7 },
-      { semester: 5, gpa: 8.82 },
-    ],
-    course_marks: [
-      { course_id: '1', course_code: '22UCSC61', course_title: 'Cloud Architecture & DevOps', cia1: 23, cia2: 24, cia3: 22, assignment: 10, model: 88, total: 34, grade: 'O' },
-      { course_id: '2', course_code: '22UCSC62', course_title: 'Web Application Development', cia1: 21, cia2: 23, cia3: 20, assignment: 9.5, model: 82, total: 31.5, grade: 'A+' },
-      { course_id: '3', course_code: '22UCSE63', course_title: 'Machine Learning Fundamentals', cia1: 24, cia2: 25, cia3: 23, assignment: 10, model: 92, total: 34.5, grade: 'O' },
-      { course_id: '4', course_code: '22UCSC64', course_title: 'Network Security & Cryptography', cia1: 19, cia2: 21, cia3: 22, assignment: 9, model: 78, total: 30.5, grade: 'A+' },
-      { course_id: '5', course_code: '22UVEC61', course_title: 'Professional Ethics & Values', cia1: 25, cia2: 25, cia3: 24, assignment: 10, model: 96, total: 35, grade: 'O' },
-    ],
+    current_cgpa: 0,
+    selected_semester: 1,
+    semester_gpas: [],
+    course_marks: [],
   };
 
   const displayTimetable = timetable || {
-    academic_year: '2026-2027',
-    semester: 6,
-    programme_name: 'B.Sc Computer Science',
-    slots: [
-      { id: '1', day_of_week: 1, period_number: 1, start_time: '09:00 AM', end_time: '10:00 AM', room: 'Lab 3', course_code: '22UCSC61', course_title: 'Cloud Architecture', faculty_name: 'Dr. K. Anitha' },
-      { id: '2', day_of_week: 1, period_number: 2, start_time: '10:00 AM', end_time: '11:00 AM', room: 'LH 104', course_code: '22UCSC62', course_title: 'Web App Dev', faculty_name: 'Dr. M. Lakshmi' },
-      { id: '3', day_of_week: 1, period_number: 3, start_time: '11:15 AM', end_time: '12:15 PM', room: 'Smart 2', course_code: '22UCSE63', course_title: 'Machine Learning', faculty_name: 'Prof. R. Priya' },
-      { id: '4', day_of_week: 2, period_number: 1, start_time: '09:00 AM', end_time: '10:00 AM', room: 'LH 104', course_code: '22UCSC64', course_title: 'Net Security', faculty_name: 'Dr. S. Meena' },
-      { id: '5', day_of_week: 2, period_number: 2, start_time: '10:00 AM', end_time: '11:00 AM', room: 'Lab 3', course_code: '22UCSC61', course_title: 'Cloud Architecture', faculty_name: 'Dr. K. Anitha' },
-      { id: '6', day_of_week: 3, period_number: 1, start_time: '09:00 AM', end_time: '10:00 AM', room: 'Smart 2', course_code: '22UCSE63', course_title: 'Machine Learning', faculty_name: 'Prof. R. Priya' },
-    ],
+    academic_year: '2025-2026',
+    semester: 4,
+    programme_name: 'Autonomous Degree Programme',
+    slots: [],
   };
 
-  const displayAssignments = assignments.length > 0 ? assignments : [
-    { id: 'a1', title: 'Kubernetes Container Orchestration Lab', course_code: '22UCSC61', course_title: 'Cloud Architecture & DevOps', faculty_name: 'Dr. K. Anitha', due_date: '2026-10-05T23:59:00', max_marks: 15, status: 'pending', is_overdue: false },
-    { id: 'a2', title: 'Next.js 16 Full Stack Authentication Project', course_code: '22UCSC62', course_title: 'Web Application Development', faculty_name: 'Dr. M. Lakshmi', due_date: '2026-09-28T23:59:00', max_marks: 15, status: 'pending', is_overdue: true },
-    { id: 'a3', title: 'Gradient Descent Implementation in Python', course_code: '22UCSE63', course_title: 'Machine Learning Fundamentals', faculty_name: 'Prof. R. Priya', due_date: '2026-09-20T23:59:00', max_marks: 15, status: 'graded', marks_obtained: 14.5, is_overdue: false },
-  ];
+  const displayAssignments = assignments;
 
-  const displayExams = exams.length > 0 ? exams : [
-    { id: 'e1', date: '2026-11-10', day_name: 'Tuesday', session: 'FN', time_slot: '10:00 AM - 01:00 PM', course_code: '22UCSC61', course_title: 'Cloud Architecture & DevOps', venue: 'Hall 102 (MCA Block)', attendance_pct: 94.4, is_eligible: true },
-    { id: 'e2', date: '2026-11-12', day_name: 'Thursday', session: 'FN', time_slot: '10:00 AM - 01:00 PM', course_code: '22UCSC62', course_title: 'Web Application Development', venue: 'Hall 104 (MCA Block)', attendance_pct: 86.1, is_eligible: true },
-    { id: 'e3', date: '2026-11-14', day_name: 'Saturday', session: 'FN', time_slot: '10:00 AM - 01:00 PM', course_code: '22UCSE63', course_title: 'Machine Learning Fundamentals', venue: 'Hall 108 (Science Block)', attendance_pct: 63.8, is_eligible: false, ineligibility_reason: 'Attendance is 63.8% (Minimum 75% required by Autonomous Regulations)' },
-    { id: 'e4', date: '2026-11-17', day_name: 'Tuesday', session: 'FN', time_slot: '10:00 AM - 01:00 PM', course_code: '22UCSC64', course_title: 'Network Security & Cryptography', venue: 'Hall 110 (Science Block)', attendance_pct: 72.2, is_eligible: false, ineligibility_reason: 'Attendance is 72.2% (Minimum 75% required)' },
-    { id: 'e5', date: '2026-11-19', day_name: 'Thursday', session: 'AN', time_slot: '02:00 PM - 05:00 PM', course_code: '22UVEC61', course_title: 'Professional Ethics & Human Values', venue: 'Auditorium Hall A', attendance_pct: 100.0, is_eligible: true },
-  ];
+  const displayExams = exams;
 
   const filteredAssignments = displayAssignments.filter((a) => {
     if (assignmentFilter === 'all') return true;

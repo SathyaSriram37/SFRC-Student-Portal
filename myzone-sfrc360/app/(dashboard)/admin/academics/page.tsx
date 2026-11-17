@@ -54,156 +54,14 @@ interface CourseItem {
   syllabus_status: 'Approved' | 'Draft' | 'Under Review';
 }
 
-const DEFAULT_PROGRAMMES: ProgrammeItem[] = [
-  {
-    id: 'prog-1',
-    name: 'B.Sc Computer Science',
-    code: 'UCSC',
-    degree_level: 'UG',
-    department: 'Department of Computer Science',
-    sanctioned_intake: 60,
-    enrolled_count: 58,
-    hod_name: 'Dr. S. Meenakshi, M.Sc., Ph.D.',
-    regulation_batch: '2023 - 2026 (OBE)',
-  },
-  {
-    id: 'prog-2',
-    name: 'B.Com (Professional Accounting & CA)',
-    code: 'UCOM',
-    degree_level: 'UG',
-    department: 'Department of Commerce',
-    sanctioned_intake: 70,
-    enrolled_count: 69,
-    hod_name: 'Dr. V. Lakshmi, M.Com., Ph.D.',
-    regulation_batch: '2023 - 2026 (OBE)',
-  },
-  {
-    id: 'prog-3',
-    name: 'B.Sc Mathematics (Regular & SF)',
-    code: 'UMAT',
-    degree_level: 'UG',
-    department: 'Department of Mathematics',
-    sanctioned_intake: 50,
-    enrolled_count: 48,
-    hod_name: 'Dr. R. Kamala, M.Sc., M.Phil., Ph.D.',
-    regulation_batch: '2023 - 2026 (OBE)',
-  },
-  {
-    id: 'prog-4',
-    name: 'B.Sc Physics (Smart Materials & Electronics)',
-    code: 'UPHY',
-    degree_level: 'UG',
-    department: 'Department of Physics',
-    sanctioned_intake: 45,
-    enrolled_count: 44,
-    hod_name: 'Dr. M. Geetha, M.Sc., Ph.D.',
-    regulation_batch: '2023 - 2026 (OBE)',
-  },
-  {
-    id: 'prog-5',
-    name: 'M.Sc Computer Science (Cloud & AI)',
-    code: 'PCSC',
-    degree_level: 'PG',
-    department: 'Department of Computer Science',
-    sanctioned_intake: 30,
-    enrolled_count: 28,
-    hod_name: 'Dr. S. Meenakshi, M.Sc., Ph.D.',
-    regulation_batch: '2024 - 2026 (CBCS)',
-  },
-  {
-    id: 'prog-6',
-    name: 'M.Com Banking & Financial Analytics',
-    code: 'PCOM',
-    degree_level: 'PG',
-    department: 'Department of Commerce',
-    sanctioned_intake: 35,
-    enrolled_count: 34,
-    hod_name: 'Dr. V. Lakshmi, M.Com., Ph.D.',
-    regulation_batch: '2024 - 2026 (CBCS)',
-  },
-];
-
-const DEFAULT_COURSES: CourseItem[] = [
-  {
-    id: 'crs-1',
-    code: '22UCSC61',
-    title: 'Cloud Architecture & DevOps Systems',
-    department: 'Computer Science',
-    semester: 6,
-    credits: 4,
-    hours_per_week: 5,
-    course_type: 'Major Core',
-    faculty_name: 'Dr. K. Anitha',
-    syllabus_status: 'Approved',
-  },
-  {
-    id: 'crs-2',
-    code: '22UCSC62',
-    title: 'Full-Stack Web Application Engineering',
-    department: 'Computer Science',
-    semester: 6,
-    credits: 4,
-    hours_per_week: 5,
-    course_type: 'Major Core',
-    faculty_name: 'Mrs. P. Subbulakshmi',
-    syllabus_status: 'Approved',
-  },
-  {
-    id: 'crs-3',
-    code: '22UCSC6P',
-    title: 'Advanced Web & Cloud Engineering Lab',
-    department: 'Computer Science',
-    semester: 6,
-    credits: 2,
-    hours_per_week: 4,
-    course_type: 'Core Practical',
-    faculty_name: 'Dr. K. Anitha',
-    syllabus_status: 'Approved',
-  },
-  {
-    id: 'crs-4',
-    code: '22UCOM61',
-    title: 'Corporate Financial Management & Tax Laws',
-    department: 'Commerce',
-    semester: 6,
-    credits: 4,
-    hours_per_week: 6,
-    course_type: 'Major Core',
-    faculty_name: 'Dr. V. Lakshmi',
-    syllabus_status: 'Approved',
-  },
-  {
-    id: 'crs-5',
-    code: '22UMAT61',
-    title: 'Complex Analysis & Topology Fundamentals',
-    department: 'Mathematics',
-    semester: 6,
-    credits: 5,
-    hours_per_week: 6,
-    course_type: 'Major Core',
-    faculty_name: 'Dr. R. Kamala',
-    syllabus_status: 'Approved',
-  },
-  {
-    id: 'crs-6',
-    code: '22UPHY61',
-    title: 'Solid State Physics & Modern Electronics',
-    department: 'Physics',
-    semester: 6,
-    credits: 4,
-    hours_per_week: 5,
-    course_type: 'Major Core',
-    faculty_name: 'Dr. M. Geetha',
-    syllabus_status: 'Approved',
-  },
-];
+const DEFAULT_PROGRAMMES: ProgrammeItem[] = [];
 
 export default function AdminAcademicsPage() {
   const [activeTab, setActiveTab] = useState<'programmes' | 'courses' | 'assignments' | 'bos' | 'curriculum'>('programmes');
   const [searchTerm, setSearchTerm] = useState('');
   const [degreeFilter, setDegreeFilter] = useState('ALL');
-  const [programmes, setProgrammes] = useState<ProgrammeItem[]>(DEFAULT_PROGRAMMES);
-  const [courses, setCourses] = useState<CourseItem[]>(DEFAULT_COURSES);
+  const [programmes, setProgrammes] = useState<ProgrammeItem[]>([]);
+  const [courses, setCourses] = useState<CourseItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -233,19 +91,14 @@ export default function AdminAcademicsPage() {
   const [departmentsList, setDepartmentsList] = useState<Array<{ id: string; name: string; code: string }>>([]);
   const [facultyList, setFacultyList] = useState<Array<{ id: string; full_name: string; employee_id?: string; department_name?: string }>>([]);
   const [assignForm, setAssignForm] = useState({
-    department: 'Department of Data Science',
+    department: '',
     academic_year: '2025-2026',
     semester: 4,
     course_code: '',
     faculty_id: '',
   });
 
-  const [assignments, setAssignments] = useState([
-    { id: 'asgn-1', code: '24UDS41', title: 'Python for Data Science & Numerical Computing', department: 'Department of Data Science', semester: 4, faculty_name: 'Mrs. P. Subbulakshmi', academic_year: '2025-2026', hours: 5, status: 'Active' },
-    { id: 'asgn-2', code: '24UDS42', title: 'Machine Learning & Statistical Models', department: 'Department of Data Science', semester: 4, faculty_name: 'Dr. K. Anitha', academic_year: '2025-2026', hours: 5, status: 'Active' },
-    { id: 'asgn-3', code: '24UDS43', title: 'Big Data Analytics & Database Architectures', department: 'Department of Data Science', semester: 4, faculty_name: 'Mr. M. Senthil', academic_year: '2025-2026', hours: 5, status: 'Active' },
-    { id: 'asgn-4', code: '24UDS4P', title: 'Data Science & Advanced ML Practical Lab', department: 'Department of Data Science', semester: 4, faculty_name: 'Dr. K. Anitha', academic_year: '2025-2026', hours: 4, status: 'Active' },
-  ]);
+  const [assignments, setAssignments] = useState<any[]>([]);
 
   const supabase = useMemo(() => createClient(), []);
 
@@ -698,15 +551,10 @@ export default function AdminAcademicsPage() {
                   onChange={(e) => setAssignForm({ ...assignForm, department: e.target.value })}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-sfrc-200 text-xs font-medium bg-sfrc-50 text-sfrc-900 focus:outline-none focus:ring-2 focus:ring-sfrc-700"
                 >
-                  <option value="Department of Data Science">Department of Data Science</option>
-                  <option value="Department of Computer Science">Department of Computer Science</option>
-                  <option value="Department of Computer Applications">Department of Computer Applications</option>
-                  <option value="Department of Commerce">Department of Commerce</option>
-                  <option value="Department of Mathematics">Department of Mathematics</option>
-                  <option value="Department of Physics">Department of Physics</option>
+                  <option value="">-- Select Department --</option>
                   {departmentsList.map((d) => (
                     <option key={d.id} value={d.name}>
-                      {d.name}
+                      {d.name} ({d.code})
                     </option>
                   ))}
                 </select>
@@ -785,11 +633,7 @@ export default function AdminAcademicsPage() {
                       </option>
                     ))
                   ) : (
-                    <>
-                      <option value="fac-emp-ds-001">Dr. K. Anitha (EMP-DS-001 - Data Science)</option>
-                      <option value="fac-emp-ds-002">Mrs. P. Subbulakshmi (EMP-DS-002 - Data Science)</option>
-                      <option value="fac-emp-ds-003">Mr. M. Senthil (EMP-DS-003 - Data Science)</option>
-                    </>
+                    <option disabled value="">No active faculty records found in database</option>
                   )}
                 </select>
               </div>

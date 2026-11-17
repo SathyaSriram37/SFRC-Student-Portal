@@ -78,9 +78,9 @@ async def test_student_my_mentor_strictly_excludes_personal_notes(monkeypatch):
     def execute_side_effect(statement, params=None):
         sql = str(statement)
         m = MagicMock()
-        if "FROM public.students WHERE user_id" in sql:
+        if "students" in sql and "user_id" in sql:
             m.mappings.return_value.first.return_value = {"id": "00000000-0000-0000-0000-000000000001"}
-        elif "FROM public.mentorship_assignments" in sql:
+        elif "mentorship_assignments" in sql:
             m.mappings.return_value.first.return_value = {
                 "mentor_name": "Dr. K. Anitha",
                 "designation": "Associate Professor",
@@ -88,7 +88,7 @@ async def test_student_my_mentor_strictly_excludes_personal_notes(monkeypatch):
                 "email": "anitha.k@sfrc.ac.in",
                 "phone": "04562-220389",
             }
-        elif "FROM public.mentoring_records" in sql:
+        elif "mentoring_records" in sql:
             m.mappings.return_value.all.return_value = [
                 {
                     "id": "rec-1",

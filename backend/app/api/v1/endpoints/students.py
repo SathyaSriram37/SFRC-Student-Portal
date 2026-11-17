@@ -392,6 +392,26 @@ async def get_student_detailed_profile(
     abc_val = (student_row.get("abc_id") if student_row and student_row.get("abc_id") else None) or f"ABC-{register_number[-4:]}-2938"
     apaar_val = (student_row.get("apaar_id") if student_row and student_row.get("apaar_id") else None) or f"APAAR-SFRC-{register_number[-4:]}"
 
+    # Mentor details dynamically queried from mentorship_assignments
+    mentor_name = "Not Assigned"
+    mentor_email = None
+    mentor_phone = None
+    try:
+        mentor_sql = text("""
+            SELECT up.full_name, up.email, up.phone
+            FROM mentorship_assignments ma
+            JOIN faculty f ON ma.faculty_id = f.id
+            JOIN user_profiles up ON f.user_id = up.id
+            WHERE ma.student_id = :student_id AND ma.is_active = 1
+        """)
+        m_row = (await db.execute(mentor_sql, {"student_id": st_id})).mappings().first()
+        if m_row:
+            mentor_name = m_row.get("full_name") or "Faculty Mentor"
+            mentor_email = m_row.get("email")
+            mentor_phone = m_row.get("phone")
+    except Exception:
+        pass
+
     return StudentDetailedProfileResponse(
         student_id=st_id,
         user_id=str(user_id),
@@ -419,9 +439,9 @@ async def get_student_detailed_profile(
         admission_date=adm_date,
         abc_id=abc_val,
         apaar_id=apaar_val,
-        mentor_name="Dr. K. Anitha, M.Sc., Ph.D.",
-        mentor_email="anitha.cs@sfrc.edu.in",
-        mentor_phone="+91 94421 88321",
+        mentor_name=mentor_name,
+        mentor_email=mentor_email,
+        mentor_phone=mentor_phone,
         parent_name=None,
         parent_relationship="Parent / Guardian",
         parent_phone=parent_ph,

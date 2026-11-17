@@ -321,36 +321,14 @@ export default function AdminAnalyticsPage() {
                     <p className="text-xs text-sfrc-600 mb-4">Student attendance vigilance with red debarment warning</p>
                     <div className="h-64 w-full">
                       <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={masterCharts?.chart1_attendance_per_student || [
-                          { student_name: 'Priya', register_number: 'BCA2526001', attendance_pct: 90.0, is_low: false },
-                          { student_name: 'Kavitha', register_number: 'BCA2526002', attendance_pct: 75.0, is_low: false },
-                          { student_name: 'Aarthi', register_number: 'BCA2526003', attendance_pct: 90.0, is_low: false },
-                          { student_name: 'Divya', register_number: 'BCA2526004', attendance_pct: 65.0, is_low: true },
-                          { student_name: 'Karthik', register_number: 'BCA2526005', attendance_pct: 75.0, is_low: false },
-                          { student_name: 'Surya', register_number: 'BCA2526006', attendance_pct: 85.0, is_low: false },
-                          { student_name: 'Muthumari', register_number: 'BCA2526007', attendance_pct: 65.0, is_low: true },
-                          { student_name: 'Janani', register_number: 'BCA2526008', attendance_pct: 90.0, is_low: false },
-                          { student_name: 'Senthil', register_number: 'BCA2526009', attendance_pct: 85.0, is_low: false },
-                          { student_name: 'Lakshmi', register_number: 'BCA2526010', attendance_pct: 75.0, is_low: false },
-                        ]}>
+                        <BarChart data={masterCharts?.chart1_attendance_per_student || []}>
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
                           <XAxis dataKey="student_name" tick={{ fontSize: 10, fill: '#64748B' }} />
                           <YAxis domain={[0, 100]} ticks={[0, 25, 50, 75, 100]} tick={{ fontSize: 10, fill: '#64748B' }} />
                           <Tooltip />
                           <ReferenceLine y={75} stroke="#dc2626" strokeDasharray="3 3" label={{ value: '75% Rule', fill: '#dc2626', fontSize: 10 }} />
                           <Bar dataKey="attendance_pct" name="Attendance %" radius={[6, 6, 0, 0]} maxBarSize={32}>
-                            {(masterCharts?.chart1_attendance_per_student || [
-                              { student_name: 'Priya', register_number: 'BCA2526001', attendance_pct: 90.0, is_low: false },
-                              { student_name: 'Kavitha', register_number: 'BCA2526002', attendance_pct: 75.0, is_low: false },
-                              { student_name: 'Aarthi', register_number: 'BCA2526003', attendance_pct: 90.0, is_low: false },
-                              { student_name: 'Divya', register_number: 'BCA2526004', attendance_pct: 65.0, is_low: true },
-                              { student_name: 'Karthik', register_number: 'BCA2526005', attendance_pct: 75.0, is_low: false },
-                              { student_name: 'Surya', register_number: 'BCA2526006', attendance_pct: 85.0, is_low: false },
-                              { student_name: 'Muthumari', register_number: 'BCA2526007', attendance_pct: 65.0, is_low: true },
-                              { student_name: 'Janani', register_number: 'BCA2526008', attendance_pct: 90.0, is_low: false },
-                              { student_name: 'Senthil', register_number: 'BCA2526009', attendance_pct: 85.0, is_low: false },
-                              { student_name: 'Lakshmi', register_number: 'BCA2526010', attendance_pct: 75.0, is_low: false },
-                            ]).map((entry, index) => (
+                            {(masterCharts?.chart1_attendance_per_student || []).map((entry, index) => (
                               <Cell key={`cell-${index}`} fill={entry.is_low ? '#dc2626' : '#16a34a'} />
                             ))}
                           </Bar>
@@ -365,14 +343,7 @@ export default function AdminAnalyticsPage() {
                     <p className="text-xs text-sfrc-600 mb-4">Normalized score across autonomous curriculum (Scale 0-100)</p>
                     <div className="h-64 w-full">
                       <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={masterCharts?.chart2_marks_per_subject || [
-                          { subject_code: 'CA101', subject_title: 'Data Structures', avg_score_100: 82.5 },
-                          { subject_code: 'CA102', subject_title: 'Java Programming', avg_score_100: 78.0 },
-                          { subject_code: 'CA103', subject_title: 'Database Management', avg_score_100: 85.0 },
-                          { subject_code: 'CA104', subject_title: 'Operating Systems', avg_score_100: 72.0 },
-                          { subject_code: 'CA105', subject_title: 'Web Technology', avg_score_100: 88.0 },
-                          { subject_code: 'CA106', subject_title: 'Computer Networks', avg_score_100: 76.5 },
-                        ]}>
+                        <BarChart data={masterCharts?.chart2_marks_per_subject || []}>
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
                           <XAxis dataKey="subject_code" tick={{ fontSize: 10, fill: '#64748B' }} />
                           <YAxis domain={[0, 100]} ticks={[0, 20, 40, 60, 80, 100]} tick={{ fontSize: 10, fill: '#64748B' }} />
@@ -429,11 +400,7 @@ export default function AdminAnalyticsPage() {
                     <p className="text-xs text-sfrc-600 mb-4">Subject-wise progression across UT1, UT2, and UT3 exams</p>
                     <div className="h-56 w-full">
                       <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={masterCharts?.chart4_marks_trend || [
-                          { exam: 'UT1', CA101: 76.0, CA102: 72.0, CA103: 80.0, CA104: 68.0 },
-                          { exam: 'UT2', CA101: 80.0, CA102: 75.0, CA103: 83.0, CA104: 74.0 },
-                          { exam: 'UT3', CA101: 84.0, CA102: 79.0, CA103: 86.0, CA104: 78.0 },
-                        ]}>
+                        <LineChart data={masterCharts?.chart4_marks_trend || []}>
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
                           <XAxis dataKey="exam" tick={{ fontSize: 11, fill: '#64748B' }} />
                           <YAxis domain={[50, 100]} tick={{ fontSize: 10, fill: '#64748B' }} />
@@ -460,7 +427,7 @@ export default function AdminAnalyticsPage() {
                           <p className="text-xs text-sfrc-600">Students facing debarment warning banner and notice</p>
                         </div>
                         <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-800">
-                          {(masterCharts?.chart5_below_75_students || [{ register_number: 'BCA2526004' }, { register_number: 'BCA2526007' }]).length} Flagged
+                          {(masterCharts?.chart5_below_75_students || []).length} Flagged
                         </span>
                       </div>
 
@@ -475,10 +442,7 @@ export default function AdminAnalyticsPage() {
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-rose-100 font-medium">
-                            {(masterCharts?.chart5_below_75_students || [
-                              { register_number: 'BCA2526004', full_name: 'Divya K', attendance_pct: 65.0, status: 'Below 75% Warning' },
-                              { register_number: 'BCA2526007', full_name: 'Muthumari V', attendance_pct: 65.0, status: 'Below 75% Warning' },
-                            ]).map((s, idx) => (
+                            {(masterCharts?.chart5_below_75_students || []).map((s, idx) => (
                               <tr key={idx} className="bg-rose-50/30 hover:bg-rose-100/40 transition-colors">
                                 <td className="py-2.5 px-3 font-mono font-bold text-rose-950">{s.register_number}</td>
                                 <td className="py-2.5 px-3 font-semibold text-rose-950">{s.full_name}</td>
@@ -521,13 +485,7 @@ export default function AdminAnalyticsPage() {
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-sfrc-200/60 font-medium">
-                            {(masterCharts?.chart6_subject_pass_fail || [
-                              { subject_code: 'CA101', subject_name: 'Data Structures & Algorithms', pass_count: 48, fail_count: 2, pass_pct: 96.0 },
-                              { subject_code: 'CA102', subject_name: 'Database Management Systems', pass_count: 46, fail_count: 4, pass_pct: 92.0 },
-                              { subject_code: 'CA103', subject_name: 'Web Technologies', pass_count: 49, fail_count: 1, pass_pct: 98.0 },
-                              { subject_code: 'CA104', subject_name: 'Python Programming', pass_count: 44, fail_count: 6, pass_pct: 88.0 },
-                              { subject_code: 'CA105', subject_name: 'Computer Networks', pass_count: 47, fail_count: 3, pass_pct: 94.0 },
-                            ]).map((sub, idx) => (
+                            {(masterCharts?.chart6_subject_pass_fail || []).map((sub, idx) => (
                               <tr key={idx} className="hover:bg-sfrc-50 transition-colors">
                                 <td className="py-2.5 px-3 font-mono font-bold text-sfrc-900">{sub.subject_code}</td>
                                 <td className="py-2.5 px-3 font-semibold text-sfrc-950 truncate max-w-44">{sub.subject_name}</td>

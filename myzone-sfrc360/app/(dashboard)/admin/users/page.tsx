@@ -231,31 +231,9 @@ interface UserListResponse {
   total_pages: number;
 }
 
-const OFFICIAL_DEPARTMENTS = [
-  { name: 'Department of Tamil', code: 'TAM' },
-  { name: 'Department of English', code: 'ENG' },
-  { name: 'Department of History', code: 'HIST' },
-  { name: 'Department of Commerce', code: 'COM' },
-  { name: 'Department of Commerce (Professional Accounting)', code: 'COM-PA' },
-  { name: 'Department of Business Administration', code: 'BBA' },
-  { name: 'Department of Mathematics', code: 'MATH' },
-  { name: 'Department of Physics', code: 'PHY' },
-  { name: 'Department of Chemistry', code: 'CHEM' },
-  { name: 'Department of Botany', code: 'BOT' },
-  { name: 'Department of Microbiology', code: 'MBIO' },
-  { name: 'Department of Nutrition and Dietetics', code: 'ND' },
-  { name: 'Department of Computer Science', code: 'CS' },
-  { name: 'Department of Computer Applications', code: 'CA' },
-  { name: 'Department of Data Science', code: 'DS' },
-  { name: 'Department of Costume Design & Fashion', code: 'CDF' },
-  { name: 'Department of Psychology', code: 'PSY' },
-  { name: 'Department of Geography', code: 'GEO' },
-  { name: 'Department of Physical Education', code: 'PED' },
-];
-
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<AdminUser[]>([]);
-  const [departmentsList, setDepartmentsList] = useState<Array<{ id?: string; name: string; code: string }>>(OFFICIAL_DEPARTMENTS);
+  const [departmentsList, setDepartmentsList] = useState<Array<{ id?: string; name: string; code: string }>>([]);
   const [programmesList, setProgrammesList] = useState<Array<{ id: string; name: string; code: string; degree_level: string; department?: string }>>([]);
   const [stats, setStats] = useState<UserCounts>({
     total: 0,
